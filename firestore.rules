@@ -1,0 +1,51 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper to check authentication
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // User profiles & RBAC credentials
+    match /users/{userId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Store metadata & registered terminals
+    match /terminals/{terminalId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Monitoring Centrales (C4/C5)
+    match /centrales/{centralId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // System config & AI status
+    match /system/{docId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Panic alerts collection
+    match /alerts/{alertId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Audit logs
+    match /auditLogs/{logId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // General app configurations
+    match /config/{configId} {
+      allow read: if true;
+      allow write: if true;
+    }
+  }
+}

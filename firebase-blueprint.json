@@ -1,0 +1,97 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "System user profiles with RBAC roles",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["SUPER_ADMIN", "CENTRAL", "TERMINAL"] },
+        "storeId": { "type": "string" },
+        "storeName": { "type": "string" },
+        "centralId": { "type": "string" },
+        "centralName": { "type": "string" },
+        "status": { "type": "string", "enum": ["ACTIVE", "PENDING", "INACTIVE", "SUSPENDED"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["uid", "email", "role", "status"]
+    },
+    "CentralStation": {
+      "title": "CentralStation",
+      "description": "C4/C5 Monitoring Central Station",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "code": { "type": "string" },
+        "responsibleName": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "city": { "type": "string" },
+        "state": { "type": "string" },
+        "address": { "type": "string" },
+        "status": { "type": "string", "enum": ["ACTIVE", "PENDING", "INACTIVE", "SUSPENDED"] },
+        "createdAt": { "type": "string" },
+        "notes": { "type": "string" }
+      },
+      "required": ["id", "name", "email", "status"]
+    },
+    "TerminalRegistration": {
+      "title": "TerminalRegistration",
+      "description": "Commercial Store / Panic Button Terminal",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string" },
+        "storeId": { "type": "string" },
+        "storeName": { "type": "string" },
+        "ownerName": { "type": "string" },
+        "phone": { "type": "string" },
+        "address": { "type": "string" },
+        "city": { "type": "string" },
+        "category": { "type": "string" },
+        "assignedRole": { "type": "string" },
+        "status": { "type": "string", "enum": ["ACTIVE", "PENDING", "INACTIVE", "SUSPENDED"] },
+        "centralId": { "type": "string" },
+        "centralName": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "email", "storeName", "centralId", "status"]
+    },
+    "PanicAlert": {
+      "title": "PanicAlert",
+      "description": "Emergency Panic Alert event triggered by terminal",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "storeId": { "type": "string" },
+        "storeName": { "type": "string" },
+        "address": { "type": "string" },
+        "status": { "type": "string" },
+        "centralId": { "type": "string" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["id", "storeId", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Registered user profile records"
+    },
+    "/centrales/{centralId}": {
+      "schema": { "$ref": "#/entities/CentralStation" },
+      "description": "Monitoring central stations"
+    },
+    "/terminals/{terminalId}": {
+      "schema": { "$ref": "#/entities/TerminalRegistration" },
+      "description": "Registered commercial terminals"
+    },
+    "/alerts/{alertId}": {
+      "schema": { "$ref": "#/entities/PanicAlert" },
+      "description": "Panic alerts events"
+    }
+  }
+}

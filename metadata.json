@@ -1,0 +1,11 @@
+{
+  "name": "PanicGuard - Botón de Pánico y Videoverificación",
+  "description": "Plataforma de seguridad y botón de pánico con base de datos independiente en Firebase Firestore (PanicGuard), autenticación y control de accesos segregados por roles: Central de monitoreo y Terminales comerciales de pánico.",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
