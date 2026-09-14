@@ -136,7 +136,6 @@ export interface PanicAlert {
   store: StoreMetadata;
   timestamp: string;
   images: string[]; // Base64 data URLs (3 frames)
-  faceCrops?: string[]; // Base64 data URLs of detected and enhanced faces
   triggerType: TriggerMode;
   status: AlertStatus;
   aiVerdict?: AiVerdict | null;

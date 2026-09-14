@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   ShieldCheck,
   AlertTriangle,
@@ -43,6 +43,8 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
   const [lastSentTime, setLastSentTime] = useState<string | null>(null);
   const [testDrillMode, setTestDrillMode] = useState<boolean>(false);
   const [isMuted, setIsMuted] = useState<boolean>(alarmSound.isMuted());
+  const [isStreamingActive, setIsStreamingActive] = useState<boolean>(false);
+  const streamingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const toggleSound = () => {
     const next = !isMuted;
@@ -70,6 +72,16 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
     store,
     onAlertSent: (id, time) => {
       setLastSentTime(time);
+      setIsStreamingActive(true);
+
+      if (streamingTimeoutRef.current) {
+        clearTimeout(streamingTimeoutRef.current);
+      }
+
+      // Detener la transmisión de video después de 5 minutos (300,000 milisegundos)
+      streamingTimeoutRef.current = setTimeout(() => {
+        setIsStreamingActive(false);
+      }, 300000);
     },
   });
 
@@ -116,7 +128,7 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
     if (!firestoreId) return;
     const interval = setInterval(() => {
       try {
-        if (canvasRef.current && videoRef.current && videoRef.current.videoWidth > 0) {
+        if (isStreamingActive && canvasRef.current && videoRef.current && videoRef.current.videoWidth > 0) {
           const video = videoRef.current;
           const canvas = canvasRef.current;
           canvas.width = 320;
@@ -161,7 +173,7 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
         }, { merge: true }).catch(() => {});
       }
     };
-  }, [firestoreId]);
+  }, [firestoreId, isStreamingActive]);
 
   return (
     <div className="w-full max-w-6xl mx-auto p-4 sm:p-6 space-y-6">
@@ -305,6 +317,10 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
                   onClick={async () => {
                     await resetAlert();
                     setLastSentTime(null);
+                    setIsStreamingActive(false);
+                    if (streamingTimeoutRef.current) {
+                      clearTimeout(streamingTimeoutRef.current);
+                    }
                   }}
                   className="w-full py-3 px-6 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white font-bold text-sm shadow-lg border border-emerald-400/50 flex items-center justify-center gap-2 cursor-pointer transition-all animate-pulse"
                 >

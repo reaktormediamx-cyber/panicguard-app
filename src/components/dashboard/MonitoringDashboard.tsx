@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import {
   Shield,
+  ShieldCheck,
   Radio,
   Volume2,
   VolumeX,
@@ -321,7 +322,11 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
       </div>
 
       {/* Top Operational Metrics Bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className={`grid gap-4 ${
+        systemSettings?.aiEnabled 
+          ? "grid-cols-2 sm:grid-cols-4" 
+          : "grid-cols-1 sm:grid-cols-3"
+      }`}>
         <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 flex items-center justify-between">
           <div>
             <div className="text-xs text-slate-400 font-medium">Emergencias Activas</div>
@@ -352,32 +357,22 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
           </div>
         </div>
 
-        <div className={`border rounded-2xl p-4 flex items-center justify-between transition-all duration-300 ${
-          systemSettings?.aiEnabled 
-            ? "bg-slate-900/80 border-slate-800" 
-            : "bg-red-950/20 border-red-900/30"
-        }`}>
-          <div>
-            <div className="text-xs text-slate-400 font-medium">Motor Forense</div>
-            <div className="flex items-center gap-1.5 mt-1">
-              <span className={`text-sm font-bold font-mono ${
-                systemSettings?.aiEnabled ? "text-purple-300" : "text-red-400"
-              }`}>
-                {systemSettings?.aiEnabled ? "Verificación Activa" : "ANÁLISIS PAUSADO"}
-              </span>
-              <span className={`w-1.5 h-1.5 rounded-full ${
-                systemSettings?.aiEnabled ? "bg-emerald-500 animate-pulse" : "bg-red-500"
-              }`} />
+        {systemSettings?.aiEnabled && (
+          <div className="border rounded-2xl p-4 flex items-center justify-between transition-all duration-300 bg-slate-900/80 border-slate-800">
+            <div>
+              <div className="text-xs text-slate-400 font-medium">Motor Forense</div>
+              <div className="flex items-center gap-1.5 mt-1">
+                <span className="text-sm font-bold font-mono text-purple-300">
+                  Verificación Activa
+                </span>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              </div>
+            </div>
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-purple-500/10 border border-purple-500/30 text-purple-400">
+              <Brain className="w-5 h-5" />
             </div>
           </div>
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
-            systemSettings?.aiEnabled 
-              ? "bg-purple-500/10 border border-purple-500/30 text-purple-400" 
-              : "bg-red-500/10 border border-red-500/20 text-red-400"
-          }`}>
-            <Brain className="w-5 h-5" />
-          </div>
-        </div>
+        )}
       </div>
 
       {/* View Tabs */}
@@ -405,7 +400,7 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
           }`}
         >
           <Activity className="w-4 h-4 text-red-500" />
-          <span>Consola de Videoverificación Forense</span>
+          <span>Registro de Alertas</span>
           {activeCount > 0 && (
             <span className="bg-red-600 text-white text-[10px] px-1.5 py-0.5 rounded-full animate-pulse font-mono font-bold">
               {activeCount}
@@ -532,7 +527,7 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
                       </div>
 
                       {/* Threat pill bottom */}
-                      {alert.aiVerdict && (
+                      {systemSettings?.aiEnabled && alert.aiVerdict && (
                         <div className="mt-2 pt-2 border-t border-slate-800/80 flex items-center justify-between text-[10px]">
                           <span className="text-slate-400 flex items-center gap-1">
                             <Brain className="w-3 h-3 text-purple-400" />
@@ -621,7 +616,6 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
                   </h4>
                   <BurstViewer
                     images={selectedAlert.images}
-                    faceCrops={selectedAlert.faceCrops}
                     evidenceTimeline={selectedAlert.aiVerdict?.evidenceTimeline}
                   />
                 </div>
@@ -665,22 +659,24 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
                   Bitácora de Eventos y Trazabilidad en Tiempo Real:
                 </h4>
                 <div className="space-y-1.5 max-h-40 overflow-y-auto">
-                  {selectedAlert.logs.map((log, index) => (
-                    <div key={index} className="flex items-start gap-2 text-xs py-1 border-b border-slate-900">
-                      <span className="font-mono text-[10px] text-slate-500 shrink-0">
-                        {new Date(log.timestamp).toLocaleTimeString()}
-                      </span>
-                      <div className="flex-1 text-slate-300">
-                        <span className="font-medium text-slate-200">{log.action}</span>
-                        {log.operator && (
-                          <span className="text-blue-400 ml-1.5">[{log.operator}]</span>
-                        )}
-                        {log.details && (
-                          <div className="text-[11px] text-slate-400 mt-0.5">{log.details}</div>
-                        )}
+                  {selectedAlert.logs
+                    .filter((log) => !log.action.includes("Análisis Automatizado Desactivado"))
+                    .map((log, index) => (
+                      <div key={index} className="flex items-start gap-2 text-xs py-1 border-b border-slate-900">
+                        <span className="font-mono text-[10px] text-slate-500 shrink-0">
+                          {new Date(log.timestamp).toLocaleTimeString()}
+                        </span>
+                        <div className="flex-1 text-slate-300">
+                          <span className="font-medium text-slate-200">{log.action}</span>
+                          {log.operator && (
+                            <span className="text-blue-400 ml-1.5">[{log.operator}]</span>
+                          )}
+                          {log.details && (
+                            <div className="text-[11px] text-slate-400 mt-0.5">{log.details}</div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
                 </div>
               </div>
             </div>
@@ -923,55 +919,79 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
       )}
 
       {/* Live Camera Modal for Open Terminals */}
-      {liveCameraTerminal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse" />
-                <div>
-                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                    <Camera className="w-4 h-4 text-emerald-400" />
-                    <span>Cámara en Tiempo Real: {liveCameraTerminal.storeName}</span>
-                  </h3>
-                  <span className="text-[11px] font-mono text-slate-400">ID: {liveCameraTerminal.storeId} — Transmisión Activa</span>
+      {liveCameraTerminal && (() => {
+        const isEmergencyActive = alerts.some(
+          (a) => a.store.storeId === liveCameraTerminal.storeId && a.status === "ACTIVE"
+        );
+        return (
+          <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className={`w-3 h-3 rounded-full ${isEmergencyActive ? "bg-red-500 animate-ping" : "bg-blue-500"}`} />
+                  <div>
+                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                      <Camera className="w-4 h-4 text-slate-300" />
+                      <span>Cámara en Tiempo Real: {liveCameraTerminal.storeName}</span>
+                    </h3>
+                    <span className="text-[11px] font-mono text-slate-400">
+                      ID: {liveCameraTerminal.storeId} — {isEmergencyActive ? "🔴 Transmisión de Emergencia" : "🔒 Canal Seguro (Modo de Privacidad)"}
+                    </span>
+                  </div>
                 </div>
+                <button
+                  onClick={() => setLiveCameraTerminalId(null)}
+                  className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold cursor-pointer transition-colors"
+                  type="button"
+                >
+                  Cerrar
+                </button>
               </div>
-              <button
-                onClick={() => setLiveCameraTerminalId(null)}
-                className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold cursor-pointer transition-colors"
-                type="button"
-              >
-                Cerrar
-              </button>
-            </div>
 
-            <div className="relative aspect-video rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 flex items-center justify-center shadow-inner">
-              {(liveStreamFrames[liveCameraTerminal.id] || liveCameraTerminal.liveSnapshot) ? (
-                <img
-                  src={liveStreamFrames[liveCameraTerminal.id] || liveCameraTerminal.liveSnapshot}
-                  alt="Transmisión en vivo"
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="text-center space-y-2 text-slate-500">
-                  <Radio className="w-8 h-8 animate-pulse text-emerald-500 mx-auto" />
-                  <p className="text-xs">Sincronizando flujo de video en tiempo real...</p>
-                </div>
-              )}
-              <div className="absolute top-3 left-3 bg-black/70 backdrop-blur px-2.5 py-1 rounded-lg border border-white/10 flex items-center gap-1.5 text-[10px] font-mono text-emerald-400">
-                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-                <span>STREAMING FLUIDO EN TIEMPO REAL (~8-10 FPS)</span>
+              <div className="relative aspect-video rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 flex items-center justify-center shadow-inner">
+                {isEmergencyActive ? (
+                  liveStreamFrames[liveCameraTerminal.id] ? (
+                    <>
+                      <img
+                        src={liveStreamFrames[liveCameraTerminal.id]}
+                        alt="Transmisión en vivo"
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute top-3 left-3 bg-red-950/90 backdrop-blur px-2.5 py-1 rounded-lg border border-red-500/30 flex items-center gap-1.5 text-[10px] font-mono text-red-400 font-bold animate-pulse">
+                        <div className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
+                        <span>EMERGENCIA ACTIVA - TRANSMISIÓN DE SEGURIDAD (5 MINS)</span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-center space-y-3 p-6 max-w-sm">
+                      <Radio className="w-10 h-10 animate-pulse text-red-500 mx-auto" />
+                      <p className="text-xs font-bold text-red-400 uppercase">Sincronizando con la terminal...</p>
+                      <p className="text-[11px] text-slate-500">Conectando canal de videoverificación prioritario de 8 FPS.</p>
+                    </div>
+                  )
+                ) : (
+                  <div className="text-center p-6 max-w-md space-y-3">
+                    <ShieldCheck className="w-12 h-12 text-blue-500 mx-auto opacity-80" />
+                    <p className="text-sm font-bold text-slate-200 uppercase tracking-wider">Cámara en Modo de Privacidad / Espera</p>
+                    <p className="text-xs text-slate-400 px-4">
+                      Por políticas de privacidad del comercio y optimización de datos, la cámara del comercio permanece apagada en tiempo de paz.
+                    </p>
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-[10px] text-emerald-400 font-mono">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+                      Transmisión activa únicamente durante un pánico (5 minutos máximo)
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
 
-            <div className="flex items-center justify-between text-xs text-slate-400 bg-slate-950 p-3 rounded-2xl border border-slate-800">
-              <div>Titular: <span className="text-white">{liveCameraTerminal.ownerName}</span></div>
-              <div>Ubicación: <span className="text-white">{liveCameraTerminal.address}, {liveCameraTerminal.city}</span></div>
+              <div className="flex items-center justify-between text-xs text-slate-400 bg-slate-950 p-3 rounded-2xl border border-slate-800">
+                <div>Titular: <span className="text-white">{liveCameraTerminal.ownerName}</span></div>
+                <div>Ubicación: <span className="text-white">{liveCameraTerminal.address}, {liveCameraTerminal.city}</span></div>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* MODAL: EDITAR TERMINAL (CENTRAL OPERATOR) */}
       {editingTerminal && (

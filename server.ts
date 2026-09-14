@@ -117,11 +117,6 @@ async function processPanicAlert(alert: PanicAlert) {
   if (!currentSystemSettings.aiEnabled) {
     console.log(`[AI TOGGLE OFF] AI Gemini Forensics is DISABLED by Super Admin. Skipping analysis for ${alert.id}.`);
     alert.aiStatus = "disabled";
-    alert.logs.push({
-      timestamp: new Date().toISOString(),
-      action: "Análisis Automatizado Desactivado por el Super Administrador (Modo de Despacho Directo)",
-      details: "El sistema operó en modo tradicional sin consumo de API ni análisis multimodal.",
-    });
     alertStore.set(alert.id, alert);
     io.emit("alert:ai_update", {
       alertId: alert.id,
@@ -311,7 +306,7 @@ app.get("/api/alerts/:id", (req, res) => {
 // Submit panic alert via HTTP POST
 app.post("/api/alerts", async (req, res) => {
   try {
-    const { store, images, faceCrops, triggerType, timestamp, centralId, centralName } = req.body;
+    const { store, images, triggerType, timestamp, centralId, centralName } = req.body;
 
     if (!images || !Array.isArray(images) || images.length === 0) {
       return res.status(400).json({ error: "Se requiere al menos 1 fotograma en la ráfaga de imágenes" });
@@ -326,7 +321,6 @@ app.post("/api/alerts", async (req, res) => {
       centralName: centralName || assignedStore.centralName || "C4 Centro de Comando Poniente - CDMX",
       timestamp: timestamp || new Date().toISOString(),
       images,
-      faceCrops: faceCrops || [],
       triggerType: triggerType || "MANUAL_BUTTON",
       status: "ACTIVE",
       aiStatus: "pending",

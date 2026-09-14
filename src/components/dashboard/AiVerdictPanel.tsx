@@ -71,34 +71,7 @@ export const AiVerdictPanel: React.FC<AiVerdictPanelProps> = ({
   };
 
   if (aiStatus === "disabled") {
-    return (
-      <div className={`p-5 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl space-y-3 ${className}`}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-sm font-bold text-slate-300">
-            <div className="w-7 h-7 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400">
-              <Brain className="w-4 h-4" />
-            </div>
-            <span>Análisis Automatizado Desactivado</span>
-          </div>
-          <span className="text-[10px] px-2.5 py-1 rounded-full bg-slate-800 border border-slate-700 text-slate-400 font-mono">
-            Modo Tradicional Manual
-          </span>
-        </div>
-        <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800/80 flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
-            <ShieldCheck className="w-4 h-4" />
-          </div>
-          <div>
-            <p className="text-xs text-slate-300 font-medium">
-              El análisis automatizado de video está pausado por el Super Administrador.
-            </p>
-            <p className="text-[11px] text-slate-400 mt-0.5">
-              Evalúe la ráfaga de 3 fotogramas directamente en el visor táctico y proceda con los botones de acción rápida.
-            </p>
-          </div>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   if (aiStatus === "pending" || aiStatus === "analyzing") {

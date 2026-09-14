@@ -149,7 +149,6 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
               </div>
               <BurstViewer
                 images={alert.images}
-                faceCrops={alert.faceCrops}
                 evidenceTimeline={alert.aiVerdict?.evidenceTimeline}
               />
             </div>
@@ -186,6 +185,14 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
                   <div className="flex items-center justify-between">
                     <span className="text-slate-400">Unidad Policial:</span>
                     <span className="font-mono text-blue-400 font-semibold">{alert.dispatchedUnit}</span>
+                  </div>
+                )}
+                {alert.operatorNotes && alert.operatorNotes.length > 0 && (
+                  <div className="flex flex-col gap-1 border-t border-slate-800/80 pt-2 mt-2">
+                    <span className="text-slate-450 font-bold">Nota de Bitácora del Operador:</span>
+                    <p className="text-slate-300 bg-slate-900/60 p-2 rounded-lg border border-slate-800/60 font-sans text-xs leading-relaxed">
+                      {alert.operatorNotes[alert.operatorNotes.length - 1]}
+                    </p>
                   </div>
                 )}
               </div>
