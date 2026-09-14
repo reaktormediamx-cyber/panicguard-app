@@ -149,6 +149,7 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
               </div>
               <BurstViewer
                 images={alert.images}
+                faceCrops={alert.faceCrops}
                 evidenceTimeline={alert.aiVerdict?.evidenceTimeline}
               />
             </div>

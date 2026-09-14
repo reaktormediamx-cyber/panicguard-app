@@ -311,7 +311,7 @@ app.get("/api/alerts/:id", (req, res) => {
 // Submit panic alert via HTTP POST
 app.post("/api/alerts", async (req, res) => {
   try {
-    const { store, images, triggerType, timestamp, centralId, centralName } = req.body;
+    const { store, images, faceCrops, triggerType, timestamp, centralId, centralName } = req.body;
 
     if (!images || !Array.isArray(images) || images.length === 0) {
       return res.status(400).json({ error: "Se requiere al menos 1 fotograma en la ráfaga de imágenes" });
@@ -326,6 +326,7 @@ app.post("/api/alerts", async (req, res) => {
       centralName: centralName || assignedStore.centralName || "C4 Centro de Comando Poniente - CDMX",
       timestamp: timestamp || new Date().toISOString(),
       images,
+      faceCrops: faceCrops || [],
       triggerType: triggerType || "MANUAL_BUTTON",
       status: "ACTIVE",
       aiStatus: "pending",

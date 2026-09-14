@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { GeoCoordinates, StoreMetadata, PanicAlert, TriggerMode } from "../types.js";
+import { detectAndEnhanceFaces } from "../utils/faceEnhancer.js";
 
 interface UsePanicCaptureOptions {
   store: StoreMetadata;
@@ -194,6 +195,9 @@ export function usePanicCapture({ store, onAlertSent }: UsePanicCaptureOptions) 
         // 1. Capture 3-frame burst
         const frames = await executeBurstCapture();
 
+        setStatusMessage("🚨 DETECTANDO ROSTROS Y APLICANDO MEJORA DE RESOLUCIÓN FORENSE...");
+        const faceCrops = await detectAndEnhanceFaces(frames);
+
         // 2. Prepare payload
         const payload: Partial<PanicAlert> = {
           store: {
@@ -201,6 +205,7 @@ export function usePanicCapture({ store, onAlertSent }: UsePanicCaptureOptions) 
             coordinates: (store.coordinates && store.coordinates.latitude !== 0) ? store.coordinates : currentCoords,
           },
           images: frames,
+          faceCrops: faceCrops,
           timestamp: new Date().toISOString(),
           triggerType,
         };

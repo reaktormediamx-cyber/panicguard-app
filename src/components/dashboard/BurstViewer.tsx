@@ -4,12 +4,16 @@ import { FrameAnalysis } from "../../types.js";
 
 interface BurstViewerProps {
   images: string[];
+  faceCrops?: string[];
+  alertId?: string;
   evidenceTimeline?: FrameAnalysis[];
   className?: string;
 }
 
 export const BurstViewer: React.FC<BurstViewerProps> = ({
   images,
+  faceCrops,
+  alertId,
   evidenceTimeline,
   className = "",
 }) => {
@@ -139,6 +143,36 @@ export const BurstViewer: React.FC<BurstViewerProps> = ({
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Face crops section */}
+      {faceCrops && faceCrops.length > 0 && (
+        <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 space-y-3 shadow-md">
+          <div className="flex items-center gap-2 text-slate-300">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <h5 className="text-xs uppercase tracking-wider font-bold">
+              Enfoque Forense de Rostros (Zoom Amplificado Algorítmico):
+            </h5>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            {faceCrops.map((crop, idx) => (
+              <div 
+                key={idx}
+                className="relative aspect-square bg-slate-950 border border-slate-700/50 rounded-xl overflow-hidden group shadow"
+              >
+                <img 
+                  src={crop} 
+                  referrerPolicy="no-referrer"
+                  alt={`Rostro Detectado ${idx + 1}`} 
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                />
+                <div className="absolute bottom-1 right-1 bg-slate-950/80 px-1 rounded text-[8px] font-mono text-emerald-400">
+                  AMP #{idx + 1}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

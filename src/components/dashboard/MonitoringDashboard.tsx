@@ -621,6 +621,7 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
                   </h4>
                   <BurstViewer
                     images={selectedAlert.images}
+                    faceCrops={selectedAlert.faceCrops}
                     evidenceTimeline={selectedAlert.aiVerdict?.evidenceTimeline}
                   />
                 </div>

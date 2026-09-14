@@ -1488,7 +1488,11 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
 
                   {/* Visualizer & Map Grid */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <BurstViewer images={selectedAlert.images} alertId={selectedAlert.id} />
+                    <BurstViewer
+                      images={selectedAlert.images}
+                      faceCrops={selectedAlert.faceCrops}
+                      alertId={selectedAlert.id}
+                    />
                     <TacticalMap
                       coordinates={selectedAlert.store.coordinates}
                       storeName={selectedAlert.store.storeName}
