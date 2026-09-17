@@ -176,6 +176,38 @@ export const StoreConfigModal: React.FC<StoreConfigModalProps> = ({
             </div>
           </div>
 
+          {/* Keyboard Panic Hotkey Configuration */}
+          <div className="pt-2 border-t border-slate-800 space-y-3">
+            <label className="block text-slate-300 font-semibold">Configuración de Tecla de Pánico (Teclado):</label>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[11px] text-slate-400 mb-1">Tecla Asociada:</label>
+                <input
+                  type="text"
+                  maxLength={10}
+                  value={storeData.panicHotkey || "p"}
+                  onChange={(e) => setStoreData({ ...storeData, panicHotkey: e.target.value })}
+                  placeholder="Ej. p, space, f9"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono uppercase focus:outline-none focus:border-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] text-slate-400 mb-1">Modo de Activación:</label>
+                <select
+                  value={storeData.panicHotkeyMode || "DIRECT"}
+                  onChange={(e) => setStoreData({ ...storeData, panicHotkeyMode: e.target.value as any })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white text-xs focus:outline-none focus:border-blue-500"
+                >
+                  <option value="DIRECT">Directa (Ej. Presionar tecla)</option>
+                  <option value="ALT_COMBINATION">Combinación (ALT + Tecla)</option>
+                </select>
+              </div>
+            </div>
+            <p className="text-[10px] text-slate-400">
+              Permite activar instantáneamente la alarma de pánico presionando la tecla configurada mientras estés en la terminal.
+            </p>
+          </div>
+
           <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
             <button
               type="button"
