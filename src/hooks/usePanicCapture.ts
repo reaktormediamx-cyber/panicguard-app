@@ -17,25 +17,39 @@ export function usePanicCapture({ store, onAlertSent }: UsePanicCaptureOptions) 
   const [lastSentAlertId, setLastSentAlertId] = useState<string | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [statusMessage, setStatusMessage] = useState<string>("Sistema Operativo - En Guardia");
+  const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string>("");
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
-  // Initialize camera stream
-  const startCamera = useCallback(async () => {
+  // Initialize camera stream with optional deviceId
+  const startCamera = useCallback(async (deviceId?: string) => {
     try {
       setCameraError(null);
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop());
       }
 
+      const targetId = deviceId !== undefined ? deviceId : selectedDeviceId;
+      if (deviceId !== undefined) {
+        setSelectedDeviceId(deviceId);
+      }
+
+      const videoConstraints: MediaTrackConstraints = {
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+      };
+
+      if (targetId) {
+        videoConstraints.deviceId = { exact: targetId };
+      } else {
+        videoConstraints.facingMode = "user";
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-          facingMode: "user",
-        },
+        video: videoConstraints,
         audio: false,
       });
 
@@ -45,12 +59,17 @@ export function usePanicCapture({ store, onAlertSent }: UsePanicCaptureOptions) 
         videoRef.current.play().catch(() => {});
       }
       setHasCameraPermission(true);
+
+      // Enumerate connected webcams/video inputs
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const cameras = devices.filter((d) => d.kind === "videoinput");
+      setVideoDevices(cameras);
     } catch (err: any) {
       console.warn("Webcam access warning:", err);
       setHasCameraPermission(false);
       setCameraError(err.message || "Permiso de cámara no concedido");
     }
-  }, []);
+  }, [selectedDeviceId]);
 
   // Request GPS coordinates
   const refreshLocation = useCallback(() => {
@@ -254,5 +273,7 @@ export function usePanicCapture({ store, onAlertSent }: UsePanicCaptureOptions) 
     refreshLocation,
     triggerPanic,
     resetAlert,
+    videoDevices,
+    selectedDeviceId,
   };
 }

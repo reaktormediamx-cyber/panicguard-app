@@ -68,6 +68,8 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
     refreshLocation,
     triggerPanic,
     resetAlert,
+    videoDevices,
+    selectedDeviceId,
   } = usePanicCapture({
     store,
     onAlertSent: (id, time) => {
@@ -363,33 +365,54 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
           {/* Diagnostic Sensor Bar */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Camera Sensor Status */}
-            <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div
-                  className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                    hasCameraPermission
-                      ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"
-                      : "bg-amber-500/10 text-amber-400 border border-amber-500/30"
-                  }`}
+            <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                      hasCameraPermission
+                        ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"
+                        : "bg-amber-500/10 text-amber-400 border border-amber-500/30"
+                    }`}
+                  >
+                    <Camera className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-semibold text-white">Sensor Cámara</h4>
+                    <p className="text-xs text-slate-400">
+                      {hasCameraPermission
+                        ? "Webcam HD Lista (3 frames burst)"
+                        : cameraError || "Solicitando acceso..."}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => startCamera()}
+                  className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300"
+                  title="Reiniciar Cámara"
                 >
-                  <Camera className="w-5 h-5" />
-                </div>
-                <div>
-                  <h4 className="text-sm font-semibold text-white">Sensor Cámara</h4>
-                  <p className="text-xs text-slate-400">
-                    {hasCameraPermission
-                      ? "Webcam HD Lista (3 frames burst)"
-                      : cameraError || "Solicitando acceso..."}
-                  </p>
-                </div>
+                  <RefreshCw className="w-3.5 h-3.5" />
+                </button>
               </div>
-              <button
-                onClick={startCamera}
-                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300"
-                title="Reiniciar Cámara"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-              </button>
+
+              {/* USB / System Webcam Selector */}
+              {videoDevices && videoDevices.length > 0 && (
+                <div className="pt-2 border-t border-slate-800/80 flex items-center gap-2">
+                  <span className="text-[11px] text-slate-400 shrink-0 font-medium">Dispositivo:</span>
+                  <select
+                    value={selectedDeviceId}
+                    onChange={(e) => startCamera(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500 truncate"
+                  >
+                    <option value="">Cámara Predeterminada / Principal</option>
+                    {videoDevices.map((dev, idx) => (
+                      <option key={dev.deviceId || idx} value={dev.deviceId}>
+                        {dev.label || `Cámara USB / Sistema #${idx + 1}`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
 
             {/* GPS Sensor Status */}
