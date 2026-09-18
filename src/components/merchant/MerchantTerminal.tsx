@@ -35,6 +35,7 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
 }) => {
   const { terminals } = useAuth();
   const matchingTerminal = terminals.find(t => t.storeId === store.storeId);
+  const activeStore = matchingTerminal || store;
   const firestoreId = matchingTerminal ? matchingTerminal.id : store.storeId;
 
   const [showLiveFeed, setShowLiveFeed] = useState<boolean>(true);
@@ -104,8 +105,8 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
         return;
       }
 
-      const configKey = (store.panicHotkey || "p").toLowerCase();
-      const isAltRequired = store.panicHotkeyMode !== "DIRECT";
+      const configKey = (activeStore.panicHotkey || "p").toLowerCase();
+      const isAltRequired = activeStore.panicHotkeyMode !== "DIRECT";
 
       const targetKey = configKey === "space" ? " " : configKey;
 
@@ -123,7 +124,7 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [triggerPanic, store.panicHotkey, store.panicHotkeyMode]);
+  }, [triggerPanic, activeStore.panicHotkey, activeStore.panicHotkeyMode]);
 
   // Live camera feed broadcast to central via Socket.IO (optimized real-time video streaming)
   useEffect(() => {
@@ -336,14 +337,14 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
             <div className="mt-4 flex flex-wrap items-center justify-center gap-3 w-full">
               <div
                 className="px-4 py-2 rounded-xl bg-slate-800/90 border border-slate-700 text-xs font-semibold text-slate-200 flex items-center gap-2 transition-all"
-                title={`Atajo de teclado: ${store.panicHotkeyMode === "DIRECT" ? "" : "Alt + "}${store.panicHotkey?.toUpperCase() || "P"}`}
+                title={`Atajo de teclado: ${activeStore.panicHotkeyMode === "DIRECT" ? "" : "Alt + "}${activeStore.panicHotkey?.toUpperCase() || "P"}`}
               >
                 <Zap className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                 <span>
                   Tecla de Pánico:{" "}
                   <kbd className="px-1.5 py-0.5 rounded bg-slate-950 border border-slate-800 font-mono text-red-400 uppercase font-bold">
-                    {store.panicHotkeyMode === "DIRECT" ? "" : "Alt + "}
-                    {store.panicHotkey || "p"}
+                    {activeStore.panicHotkeyMode === "DIRECT" ? "" : "Alt + "}
+                    {activeStore.panicHotkey || "p"}
                   </kbd>
                 </span>
               </div>

@@ -76,6 +76,8 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
   const [editTermAddress, setEditTermAddress] = useState("");
   const [editTermCity, setEditTermCity] = useState("");
   const [editTermCategory, setEditTermCategory] = useState("");
+  const [editTermPanicHotkey, setEditTermPanicHotkey] = useState("P");
+  const [editTermPanicHotkeyMode, setEditTermPanicHotkeyMode] = useState<"DIRECT" | "ALT_COMBINATION">("DIRECT");
   const [isSubmittingEditTerminal, setIsSubmittingEditTerminal] = useState(false);
 
   const startEditTerminal = (terminal: any) => {
@@ -89,6 +91,8 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
     setEditTermAddress(terminal.address || "");
     setEditTermCity(terminal.city || "Ciudad de México, CDMX");
     setEditTermCategory(terminal.category || "Comercio General");
+    setEditTermPanicHotkey(terminal.panicHotkey || "P");
+    setEditTermPanicHotkeyMode(terminal.panicHotkeyMode || "DIRECT");
   };
 
   const handleEditTerminalSubmit = async (e: React.FormEvent) => {
@@ -107,6 +111,8 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
         address: editTermAddress,
         city: editTermCity,
         category: editTermCategory,
+        panicHotkey: editTermPanicHotkey,
+        panicHotkeyMode: editTermPanicHotkeyMode,
         centralId: selectedCentral?.id || editingTerminal.centralId || appUser?.centralId,
         centralName: selectedCentral?.name || editingTerminal.centralName || appUser?.centralName,
       });
@@ -1135,6 +1141,37 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
                     placeholder="Ej: Miguel Hidalgo, CDMX"
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-red-500"
                   />
+                </div>
+
+                <div className="sm:col-span-2 pt-2 border-t border-slate-800 space-y-3">
+                  <label className="block text-slate-300 font-semibold">Configuración de Tecla de Pánico (Teclado de Terminal):</label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[11px] text-slate-400 mb-1">Tecla Asociada:</label>
+                      <input
+                        type="text"
+                        maxLength={10}
+                        value={editTermPanicHotkey}
+                        onChange={(e) => setEditTermPanicHotkey(e.target.value)}
+                        placeholder="Ej. p, space, f9"
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white font-mono uppercase focus:outline-none focus:border-red-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] text-slate-400 mb-1">Modo de Activación:</label>
+                      <select
+                        value={editTermPanicHotkeyMode}
+                        onChange={(e) => setEditTermPanicHotkeyMode(e.target.value as any)}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white text-xs focus:outline-none focus:border-red-500"
+                      >
+                        <option value="DIRECT">Directa (Ej. Presionar tecla)</option>
+                        <option value="ALT_COMBINATION">Combinación (ALT + Tecla)</option>
+                      </select>
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-slate-400">
+                    Define la tecla rápida que el operador o comerciante presionará en su teclado físico para disparar la alerta de pánico instantáneamente.
+                  </p>
                 </div>
               </div>
 
