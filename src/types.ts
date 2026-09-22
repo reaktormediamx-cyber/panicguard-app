@@ -171,3 +171,17 @@ export const DEFAULT_STORE: StoreMetadata = {
     accuracy: 4.5,
   },
 };
+
+export function formatTriggerType(type: TriggerMode | string): { label: string; isDrill: boolean } {
+  switch (type) {
+    case 'DRILL_TEST':
+      return { label: 'SIMULACRO (PRUEBA)', isDrill: true };
+    case 'SILENT_TRIGGER':
+      return { label: 'ALERTA SILENCIOSA', isDrill: false };
+    case 'KEYBOARD_HOTKEY':
+      return { label: 'ATAJO DE TECLADO', isDrill: false };
+    case 'MANUAL_BUTTON':
+    default:
+      return { label: 'BOTÓN DE PÁNICO', isDrill: false };
+  }
+}

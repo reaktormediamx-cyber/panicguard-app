@@ -34,7 +34,7 @@ import {
   Edit2,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext.js";
-import { CentralStation, TerminalRegistration, PanicAlert, AlertStatus } from "../../types.js";
+import { CentralStation, TerminalRegistration, PanicAlert, AlertStatus, formatTriggerType } from "../../types.js";
 import { BurstViewer } from "../dashboard/BurstViewer.js";
 import { TacticalMap } from "../dashboard/TacticalMap.js";
 import { AiVerdictPanel } from "../dashboard/AiVerdictPanel.js";
@@ -1413,7 +1413,9 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
 
                         <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono">
                           <span>{new Date(alert.timestamp).toLocaleTimeString()}</span>
-                          <span>{alert.triggerType}</span>
+                          <span className={alert.triggerType === "DRILL_TEST" ? "text-amber-400 font-bold" : ""}>
+                            {formatTriggerType(alert.triggerType).label}
+                          </span>
                         </div>
                       </button>
                     );

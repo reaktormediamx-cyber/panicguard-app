@@ -13,7 +13,7 @@ import {
   CheckCircle,
   XCircle,
 } from "lucide-react";
-import { PanicAlert, AlertStatus } from "../../types.js";
+import { PanicAlert, AlertStatus, formatTriggerType } from "../../types.js";
 import { BurstViewer } from "./BurstViewer.js";
 import { TacticalMap } from "./TacticalMap.js";
 import { AiVerdictPanel } from "./AiVerdictPanel.js";
@@ -42,6 +42,8 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
   const [operatorNote, setOperatorNote] = useState<string>("");
   const [dispatchUnit, setDispatchUnit] = useState<string>("Patrulla Sector #911-A");
 
+  const { label: triggerLabel, isDrill } = formatTriggerType(alert.triggerType);
+
   const handleAction = (status: AlertStatus) => {
     onUpdateStatus(
       alert.id,
@@ -57,23 +59,23 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 bg-slate-950/85 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200">
-      <div className="relative w-full max-w-5xl bg-slate-900 border-2 border-red-500/80 rounded-3xl shadow-2xl shadow-red-950/50 overflow-hidden my-auto flex flex-col max-h-[92vh]">
+      <div className={`relative w-full max-w-5xl bg-slate-900 border-2 ${isDrill ? "border-amber-500/80 shadow-amber-950/50" : "border-red-500/80 shadow-red-950/50"} rounded-3xl shadow-2xl overflow-hidden my-auto flex flex-col max-h-[92vh]`}>
         {/* Urgent Emergency Header Banner */}
-        <div className="bg-gradient-to-r from-red-700 via-red-600 to-red-800 px-4 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-3 text-white shadow-lg shrink-0">
+        <div className={`bg-gradient-to-r ${isDrill ? "from-amber-600 via-amber-500 to-amber-700 text-slate-950" : "from-red-700 via-red-600 to-red-800 text-white"} px-4 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-3 shadow-lg shrink-0`}>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center animate-bounce">
-              <Radio className="w-6 h-6 text-white" />
+            <div className={`w-10 h-10 rounded-xl ${isDrill ? "bg-black/20 text-slate-950" : "bg-white/20 text-white"} flex items-center justify-center animate-bounce`}>
+              <Radio className="w-6 h-6" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-mono font-black uppercase px-2 py-0.5 rounded bg-black/40 text-red-200">
-                  {alert.triggerType}
+                <span className={`text-xs font-mono font-black uppercase px-2 py-0.5 rounded ${isDrill ? "bg-black/30 text-amber-100" : "bg-black/40 text-red-200"}`}>
+                  {triggerLabel}
                 </span>
                 <h2 className="text-lg sm:text-xl font-extrabold tracking-tight">
-                  ALERTA EN TIEMPO REAL: {alert.store.storeName}
+                  {isDrill ? "SIMULACRO DE PRUEBA EN TIEMPO REAL" : "ALERTA EN TIEMPO REAL"}: {alert.store.storeName}
                 </h2>
               </div>
-              <p className="text-xs text-red-100 flex items-center gap-2 mt-0.5">
+              <p className={`text-xs ${isDrill ? "text-amber-950 font-medium" : "text-red-100"} flex items-center gap-2 mt-0.5`}>
                 <Clock className="w-3.5 h-3.5" />
                 <span>{new Date(alert.timestamp).toLocaleTimeString()} ({alert.id})</span>
                 <span>•</span>
