@@ -165,6 +165,7 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
                 coordinates={alert.store.coordinates}
                 storeName={alert.store.storeName}
                 address={alert.store.address}
+                city={alert.store.city}
               />
 
               {/* Status and Dispatched Unit pill */}

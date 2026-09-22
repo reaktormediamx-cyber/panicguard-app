@@ -1497,6 +1497,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                       coordinates={selectedAlert.store.coordinates}
                       storeName={selectedAlert.store.storeName}
                       address={selectedAlert.store.address}
+                      city={selectedAlert.store.city}
                     />
                   </div>
 

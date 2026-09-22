@@ -6,7 +6,11 @@ const geocodeCache = new Map<string, GeoCoordinates>();
 export async function geocodeAddress(address: string, city?: string): Promise<GeoCoordinates | null> {
   if (!address || address.trim().length < 3) return null;
 
-  const fullQuery = [address.trim(), city?.trim() || "Ciudad de México", "México"]
+  const fullQuery = [
+    address.trim(),
+    city?.trim(),
+    city?.toLowerCase().includes("méxico") || city?.toLowerCase().includes("mexico") || city?.toLowerCase().includes("cdmx") ? "" : "México"
+  ]
     .filter(Boolean)
     .join(", ");
 

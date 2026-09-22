@@ -634,6 +634,7 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
                     coordinates={selectedAlert.store.coordinates}
                     storeName={selectedAlert.store.storeName}
                     address={selectedAlert.store.address}
+                    city={selectedAlert.store.city}
                   />
 
                   {/* Store Contact card */}

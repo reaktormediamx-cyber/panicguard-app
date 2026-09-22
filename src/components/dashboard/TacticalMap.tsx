@@ -7,6 +7,7 @@ interface TacticalMapProps {
   coordinates: GeoCoordinates;
   storeName: string;
   address: string;
+  city?: string;
   className?: string;
 }
 
@@ -14,6 +15,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
   coordinates,
   storeName,
   address,
+  city,
   className = "",
 }) => {
   const [mapCoords, setMapCoords] = useState<GeoCoordinates>(coordinates);
@@ -21,7 +23,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
   useEffect(() => {
     let isMounted = true;
     if (address && address.trim().length > 3) {
-      geocodeAddress(address).then((res) => {
+      geocodeAddress(address, city).then((res) => {
         if (isMounted && res) {
           setMapCoords(res);
         }
@@ -32,7 +34,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [address, coordinates.latitude, coordinates.longitude]);
+  }, [address, city, coordinates.latitude, coordinates.longitude]);
 
   const { latitude, longitude } = mapCoords;
   const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
