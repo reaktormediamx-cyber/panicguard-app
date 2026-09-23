@@ -1489,7 +1489,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                   </div>
 
                   {/* Visualizer & Map Grid */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
                     <BurstViewer
                       images={selectedAlert.images}
                     />
@@ -1498,6 +1498,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                       storeName={selectedAlert.store.storeName}
                       address={selectedAlert.store.address}
                       city={selectedAlert.store.city}
+                      className="w-full h-full min-h-[320px]"
                     />
                   </div>
 
@@ -1511,7 +1512,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                 </>
               ) : (
                 <div className="p-12 rounded-3xl bg-slate-900/60 border border-slate-800 text-center text-slate-500">
-                  Selecciona una alerta para inspeccionar el dictamen forense y la videoverificación.
+                  Selecciona una alerta para inspeccionar el dictamen y la videoverificación.
                 </div>
               )}
             </div>

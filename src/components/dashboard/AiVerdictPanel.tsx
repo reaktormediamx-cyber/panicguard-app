@@ -82,7 +82,7 @@ export const AiVerdictPanel: React.FC<AiVerdictPanelProps> = ({
             <div className="w-7 h-7 rounded-lg bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-purple-400">
               <Brain className="w-4 h-4 animate-spin" />
             </div>
-            <span>Dictamen Forense Automatizado</span>
+            <span>Dictamen de Inteligencia Automatizado</span>
           </div>
           <span className="text-xs px-2.5 py-1 rounded-full bg-purple-950/70 border border-purple-500/40 text-purple-300 font-mono flex items-center gap-1.5 animate-pulse">
             <Sparkles className="w-3 h-3 text-purple-400" />
@@ -134,7 +134,7 @@ export const AiVerdictPanel: React.FC<AiVerdictPanelProps> = ({
           </div>
           <div>
             <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              Dictamen Forense Automatizado
+              Dictamen de Inteligencia Automatizado
               <span className="text-[10px] font-normal px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">
                 {verdict.modelUsed?.replace(/gemini|Gemini|IA|AI/g, "") || "Verificación Automática"}
               </span>

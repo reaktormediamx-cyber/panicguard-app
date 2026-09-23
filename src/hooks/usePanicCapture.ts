@@ -206,22 +206,32 @@ export function usePanicCapture({ store, onAlertSent }: UsePanicCaptureOptions) 
 
   // Main trigger panic function
   const triggerPanic = useCallback(
-    async (triggerType: TriggerMode = "MANUAL_BUTTON") => {
+    async (triggerType: TriggerMode = "MANUAL_BUTTON", guardDescription?: string, guardName?: string) => {
       try {
         setStatusMessage("🚨 TRANSMITIENDO ALERTA CRÍTICA A CENTRAL DE SEGURIDAD...");
 
         // 1. Capture 3-frame burst
         const frames = await executeBurstCapture();
 
-        // 2. Prepare payload
+        // 2. Determine real coordinates (Device Live GPS > Valid Non-Default Store Coords)
+        const hasLiveDeviceGps = currentCoords && currentCoords.latitude !== 0;
+        const validCoords = hasLiveDeviceGps
+          ? currentCoords
+          : (store.coordinates && store.coordinates.latitude !== 0)
+          ? store.coordinates
+          : currentCoords;
+
+        // 3. Prepare payload
         const payload: Partial<PanicAlert> = {
           store: {
             ...store,
-            coordinates: (store.coordinates && store.coordinates.latitude !== 0) ? store.coordinates : currentCoords,
+            coordinates: validCoords,
           },
           images: frames,
           timestamp: new Date().toISOString(),
           triggerType,
+          guardDescription: guardDescription?.trim() || undefined,
+          guardName: guardName?.trim() || undefined,
         };
 
         // 3. Send to server via HTTP POST (instant REST delivery)
@@ -251,11 +261,33 @@ export function usePanicCapture({ store, onAlertSent }: UsePanicCaptureOptions) 
         return data;
       } catch (err: any) {
         console.error("Error transmitiendo pánico:", err);
-        setStatusMessage(`⚠️ Error de transmisión: ${err.message}. Reintentando enlace satelital.`);
+        setStatusMessage(`⚠️ Error de transmisión: ${err.message}. Reintentando enlace.`);
       }
     },
     [store, currentCoords, executeBurstCapture, onAlertSent, resetAlert]
   );
+
+  const sendGuardUpdate = useCallback(async (alertId: string, noteText: string, authorName?: string) => {
+    if (!alertId || !noteText.trim()) return false;
+    try {
+      const res = await fetch(`/api/alerts/${alertId}/notes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          note: noteText.trim(),
+          author: authorName?.trim() ? `Guardia (${authorName.trim()})` : "Guardia en Sitio",
+        }),
+      });
+      if (res.ok) {
+        setStatusMessage(`✅ Actualización enviada a Central: "${noteText.trim()}"`);
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.error("Error enviando reporte de guardia:", e);
+      return false;
+    }
+  }, []);
 
   return {
     videoRef,
@@ -273,6 +305,7 @@ export function usePanicCapture({ store, onAlertSent }: UsePanicCaptureOptions) 
     refreshLocation,
     triggerPanic,
     resetAlert,
+    sendGuardUpdate,
     videoDevices,
     selectedDeviceId,
   };

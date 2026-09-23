@@ -36,6 +36,7 @@ export default function App() {
   const {
     alerts,
     isConnected,
+    latencyMs,
     activeEmergencyModalAlert,
     setActiveEmergencyModalAlert,
     isAudioAlarmActive,
@@ -294,6 +295,7 @@ export default function App() {
               : alerts
             }
             isConnected={isConnected}
+            latencyMs={latencyMs}
             activeEmergencyModalAlert={activeEmergencyModalAlert}
             setActiveEmergencyModalAlert={setActiveEmergencyModalAlert}
             isAudioAlarmActive={isAudioAlarmActive}

@@ -17,6 +17,12 @@ import {
   Eye,
   EyeOff,
   Zap,
+  ShieldAlert,
+  Send,
+  MessageSquare,
+  BadgeCheck,
+  UserCheck,
+  Edit3,
 } from "lucide-react";
 import { StoreMetadata } from "../../types.js";
 import { usePanicCapture } from "../../hooks/usePanicCapture.js";
@@ -38,6 +44,23 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
   const activeStore = matchingTerminal || store;
   const firestoreId = matchingTerminal ? matchingTerminal.id : store.storeId;
 
+  // Estado del Guardia en Turno
+  const [guardName, setGuardName] = useState<string>(() => {
+    return localStorage.getItem(`panicguard_guard_${firestoreId}`) || "";
+  });
+  const [isGuardModalOpen, setIsGuardModalOpen] = useState<boolean>(() => {
+    const saved = localStorage.getItem(`panicguard_guard_${firestoreId}`);
+    return !saved || !saved.trim();
+  });
+  const [tempGuardName, setTempGuardName] = useState<string>(guardName);
+
+  const handleSaveGuard = (nameToSave: string) => {
+    const trimmed = nameToSave.trim() || "Guardia en Turno";
+    setGuardName(trimmed);
+    localStorage.setItem(`panicguard_guard_${firestoreId}`, trimmed);
+    setIsGuardModalOpen(false);
+  };
+
   const [showLiveFeed, setShowLiveFeed] = useState<boolean>(true);
   const [isPressing, setIsPressing] = useState<boolean>(false);
   const [pressProgress, setPressProgress] = useState<number>(0);
@@ -57,22 +80,19 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
     videoRef,
     canvasRef,
     hasCameraPermission,
-    hasGeoPermission,
     cameraError,
-    geoError,
-    currentCoords,
     isCapturing,
     capturedFrames,
     lastSentAlertId,
     statusMessage,
     startCamera,
-    refreshLocation,
     triggerPanic,
     resetAlert,
+    sendGuardUpdate,
     videoDevices,
     selectedDeviceId,
   } = usePanicCapture({
-    store,
+    store: activeStore,
     onAlertSent: (id, time) => {
       setLastSentTime(time);
       setIsStreamingActive(true);
@@ -88,12 +108,22 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
     },
   });
 
+  const [guardDescription, setGuardDescription] = useState<string>("");
+  const [isSendingGuardNote, setIsSendingGuardNote] = useState<boolean>(false);
+
   // Handle tactile hold-to-activate or instant press
   const handleInstantPanic = async (triggerType: "MANUAL_BUTTON" | "SILENT_TRIGGER" | "DRILL_TEST") => {
     if (!alarmSound.isMuted()) {
       alarmSound.playAlertNotification();
     }
-    await triggerPanic(triggerType);
+    await triggerPanic(triggerType, guardDescription.trim(), guardName.trim() || undefined);
+  };
+
+  const handleSendLiveNote = async () => {
+    if (!guardDescription.trim() || !lastSentAlertId) return;
+    setIsSendingGuardNote(true);
+    await sendGuardUpdate(lastSentAlertId, guardDescription.trim(), guardName.trim() || undefined);
+    setIsSendingGuardNote(false);
   };
 
   // Keyboard shortcut listener for configured hotkey
@@ -113,18 +143,18 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
       if (isAltRequired) {
         if (e.altKey && e.key.toLowerCase() === targetKey.toLowerCase()) {
           e.preventDefault();
-          triggerPanic("KEYBOARD_HOTKEY");
+          triggerPanic("KEYBOARD_HOTKEY", guardDescription.trim(), guardName.trim() || undefined);
         }
       } else {
         if (e.key.toLowerCase() === targetKey.toLowerCase() && !e.altKey && !e.ctrlKey && !e.metaKey) {
           e.preventDefault();
-          triggerPanic("KEYBOARD_HOTKEY");
+          triggerPanic("KEYBOARD_HOTKEY", guardDescription.trim(), guardName.trim() || undefined);
         }
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [triggerPanic, activeStore.panicHotkey, activeStore.panicHotkeyMode]);
+  }, [triggerPanic, activeStore.panicHotkey, activeStore.panicHotkeyMode, guardDescription, guardName]);
 
   // Live camera feed broadcast to central via Socket.IO (optimized real-time video streaming)
   useEffect(() => {
@@ -210,8 +240,25 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
           </div>
         </div>
 
-        {/* Status System Badge */}
+        {/* Status System Badge & Guardia en Turno */}
         <div className="flex flex-wrap items-center gap-3">
+          {/* Badge del Guardia en Turno con botón para cambiar/editar */}
+          <button
+            onClick={() => {
+              setTempGuardName(guardName);
+              setIsGuardModalOpen(true);
+            }}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-blue-950/80 border border-blue-500/40 hover:border-blue-400 text-blue-200 text-xs font-medium shadow-inner transition-all cursor-pointer group"
+            title="Clic para cambiar el oficial en turno"
+          >
+            <UserCheck className="w-4 h-4 text-blue-400 group-hover:scale-110 transition-transform" />
+            <div className="flex flex-col text-left leading-tight">
+              <span className="text-[10px] text-blue-400 uppercase tracking-wider font-mono">Guardia en Turno:</span>
+              <span className="font-bold text-white max-w-[130px] truncate">{guardName || "Sin Asignar"}</span>
+            </div>
+            <Edit3 className="w-3 h-3 text-blue-400 opacity-60 group-hover:opacity-100 ml-0.5" />
+          </button>
+
           <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-emerald-950/80 border border-emerald-500/30 text-emerald-400 text-sm font-medium shadow-inner">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
             <ShieldCheck className="w-4 h-4" />
@@ -244,7 +291,7 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
 
             <div className="mb-4">
               <span className="text-xs uppercase tracking-widest font-mono text-red-400/80 font-bold px-3 py-1 rounded-full bg-red-950/50 border border-red-900/50">
-                Transmisión Satelital Directa
+                Transmisión Inmediata de Alta Prioridad
               </span>
             </div>
 
@@ -285,6 +332,104 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
                   {testDrillMode ? "[MODO SIMULACRO]" : "PULSAR PARA ACTIVAR"}
                 </span>
               </button>
+            </div>
+
+            {/* Campo táctico de descripción de la emergencia por el Guardia */}
+            <div className="w-full max-w-xl mt-4 px-2 text-left">
+              <div className="bg-slate-950/90 border border-slate-800 hover:border-slate-700/80 rounded-2xl p-3.5 shadow-xl transition-all space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-200 flex items-center gap-1.5">
+                    <ShieldAlert className="w-3.5 h-3.5 text-red-400" />
+                    Tipo / Descripción de la Emergencia (Se refleja en Central):
+                  </label>
+                  <div className="flex items-center gap-2">
+                    {lastSentAlertId && (
+                      <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-950 border border-emerald-500/50 text-emerald-300 flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                        Enlace C4 Activo
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Accesos rápidos de emergencias comunes */}
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    "🚨 Asalto con arma",
+                    "🔫 Sujetos armados",
+                    "🥊 Agresión física",
+                    "🔥 Incendio / Humo",
+                    "🕵️ Intrusión en local",
+                    "⚕️ Auxilio médico",
+                  ].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => {
+                        const clean = preset.replace(/^[^\w\s]+/, "").trim();
+                        setGuardDescription((prev) => {
+                          if (!prev.trim()) return clean;
+                          if (prev.includes(clean)) return prev;
+                          return `${prev}, ${clean}`;
+                        });
+                      }}
+                      className="px-2 py-0.5 rounded-md bg-slate-900 hover:bg-slate-850 border border-slate-800 hover:border-slate-700 text-[10px] text-slate-300 font-medium transition-colors cursor-pointer"
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Textarea para detallar */}
+                <div className="flex gap-2">
+                  <textarea
+                    rows={2}
+                    value={guardDescription}
+                    onChange={(e) => setGuardDescription(e.target.value)}
+                    placeholder="Describe lo que está ocurriendo (ej: 2 hombres armados vestidos de negro en mostrador exigiendo el efectivo)..."
+                    className="w-full bg-slate-900/90 border border-slate-700/80 focus:border-red-500 rounded-xl px-3 py-2 text-xs text-white placeholder:text-slate-500 focus:outline-none transition-all resize-none shadow-inner"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        if (lastSentAlertId) {
+                          handleSendLiveNote();
+                        }
+                      }
+                    }}
+                  />
+
+                  {lastSentAlertId && (
+                    <button
+                      type="button"
+                      disabled={isSendingGuardNote || !guardDescription.trim()}
+                      onClick={handleSendLiveNote}
+                      className="px-3.5 py-1.5 rounded-xl bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white text-xs font-bold flex flex-col items-center justify-center gap-1 transition-all cursor-pointer shadow-lg shrink-0"
+                      title="Transmitir novedad a Central"
+                    >
+                      <Send className="w-4 h-4" />
+                      <span className="text-[10px]">Actualizar Central</span>
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between text-[10px] text-slate-400">
+                  <span className="flex items-center gap-1">
+                    <MessageSquare className="w-3 h-3 text-slate-500" />
+                    {lastSentAlertId
+                      ? "Alerta emitida: Escribe y presiona 'Actualizar Central' para registrar eventos en la bitácora."
+                      : "Al presionar el botón de pánico, esta descripción se transmitirá inmediatamente a la Central."}
+                  </span>
+                  {guardDescription && (
+                    <button
+                      type="button"
+                      onClick={() => setGuardDescription("")}
+                      className="text-slate-500 hover:text-slate-300 underline cursor-pointer"
+                    >
+                      Borrar
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
 
             {/* Status Message Footer */}
@@ -408,34 +553,6 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
                 </div>
               )}
             </div>
-
-            {/* GPS Sensor Status */}
-            <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div
-                  className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                    hasGeoPermission
-                      ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"
-                      : "bg-blue-500/10 text-blue-400 border border-blue-500/30"
-                  }`}
-                >
-                  <MapPin className="w-5 h-5" />
-                </div>
-                <div>
-                  <h4 className="text-sm font-semibold text-white">Geolocalización GPS</h4>
-                  <p className="text-xs text-slate-400 font-mono">
-                    {currentCoords.latitude.toFixed(4)}, {currentCoords.longitude.toFixed(4)}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={refreshLocation}
-                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300"
-                title="Actualizar GPS"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-              </button>
-            </div>
           </div>
         </div>
 
@@ -479,7 +596,7 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
               {/* Tactical Crosshair Overlay */}
               <div className="absolute inset-0 pointer-events-none p-3 flex flex-col justify-between">
                 <div className="flex justify-between items-start text-[10px] font-mono text-emerald-400/90 bg-slate-950/60 px-2 py-0.5 rounded backdrop-blur w-fit">
-                  <span>REC ● 1080p | 30 FPS</span>
+                  <span>1080p | 30 FPS</span>
                 </div>
 
                 {/* Target box */}
@@ -564,6 +681,83 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Ventana Modal: Registro de Guardia en Turno al acceder a la Terminal */}
+      {isGuardModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-slate-900 border-2 border-blue-500/50 rounded-3xl p-6 sm:p-7 shadow-2xl space-y-5 relative">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-blue-600/20 border border-blue-500/50 flex items-center justify-center text-blue-400 shrink-0 shadow-inner">
+                <UserCheck className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white tracking-tight">
+                  Registro de Guardia en Turno
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Control de bitácora y responsabilidad operativa
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 text-xs space-y-2 text-slate-300">
+              <div className="flex justify-between items-center pb-2 border-b border-slate-800/80">
+                <span className="text-slate-400">Puesto / Terminal:</span>
+                <span className="font-bold text-white">{activeStore.storeName}</span>
+              </div>
+              <p className="text-slate-400 text-[11px] leading-relaxed">
+                Por protocolo de seguridad, el nombre del oficial en guardia quedará registrado oficialmente en la bitácora central y en todos los reportes de pánico emitidos.
+              </p>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSaveGuard(tempGuardName);
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+                  Nombre completo del Oficial / Guardia:
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    required
+                    autoFocus
+                    value={tempGuardName}
+                    onChange={(e) => setTempGuardName(e.target.value)}
+                    placeholder="Ej. Of. Roberto Martínez Mendoza"
+                    className="w-full bg-slate-950 border-2 border-slate-700 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 rounded-2xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none transition-all shadow-inner font-medium"
+                  />
+                  <BadgeCheck className="w-5 h-5 text-blue-400 absolute right-3.5 top-3.5 pointer-events-none" />
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                {guardName && (
+                  <button
+                    type="button"
+                    onClick={() => setIsGuardModalOpen(false)}
+                    className="flex-1 py-3 rounded-2xl bg-slate-800 hover:bg-slate-750 border border-slate-700 text-slate-300 text-xs font-bold transition-colors cursor-pointer"
+                  >
+                    Mantener Anterior
+                  </button>
+                )}
+                <button
+                  type="submit"
+                  disabled={!tempGuardName.trim()}
+                  className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold tracking-wide shadow-lg shadow-blue-600/30 transition-all cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <UserCheck className="w-4 h-4" />
+                  <span>Confirmar & Registrar en Bitácora</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

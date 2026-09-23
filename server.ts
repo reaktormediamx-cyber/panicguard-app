@@ -1,9 +1,12 @@
+import dotenv from "dotenv";
+dotenv.config();
+
 import express from "express";
 import http from "http";
 import path from "path";
 import { Server as SocketIOServer } from "socket.io";
 import { createServer as createViteServer } from "vite";
-import { PanicAlert, AlertStatus, StoreMetadata, DEFAULT_STORE, SystemSettings, DEFAULT_SYSTEM_SETTINGS } from "./src/types.js";
+import { PanicAlert, AlertStatus, StoreMetadata, DEFAULT_STORE, SystemSettings, DEFAULT_SYSTEM_SETTINGS, AlertLogItem } from "./src/types.js";
 import { analyzePanicBurst } from "./server/geminiService.js";
 
 const app = express();
@@ -91,7 +94,7 @@ function createInitialSampleAlert(): PanicAlert {
         { frameIndex: 3, description: "Activación del sensor táctil por el cajero.", detectedObjects: ["Pánico confirmado"] },
       ],
       analyzedAt: new Date(Date.now() - 1000 * 60 * 11).toISOString(),
-      modelUsed: "Motor Forense Automático (Multimodal)",
+      modelUsed: "Motor de Inteligencia Automático (Multimodal)",
     },
     dispatchedUnit: "Patrulla MX-Sector San Ángel #402",
     logs: [
@@ -115,7 +118,7 @@ async function processPanicAlert(alert: PanicAlert) {
 
   // Check if AI analysis is globally enabled by the Super Administrator
   if (!currentSystemSettings.aiEnabled) {
-    console.log(`[AI TOGGLE OFF] AI Gemini Forensics is DISABLED by Super Admin. Skipping analysis for ${alert.id}.`);
+    console.log(`[AI TOGGLE OFF] AI Gemini analysis is DISABLED by Super Admin. Skipping analysis for ${alert.id}.`);
     alert.aiStatus = "disabled";
     alertStore.set(alert.id, alert);
     io.emit("alert:ai_update", {
@@ -161,7 +164,7 @@ async function processPanicAlert(alert: PanicAlert) {
     } catch (err: any) {
       console.error(`[GEMINI FAILED] Error analyzing ${alert.id}:`, err);
       alert.aiStatus = "failed";
-      alert.aiError = err?.message || "Error al procesar el análisis forense";
+      alert.aiError = err?.message || "Error al procesar el análisis de inteligencia";
       alertStore.set(alert.id, alert);
       io.emit("alert:ai_update", {
         alertId: alert.id,
@@ -176,6 +179,13 @@ async function processPanicAlert(alert: PanicAlert) {
 io.on("connection", (socket) => {
   console.log(`[Socket Connected] ID: ${socket.id}`);
 
+  // Ping heartbeat for real-time latency measurement
+  socket.on("ping:check", (callback) => {
+    if (typeof callback === "function") {
+      callback();
+    }
+  });
+
   // Send current alerts upon client connection
   socket.emit("alerts:sync", Array.from(alertStore.values()).reverse());
 
@@ -184,6 +194,31 @@ io.on("connection", (socket) => {
     try {
       const alertId = `ALT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
       const assignedStore = data.store || DEFAULT_STORE;
+      const guardDesc = data.guardDescription?.trim() || "";
+      const guardOfficer = data.guardName?.trim() || "";
+      const initialLogs: AlertLogItem[] = [
+        {
+          timestamp: new Date().toISOString(),
+          action: `Alerta recibida en Central [${data.centralName || assignedStore.centralName || "C4 Poniente"}] (${data.images?.length || 0} fotogramas)`,
+        },
+      ];
+      if (guardOfficer) {
+        initialLogs.push({
+          timestamp: new Date().toISOString(),
+          action: `Guardia en Turno registrado en Terminal: ${guardOfficer}`,
+          operator: guardOfficer,
+          details: `Oficial de seguridad en turno: ${guardOfficer}`,
+        });
+      }
+      if (guardDesc) {
+        initialLogs.push({
+          timestamp: new Date().toISOString(),
+          action: `Reporte de Guardia en Sitio (${guardOfficer || "Oficial"}): ${guardDesc}`,
+          operator: guardOfficer || "Guardia en Sitio",
+          details: guardDesc,
+        });
+      }
+
       const newAlert: PanicAlert = {
         id: alertId,
         store: assignedStore,
@@ -195,12 +230,10 @@ io.on("connection", (socket) => {
         status: "ACTIVE",
         aiStatus: "pending",
         aiVerdict: null,
-        logs: [
-          {
-            timestamp: new Date().toISOString(),
-            action: `Alerta recibida en Central [${data.centralName || assignedStore.centralName || "C4 Poniente"}] (${data.images?.length || 0} fotogramas)`,
-          },
-        ],
+        guardDescription: guardDesc || undefined,
+        guardName: guardOfficer || undefined,
+        operatorNotes: guardDesc ? [`[${guardOfficer || "Guardia en Sitio"}]: ${guardDesc}`] : [],
+        logs: initialLogs,
       };
 
       await processPanicAlert(newAlert);
@@ -214,6 +247,31 @@ io.on("connection", (socket) => {
         callback({ success: false, error: err.message });
       }
     }
+  });
+
+  // Real-time live log note from terminal guard or central operator
+  socket.on("alert:add_note", (payload: { alertId: string; note: string; author?: string }) => {
+    const alert = alertStore.get(payload.alertId);
+    if (!alert || !payload.note?.trim()) return;
+
+    const trimmed = payload.note.trim();
+    const author = payload.author || "Guardia en Sitio";
+    alert.operatorNotes = alert.operatorNotes || [];
+    alert.operatorNotes.push(`[${author}]: ${trimmed}`);
+
+    if (author.toLowerCase().includes("guardia")) {
+      alert.guardDescription = alert.guardDescription ? `${alert.guardDescription} | ${trimmed}` : trimmed;
+    }
+
+    alert.logs.push({
+      timestamp: new Date().toISOString(),
+      action: `Bitácora actualizada (${author}): ${trimmed}`,
+      operator: author,
+      details: trimmed,
+    });
+
+    alertStore.set(alert.id, alert);
+    io.emit("alert:status_changed", alert);
   });
 
   // Operator status update (Dispatch, Resolve, False Alarm)
@@ -306,7 +364,7 @@ app.get("/api/alerts/:id", (req, res) => {
 // Submit panic alert via HTTP POST
 app.post("/api/alerts", async (req, res) => {
   try {
-    const { store, images, triggerType, timestamp, centralId, centralName } = req.body;
+    const { store, images, triggerType, timestamp, centralId, centralName, guardDescription, guardName } = req.body;
 
     if (!images || !Array.isArray(images) || images.length === 0) {
       return res.status(400).json({ error: "Se requiere al menos 1 fotograma en la ráfaga de imágenes" });
@@ -314,6 +372,34 @@ app.post("/api/alerts", async (req, res) => {
 
     const alertId = `ALT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
     const assignedStore = store || DEFAULT_STORE;
+    const guardDesc = typeof guardDescription === "string" ? guardDescription.trim() : "";
+    const guardOfficer = typeof guardName === "string" ? guardName.trim() : "";
+
+    const initialLogs: AlertLogItem[] = [
+      {
+        timestamp: new Date().toISOString(),
+        action: `Alerta recibida vía REST API (${images.length} fotogramas capturados)`,
+      },
+    ];
+
+    if (guardOfficer) {
+      initialLogs.push({
+        timestamp: new Date().toISOString(),
+        action: `Guardia en Turno registrado en Terminal: ${guardOfficer}`,
+        operator: guardOfficer,
+        details: `Oficial de seguridad en turno: ${guardOfficer}`,
+      });
+    }
+
+    if (guardDesc) {
+      initialLogs.push({
+        timestamp: new Date().toISOString(),
+        action: `Reporte de Guardia en Sitio (${guardOfficer || "Oficial"}): ${guardDesc}`,
+        operator: guardOfficer || "Guardia en Sitio",
+        details: guardDesc,
+      });
+    }
+
     const newAlert: PanicAlert = {
       id: alertId,
       store: assignedStore,
@@ -325,12 +411,10 @@ app.post("/api/alerts", async (req, res) => {
       status: "ACTIVE",
       aiStatus: "pending",
       aiVerdict: null,
-      logs: [
-        {
-          timestamp: new Date().toISOString(),
-          action: `Alerta recibida vía REST API (${images.length} fotogramas capturados)`,
-        },
-      ],
+      guardDescription: guardDesc || undefined,
+      guardName: guardOfficer || undefined,
+      operatorNotes: guardDesc ? [`[${guardOfficer || "Guardia en Sitio"}]: ${guardDesc}`] : [],
+      logs: initialLogs,
     };
 
     // Fast-path: Broadcast raw alert instantly (<1s) and start background Gemini analysis
@@ -347,6 +431,115 @@ app.post("/api/alerts", async (req, res) => {
     console.error("[REST Panic Error]:", err);
     res.status(500).json({ error: err.message || "Error al procesar alerta de pánico" });
   }
+});
+
+// Real-time add log note or guard description update to alert
+app.post("/api/alerts/:id/notes", (req, res) => {
+  const { note, author } = req.body;
+  const alert = alertStore.get(req.params.id);
+
+  if (!alert) {
+    return res.status(404).json({ error: "Alerta no encontrada" });
+  }
+
+  if (!note || typeof note !== "string" || !note.trim()) {
+    return res.status(400).json({ error: "Nota requerida" });
+  }
+
+  const trimmed = note.trim();
+  const authorName = author || "Guardia en Sitio";
+  alert.operatorNotes = alert.operatorNotes || [];
+  alert.operatorNotes.push(`[${authorName}]: ${trimmed}`);
+
+  if (authorName.toLowerCase().includes("guardia")) {
+    alert.guardDescription = alert.guardDescription ? `${alert.guardDescription} | ${trimmed}` : trimmed;
+  }
+
+  alert.logs.push({
+    timestamp: new Date().toISOString(),
+    action: `Bitácora actualizada (${authorName}): ${trimmed}`,
+    operator: authorName,
+    details: trimmed,
+  });
+
+  alertStore.set(alert.id, alert);
+  io.emit("alert:status_changed", alert);
+
+  res.json({ success: true, alert });
+});
+
+// Geocoding Proxy Route for Address Resolution using Google Maps Geocoding API
+app.get("/api/geocode", async (req, res) => {
+  const addressQuery = typeof req.query.address === "string" ? req.query.address.trim() : "";
+  const cityQuery = typeof req.query.city === "string" ? req.query.city.trim() : "";
+
+  if (!addressQuery) {
+    return res.status(400).json({ error: "Parámetro 'address' es requerido" });
+  }
+
+  const cleanAddress = addressQuery.replace(/^.*?—\s*/, "").trim();
+  const combined = [cleanAddress, cityQuery, "México"].filter(Boolean).join(", ");
+  const apiKey = process.env.VITE_GOOGLE_MAPS_API_KEY || process.env.GOOGLE_MAPS_API_KEY || "";
+
+  // 1. Try Google Geocoding API if key is present
+  if (apiKey) {
+    try {
+      const gUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
+        combined
+      )}&key=${apiKey}&region=mx&language=es`;
+      const gRes = await fetch(gUrl);
+      if (gRes.ok) {
+        const gData: any = await gRes.json();
+        if (gData.status === "OK" && gData.results?.length > 0) {
+          const loc = gData.results[0].geometry?.location;
+          if (loc && typeof loc.lat === "number" && typeof loc.lng === "number") {
+            return res.json({
+              latitude: loc.lat,
+              longitude: loc.lng,
+              accuracy: 5,
+              formattedAddress: gData.results[0].formatted_address,
+              provider: "google",
+            });
+          }
+        }
+      }
+    } catch (gErr) {
+      console.warn("[Geocode Google API Error]:", gErr);
+    }
+  }
+
+  // 2. Fallback to OpenStreetMap Nominatim
+  try {
+    const osmUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+      combined
+    )}&limit=1`;
+    const osmRes = await fetch(osmUrl, {
+      headers: {
+        "Accept-Language": "es",
+        "User-Agent": "PanicGuard/1.0",
+      },
+    });
+    if (osmRes.ok) {
+      const osmData: any = await osmRes.json();
+      if (Array.isArray(osmData) && osmData.length > 0) {
+        const lat = parseFloat(osmData[0].lat);
+        const lon = parseFloat(osmData[0].lon);
+        if (!isNaN(lat) && !isNaN(lon)) {
+          return res.json({
+            latitude: lat,
+            longitude: lon,
+            accuracy: 10,
+            formattedAddress: osmData[0].display_name,
+            provider: "nominatim",
+          });
+        }
+      }
+    }
+  } catch (osmErr) {
+    console.warn("[Geocode OSM Fallback Error]:", osmErr);
+  }
+
+  return res.status(404).json({ error: "No se pudo geolocalizar la dirección especificada" });
 });
 
 // Update alert status

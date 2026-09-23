@@ -120,7 +120,7 @@ export interface AlertLogItem {
 }
 
 export interface SystemSettings {
-  aiEnabled: boolean; // Toggle multimodal forense analysis
+  aiEnabled: boolean; // Toggle multimodal analysis
   lastModifiedBy?: string;
   updatedAt?: string;
 }
@@ -146,6 +146,8 @@ export interface PanicAlert {
   logs: AlertLogItem[];
   centralId?: string;
   centralName?: string;
+  guardDescription?: string;
+  guardName?: string;
 }
 
 export interface SocketAlertEvent {

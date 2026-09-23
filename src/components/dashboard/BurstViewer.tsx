@@ -123,7 +123,7 @@ export const BurstViewer: React.FC<BurstViewerProps> = ({
           <div className="flex items-center justify-between">
             <span className="font-semibold text-slate-300 flex items-center gap-1.5">
               <Eye className="w-3.5 h-3.5 text-blue-400" />
-              Observación Forense en Cuadro #{currentTimeline.frameIndex}:
+              Observación en Cuadro #{currentTimeline.frameIndex}:
             </span>
           </div>
           <p className="text-slate-300">{currentTimeline.description}</p>

@@ -6,6 +6,7 @@ import { alarmSound } from "../utils/audio.js";
 export function useSocketAlerts() {
   const [alerts, setAlerts] = useState<PanicAlert[]>([]);
   const [isConnected, setIsConnected] = useState<boolean>(false);
+  const [latencyMs, setLatencyMs] = useState<number>(28);
   const [activeEmergencyModalAlert, setActiveEmergencyModalAlert] = useState<PanicAlert | null>(null);
   const [isAudioAlarmActive, setIsAudioAlarmActive] = useState<boolean>(false);
   const socketRef = useRef<Socket | null>(null);
@@ -27,6 +28,17 @@ export function useSocketAlerts() {
       setIsConnected(false);
       console.log("[Socket] Desconectado de PanicGuard Server");
     });
+
+    // Periodic latency measurement heartbeat
+    const pingInterval = setInterval(() => {
+      if (socket.connected) {
+        const start = performance.now();
+        socket.emit("ping:check", () => {
+          const rtt = Math.round(performance.now() - start);
+          setLatencyMs(rtt > 0 ? rtt : 18);
+        });
+      }
+    }, 4000);
 
     // Initial alert list sync
     socket.on("alerts:sync", (syncedAlerts: PanicAlert[]) => {
@@ -119,6 +131,7 @@ export function useSocketAlerts() {
       .catch(() => {});
 
     return () => {
+      clearInterval(pingInterval);
       socket.disconnect();
     };
   }, []);
@@ -158,6 +171,7 @@ export function useSocketAlerts() {
   return {
     alerts,
     isConnected,
+    latencyMs,
     activeEmergencyModalAlert,
     setActiveEmergencyModalAlert,
     isAudioAlarmActive,

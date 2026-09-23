@@ -63,7 +63,7 @@ export async function analyzePanicBurst(
   });
 
   const promptText = `
-Eres el Sistema de Inteligencia Artificial Forense y Videoverificación de Emergencias para Centrales de Seguridad y Policía (PanicGuard AI).
+Eres el Sistema de Inteligencia Artificial y Videoverificación de Emergencias para Centrales de Seguridad y Policía (PanicGuard AI).
 Analiza con máxima precisión la siguiente RÁFAGA DE 3 FOTOGRAFÍAS consecutivas capturadas por el botón de pánico de un comercio.
 
 INFORMACIÓN DEL COMERCIO:
@@ -72,7 +72,7 @@ INFORMACIÓN DEL COMERCIO:
 - Propietario: ${storeContext.ownerName}
 - Giro: ${storeContext.category || "Comercio minorista"}
 
-TAREA FORENSE OBLIGATORIA:
+TAREA DE ANÁLISIS OBLIGATORIA:
 1. Evalúa si hay personas en actitud sospechosa, pasamontañas, gorras/mascarillas ocultando rostro, armas blancas o de fuego, forcejeos, manos arriba, ingreso no autorizado, humo/fuego o signos claros de pánico/emergencia.
 2. Compara los 3 fotogramas en secuencia temporal para detectar movimiento rápido o cambios críticos entre cuadros.
 3. Determina el nivel de amenaza estandarizado:
@@ -135,7 +135,7 @@ TAREA FORENSE OBLIGATORIA:
           type: Type.OBJECT,
           properties: {
             frameIndex: { type: Type.NUMBER, description: "Índice de la foto (1, 2 o 3)" },
-            description: { type: Type.STRING, description: "Observación forense en este cuadro" },
+            description: { type: Type.STRING, description: "Observación técnica en este cuadro" },
             detectedObjects: {
               type: Type.ARRAY,
               items: { type: Type.STRING },

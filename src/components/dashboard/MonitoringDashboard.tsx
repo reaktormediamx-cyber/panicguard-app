@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import {
   Shield,
   ShieldCheck,
+  ShieldAlert,
   Radio,
   Volume2,
   VolumeX,
@@ -27,6 +28,10 @@ import {
   Trash2,
   Camera,
   Pencil,
+  Download,
+  Send,
+  FileText,
+  User,
 } from "lucide-react";
 import { PanicAlert, AlertStatus } from "../../types.js";
 import { BurstViewer } from "./BurstViewer.js";
@@ -35,10 +40,12 @@ import { AiVerdictPanel } from "./AiVerdictPanel.js";
 import { EmergencyModal } from "./EmergencyModal.js";
 import { alarmSound } from "../../utils/audio.js";
 import { useAuth } from "../../context/AuthContext.js";
+import { downloadAlertPdfReport } from "../../utils/pdfGenerator.js";
 
 interface MonitoringDashboardProps {
   alerts: PanicAlert[];
   isConnected: boolean;
+  latencyMs?: number;
   activeEmergencyModalAlert: PanicAlert | null;
   setActiveEmergencyModalAlert: (alert: PanicAlert | null) => void;
   isAudioAlarmActive: boolean;
@@ -56,6 +63,7 @@ interface MonitoringDashboardProps {
 export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
   alerts,
   isConnected,
+  latencyMs = 28,
   activeEmergencyModalAlert,
   setActiveEmergencyModalAlert,
   isAudioAlarmActive,
@@ -79,6 +87,30 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
   const [editTermPanicHotkey, setEditTermPanicHotkey] = useState("P");
   const [editTermPanicHotkeyMode, setEditTermPanicHotkeyMode] = useState<"DIRECT" | "ALT_COMBINATION">("DIRECT");
   const [isSubmittingEditTerminal, setIsSubmittingEditTerminal] = useState(false);
+
+  // Real-time live log note for selected alert
+  const [centralInspectionNote, setCentralInspectionNote] = useState("");
+  const [isSavingCentralNote, setIsSavingCentralNote] = useState(false);
+
+  const handleAddCentralNote = async (alertId: string) => {
+    if (!centralInspectionNote.trim()) return;
+    setIsSavingCentralNote(true);
+    try {
+      await fetch(`/api/alerts/${alertId}/notes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          note: centralInspectionNote.trim(),
+          author: `Operador Central (${assignedCentralName || "C4"})`,
+        }),
+      });
+      setCentralInspectionNote("");
+    } catch (e) {
+      console.error("Error agregando nota central:", e);
+    } finally {
+      setIsSavingCentralNote(false);
+    }
+  };
 
   const startEditTerminal = (terminal: any) => {
     setEditingTerminal(terminal);
@@ -132,7 +164,6 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
   const [activeTab, setActiveTab] = useState<"VERIFICATION" | "TERMINALS">("TERMINALS");
   const [terminalSearch, setTerminalSearch] = useState("");
   const [liveCameraTerminalId, setLiveCameraTerminalId] = useState<string | null>(null);
-  const liveCameraTerminal = terminals.find(t => t.id === liveCameraTerminalId);
   const [liveStreamFrames, setLiveStreamFrames] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -201,6 +232,19 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
 
   const selectedAlert = alerts.find((a) => a.id === selectedAlertId) || filteredAlerts[0] || alerts[0];
 
+  const liveCameraTerminal = terminals.find(
+    (t) => t.id === liveCameraTerminalId || t.storeId === liveCameraTerminalId
+  ) || (selectedAlert && (selectedAlert.id === liveCameraTerminalId || selectedAlert.store.storeId === liveCameraTerminalId) ? {
+    id: selectedAlert.store.storeId,
+    storeId: selectedAlert.store.storeId,
+    storeName: selectedAlert.store.storeName,
+    ownerName: selectedAlert.store.ownerName,
+    phone: selectedAlert.store.phone,
+    address: selectedAlert.store.address,
+    city: selectedAlert.store.city,
+    isOnline: true,
+  } as any : null);
+
   const activeCount = alerts.filter((a) => a.status === "ACTIVE").length;
   const dispatchedCount = alerts.filter((a) => a.status === "DISPATCHED").length;
 
@@ -240,17 +284,32 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
         </div>
       )}
 
-      {/* Top Console Header */}
+      {/* Top Console Header with PanicGuard Logo */}
       <div className="bg-slate-900/90 backdrop-blur border border-slate-800 rounded-3xl p-4 sm:p-6 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white shadow-lg shadow-blue-950">
-            <Shield className="w-6 h-6" />
+          {/* PanicGuard Official Logo */}
+          <div className="relative group shrink-0">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-red-600 via-red-700 to-slate-950 flex items-center justify-center text-white shadow-xl shadow-red-950 border border-red-500/50">
+              <ShieldAlert className="w-8 h-8 text-white drop-shadow-md" />
+            </div>
+            <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-emerald-500 border-2 border-slate-900 flex items-center justify-center" title="Sistema en línea">
+              <span className="w-2 h-2 rounded-full bg-white animate-ping" />
+            </div>
           </div>
+
           <div>
             <div className="flex flex-col">
               <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xl sm:text-2xl font-black tracking-tight text-white font-sans">
+                    PANIC<span className="text-red-500">GUARD</span>
+                  </span>
+                  <span className="text-[10px] font-mono font-black uppercase px-2 py-0.5 rounded bg-red-950 border border-red-700/60 text-red-300">
+                    C4/C5 CENTRAL
+                  </span>
+                </div>
                 <span className="text-[11px] font-mono font-bold px-2.5 py-0.5 rounded bg-amber-950/80 border border-amber-500/40 text-amber-300">
-                  CENTRAL: {assignedCentralName}
+                  {assignedCentralName}
                 </span>
                 <span
                   className={`text-xs px-2.5 py-0.5 rounded-full font-mono flex items-center gap-1.5 ${
@@ -264,15 +323,15 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
                       isConnected ? "bg-emerald-500 animate-pulse" : "bg-red-500"
                     }`}
                   />
-                  {isConnected ? "Socket Enlace Activo" : "Reconectando..."}
+                  {isConnected ? "Socket Activo" : "Reconectando..."}
                 </span>
               </div>
-              <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight mt-1">
-                {assignedCentralName}
+              <h1 className="text-base sm:text-lg font-bold text-slate-200 tracking-tight mt-0.5">
+                Consola Central de Despacho & Videoverificación
               </h1>
             </div>
             <p className="text-xs text-slate-400 mt-0.5">
-              Consola Operativa de Monitoreo C4/C5 & Videoverificación Forense.
+              Recepción de pánico en &lt; 1s, análisis de fotogramas y bitácora táctica oficial en tiempo real.
             </p>
           </div>
         </div>
@@ -330,17 +389,20 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
         <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 flex items-center justify-between">
           <div>
             <div className="text-xs text-slate-400 font-medium">Latencia Transmisión</div>
-            <div className="text-2xl font-black text-emerald-400 mt-1">&lt; 150 ms</div>
+            <div className="text-2xl font-black text-emerald-400 mt-1 flex items-baseline gap-1.5">
+              <span>{latencyMs}</span>
+              <span className="text-xs font-normal text-emerald-500">ms</span>
+            </div>
           </div>
           <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-            <Activity className="w-5 h-5" />
+            <Activity className="w-5 h-5 animate-pulse" />
           </div>
         </div>
 
         {systemSettings?.aiEnabled && (
           <div className="border rounded-2xl p-4 flex items-center justify-between transition-all duration-300 bg-slate-900/80 border-slate-800">
             <div>
-              <div className="text-xs text-slate-400 font-medium">Motor Forense</div>
+              <div className="text-xs text-slate-400 font-medium">Motor de Inteligencia</div>
               <div className="flex items-center gap-1.5 mt-1">
                 <span className="text-sm font-bold font-mono text-purple-300">
                   Verificación Activa
@@ -454,10 +516,18 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
                   const isSelected = alert.id === selectedAlert?.id;
                   const originCentral = alert.centralName || alert.store?.centralName || "C4 Poniente CDMX";
                   return (
-                    <button
+                    <div
                       key={alert.id}
+                      role="button"
+                      tabIndex={0}
                       onClick={() => setSelectedAlertId(alert.id)}
-                      className={`w-full text-left p-3 rounded-2xl border transition-all cursor-pointer relative overflow-hidden space-y-1.5 ${
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setSelectedAlertId(alert.id);
+                        }
+                      }}
+                      className={`w-full text-left p-3 rounded-2xl border transition-all cursor-pointer relative overflow-hidden space-y-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                         isSelected
                           ? "bg-slate-800/90 border-blue-500/80 shadow-md ring-1 ring-blue-500/50"
                           : alert.status === "ACTIVE"
@@ -489,6 +559,24 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
                         <span className="truncate">Central: {originCentral}</span>
                       </div>
 
+                      {/* Guardia Emergency Description & Officer Badge */}
+                      {(alert.guardName || alert.guardDescription) && (
+                        <div className="flex flex-col gap-1 text-[10px] text-amber-200 bg-amber-950/70 border border-amber-500/50 p-1.5 rounded-md font-semibold">
+                          {alert.guardName && (
+                            <div className="flex items-center gap-1.5 text-blue-300 font-mono text-[9.5px]">
+                              <User className="w-3 h-3 text-blue-400 shrink-0" />
+                              <span className="truncate">Oficial: <strong>{alert.guardName}</strong></span>
+                            </div>
+                          )}
+                          {alert.guardDescription && (
+                            <div className="flex items-center gap-1.5 text-amber-200 truncate">
+                              <AlertTriangle className="w-3 h-3 text-amber-400 shrink-0" />
+                              <span className="truncate">Reporte: "{alert.guardDescription}"</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       {/* Store & Time */}
                       <div className="flex items-center justify-between text-[11px] text-slate-400">
                         <span className="truncate max-w-[150px]">{alert.store.city}</span>
@@ -511,7 +599,7 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
                         <div className="mt-2 pt-2 border-t border-slate-800/80 flex items-center justify-between text-[10px]">
                           <span className="text-slate-400 flex items-center gap-1">
                             <Brain className="w-3 h-3 text-purple-400" />
-                            Análisis Forense:
+                            Análisis de Inteligencia:
                           </span>
                           <span
                             className={`font-black uppercase px-2 py-0.5 rounded ${
@@ -527,7 +615,7 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
                         </div>
                       )}
 
-                      {/* Delete individual record button */}
+                      {/* Actions strip: ID & Delete */}
                       <div className="mt-2 pt-2 border-t border-slate-800/80 flex items-center justify-between text-[10px]">
                         <span className="font-mono text-slate-500">ID: {alert.id}</span>
                         <button
@@ -545,7 +633,7 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
                           <span>Borrar</span>
                         </button>
                       </div>
-                    </button>
+                    </div>
                   );
                 })
               )}
@@ -577,7 +665,27 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => setLiveCameraTerminalId(selectedAlert.store.storeId)}
+                    className="px-3.5 py-2 rounded-xl bg-red-600/90 hover:bg-red-500 border border-red-400/50 text-xs font-bold text-white flex items-center gap-1.5 transition-all shadow-md shadow-red-950/60 cursor-pointer"
+                    title="Ver transmisión de video en tiempo real de esta terminal (5 minutos)"
+                  >
+                    <Radio className="w-4 h-4 text-white animate-pulse" />
+                    <span>Ver Cámara en Vivo (5 min)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => downloadAlertPdfReport(selectedAlert)}
+                    className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-blue-700 to-indigo-700 hover:from-blue-600 hover:to-indigo-600 border border-blue-400/40 text-xs font-bold text-white flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
+                    title="Descargar informe oficial con fotos y bitácora completa en PDF"
+                  >
+                    <Download className="w-4 h-4 text-white" />
+                    <span>Descargar Bitácora PDF</span>
+                  </button>
+
                   <button
                     onClick={() => setActiveEmergencyModalAlert(selectedAlert)}
                     className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold text-white flex items-center gap-1.5 transition-colors cursor-pointer"
@@ -588,31 +696,62 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
                 </div>
               </div>
 
+              {/* Guardia Emergency Description Highlight Box */}
+              {(selectedAlert.guardDescription || selectedAlert.guardName) && (
+                <div className="p-3.5 rounded-2xl bg-gradient-to-r from-red-950/90 via-slate-900 to-red-950/70 border-2 border-red-500/80 shadow-lg flex items-start gap-3 animate-pulse">
+                  <div className="w-8 h-8 rounded-xl bg-red-600 flex items-center justify-center text-white shrink-0 mt-0.5 shadow-md shadow-red-950">
+                    <AlertTriangle className="w-4 h-4" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-[10px] font-mono uppercase font-black px-2 py-0.5 rounded bg-red-600 text-white tracking-wide">
+                        REPORTE Y OFICIAL EN GUARDIA
+                      </span>
+                      {selectedAlert.guardName && (
+                        <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded bg-blue-900/80 text-blue-200 border border-blue-400/50">
+                          Oficial en Turno: {selectedAlert.guardName}
+                        </span>
+                      )}
+                    </div>
+                    {selectedAlert.guardDescription && (
+                      <p className="text-xs sm:text-sm font-extrabold text-white mt-1.5 bg-black/40 p-2 rounded-xl border border-red-500/30">
+                        "{selectedAlert.guardDescription}"
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Grid: 3-Frame Burst Viewer & GPS Map */}
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-                <div className="md:col-span-7 space-y-2">
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-stretch">
+                <div className="md:col-span-6 space-y-2 flex flex-col">
                   <h4 className="text-xs uppercase tracking-wider font-bold text-slate-400">
                     Ráfaga Fotográfica de Videoverificación:
                   </h4>
-                  <BurstViewer
-                    images={selectedAlert.images}
-                    evidenceTimeline={selectedAlert.aiVerdict?.evidenceTimeline}
-                  />
+                  <div className="flex-1">
+                    <BurstViewer
+                      images={selectedAlert.images}
+                      evidenceTimeline={selectedAlert.aiVerdict?.evidenceTimeline}
+                    />
+                  </div>
                 </div>
 
-                <div className="md:col-span-5 space-y-4">
+                <div className="md:col-span-6 space-y-3 flex flex-col justify-between">
                   <h4 className="text-xs uppercase tracking-wider font-bold text-slate-400">
-                    Ubicación Satelital GPS:
+                    Ubicación GPS & Mapa Táctico Oficial:
                   </h4>
-                  <TacticalMap
-                    coordinates={selectedAlert.store.coordinates}
-                    storeName={selectedAlert.store.storeName}
-                    address={selectedAlert.store.address}
-                    city={selectedAlert.store.city}
-                  />
+                  <div className="flex-1 flex flex-col min-h-[320px]">
+                    <TacticalMap
+                      coordinates={selectedAlert.store.coordinates}
+                      storeName={selectedAlert.store.storeName}
+                      address={selectedAlert.store.address}
+                      city={selectedAlert.store.city}
+                      className="w-full h-full flex-1 min-h-[320px]"
+                    />
+                  </div>
 
                   {/* Store Contact card */}
-                  <div className="p-3 rounded-2xl bg-slate-950/80 border border-slate-800 text-xs space-y-2">
+                  <div className="p-3 rounded-2xl bg-slate-950/80 border border-slate-800 text-xs space-y-2 shrink-0">
                     <div className="flex justify-between">
                       <span className="text-slate-400">Contacto Directo:</span>
                       <span className="font-semibold text-white">{selectedAlert.store.ownerName}</span>
@@ -634,25 +773,55 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
                 aiError={selectedAlert.aiError}
               />
 
-              {/* Event Logs Timeline */}
-              <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-2">
-                <h4 className="text-xs uppercase tracking-wider font-bold text-slate-400">
-                  Bitácora de Eventos y Trazabilidad en Tiempo Real:
-                </h4>
-                <div className="space-y-1.5 max-h-40 overflow-y-auto">
+              {/* Event Logs Timeline & Real-Time Note Input */}
+              <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs uppercase tracking-wider font-bold text-slate-300 flex items-center gap-1.5">
+                    <FileText className="w-3.5 h-3.5 text-blue-400" />
+                    Bitácora de Eventos y Trazabilidad en Tiempo Real:
+                  </h4>
+                </div>
+
+                {/* Input para agregar notas o procesos en la bitácora */}
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={centralInspectionNote}
+                    onChange={(e) => setCentralInspectionNote(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleAddCentralNote(selectedAlert.id);
+                      }
+                    }}
+                    placeholder="Registrar proceso o actualización en la bitácora de esta alarma..."
+                    className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
+                  />
+                  <button
+                    type="button"
+                    disabled={isSavingCentralNote || !centralInspectionNote.trim()}
+                    onClick={() => handleAddCentralNote(selectedAlert.id)}
+                    className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold text-xs flex items-center gap-1 shadow cursor-pointer transition-all shrink-0"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    <span>Registrar</span>
+                  </button>
+                </div>
+
+                <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
                   {selectedAlert.logs
                     .filter((log) => !log.action.includes("Análisis Automatizado Desactivado"))
                     .map((log, index) => (
-                      <div key={index} className="flex items-start gap-2 text-xs py-1 border-b border-slate-900">
+                      <div key={index} className="flex items-start gap-2 text-xs py-1 px-2 rounded bg-slate-900/60 border border-slate-800/80">
                         <span className="font-mono text-[10px] text-slate-500 shrink-0">
                           {new Date(log.timestamp).toLocaleTimeString()}
                         </span>
                         <div className="flex-1 text-slate-300">
                           <span className="font-medium text-slate-200">{log.action}</span>
                           {log.operator && (
-                            <span className="text-blue-400 ml-1.5">[{log.operator}]</span>
+                            <span className="text-blue-400 ml-1.5 font-bold">[{log.operator}]</span>
                           )}
-                          {log.details && (
+                          {log.details && log.details !== log.action && (
                             <div className="text-[11px] text-slate-400 mt-0.5">{log.details}</div>
                           )}
                         </div>
@@ -745,18 +914,16 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-1.5">
-                          {t.isOnline && (
-                            <button
-                              onClick={() => setLiveCameraTerminalId(t.id)}
-                              className="text-[9px] px-2.5 py-0.5 rounded-full font-mono font-bold bg-emerald-600/30 text-emerald-300 border border-emerald-500/50 flex items-center gap-1 cursor-pointer animate-pulse hover:bg-emerald-600/40"
-                              title="Ver transmisión en tiempo real de la terminal abierta"
-                              type="button"
-                            >
-                              <Radio className="w-2.5 h-2.5" />
-                              <span>EN VIVO</span>
-                            </button>
-                          )}
+                        <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                          <button
+                            onClick={() => setLiveCameraTerminalId(t.id)}
+                            className="text-[10px] px-2.5 py-1 rounded-lg font-bold bg-red-600/20 hover:bg-red-600 text-red-300 hover:text-white border border-red-500/40 flex items-center gap-1.5 cursor-pointer transition-all shadow-sm"
+                            title="Ver transmisión de cámara en tiempo real (5 minutos)"
+                            type="button"
+                          >
+                            <Radio className="w-3 h-3 text-red-400 animate-pulse" />
+                            <span>Cámara (5 min)</span>
+                          </button>
                           <span
                             className={`text-[9px] px-2 py-0.5 rounded-full font-mono font-bold ${
                               isActive

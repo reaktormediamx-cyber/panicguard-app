@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   X,
   Radio,
@@ -8,10 +8,16 @@ import {
   Clock,
   MapPin,
   User,
+  AlertTriangle,
   CheckCircle,
   XCircle,
+  Send,
+  FileText,
+  Camera,
+  Layers,
 } from "lucide-react";
 import { PanicAlert, AlertStatus, formatTriggerType } from "../../types.js";
+import { downloadAlertPdfReport } from "../../utils/pdfGenerator.js";
 import { BurstViewer } from "./BurstViewer.js";
 import { TacticalMap } from "./TacticalMap.js";
 import { AiVerdictPanel } from "./AiVerdictPanel.js";
@@ -38,7 +44,33 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
   onUpdateStatus,
 }) => {
   const [operatorNote, setOperatorNote] = useState<string>("");
-  const [dispatchUnit, setDispatchUnit] = useState<string>("Patrulla Sector #911-A");
+  const [dispatchUnit, setDispatchUnit] = useState<string>(alert.dispatchedUnit || "Patrulla Sector #911-A");
+  const [isSubmittingNote, setIsSubmittingNote] = useState<boolean>(false);
+  const [mediaMode, setMediaMode] = useState<"BURST" | "LIVE">("BURST");
+  const [liveFrame, setLiveFrame] = useState<string | null>(null);
+
+  // Escuchar fotogramas de transmisión en tiempo real
+  useEffect(() => {
+    const socket = (window as any).__panicSocket;
+    if (!socket) return;
+
+    const handleFrameUpdate = ({ terminalId, frameData }: { terminalId: string; frameData: string }) => {
+      const match =
+        terminalId === alert.store?.storeId ||
+        terminalId === (alert as any).terminalId ||
+        alert.store?.storeId?.includes(terminalId) ||
+        terminalId?.includes(alert.store?.storeId || "___");
+
+      if (match) {
+        setLiveFrame(frameData);
+      }
+    };
+
+    socket.on("terminal:frame:update", handleFrameUpdate);
+    return () => {
+      socket.off("terminal:frame:update", handleFrameUpdate);
+    };
+  }, [alert.store?.storeId]);
 
   const { label: triggerLabel, isDrill } = formatTriggerType(alert.triggerType);
 
@@ -52,6 +84,23 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
     );
     if (isAudioAlarmActive) {
       onAcknowledgeAlarm();
+    }
+  };
+
+  const handleAddLiveNote = async () => {
+    if (!operatorNote.trim()) return;
+    setIsSubmittingNote(true);
+    try {
+      await fetch(`/api/alerts/${alert.id}/notes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ note: operatorNote.trim(), author: "Operador Central" }),
+      });
+      setOperatorNote("");
+    } catch (e) {
+      console.error("Error agregando nota en vivo:", e);
+    } finally {
+      setIsSubmittingNote(false);
     }
   };
 
@@ -138,42 +187,132 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
             </div>
           </div>
 
-          {/* Core Content: Split Burst Photo Viewer & Map */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
-            {/* Left: 3-Frame Burst Photo Section (7 cols) */}
-            <div className="lg:col-span-7 space-y-1.5">
-              <div className="flex items-center justify-between">
-                <h3 className="text-[11px] uppercase tracking-wider font-bold text-slate-400 flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-red-500" />
-                  Ráfaga de Videoverificación (3 Cuadros HD)
-                </h3>
+          {/* Reporte de Situación del Guardia en Sitio (Destacado) */}
+          {(alert.guardDescription || alert.guardName || (alert.operatorNotes && alert.operatorNotes.some(n => n.includes("Guardia")))) && (
+            <div className="p-3 rounded-2xl bg-gradient-to-r from-red-950/90 via-slate-900 to-red-950/70 border-2 border-red-500/80 shadow-lg flex items-start gap-3 animate-pulse">
+              <div className="w-8 h-8 rounded-xl bg-red-600 flex items-center justify-center text-white shrink-0 mt-0.5 shadow-md shadow-red-950">
+                <AlertTriangle className="w-4 h-4" />
               </div>
-              <BurstViewer
-                images={alert.images}
-                evidenceTimeline={alert.aiVerdict?.evidenceTimeline}
-              />
+              <div className="flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[10px] font-mono uppercase font-black px-2 py-0.5 rounded bg-red-600 text-white tracking-wide shadow-sm">
+                    REPORTE EN VIVO DEL GUARDIA EN SITIO
+                  </span>
+                  {alert.guardName && (
+                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-blue-900/80 text-blue-200 border border-blue-400/50">
+                      Oficial en Turno: {alert.guardName}
+                    </span>
+                  )}
+                  <span className="text-[10px] text-red-300 font-mono">Terminal {alert.store.storeId}</span>
+                </div>
+                {(alert.guardDescription || alert.operatorNotes?.find(n => n.includes("Guardia"))) && (
+                  <p className="text-xs sm:text-sm font-extrabold text-white mt-1 bg-black/40 p-2 rounded-xl border border-red-500/30">
+                    "{alert.guardDescription || alert.operatorNotes?.find(n => n.includes("Guardia"))}"
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Core Content: Split Burst Photo Viewer & Map */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-stretch">
+            {/* Left: 3-Frame Burst Photo Section or Live Stream (6 cols) */}
+            <div className="lg:col-span-6 space-y-1.5 flex flex-col">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setMediaMode("BURST")}
+                    className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                      mediaMode === "BURST"
+                        ? "bg-slate-800 text-white shadow-sm border border-slate-700"
+                        : "text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                    <span>Ráfaga (3 Cuadros HD)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setMediaMode("LIVE")}
+                    className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                      mediaMode === "LIVE"
+                        ? "bg-red-600 text-white shadow-sm shadow-red-950"
+                        : "text-red-400 hover:text-red-300 hover:bg-red-950/40"
+                    }`}
+                  >
+                    <Radio className="w-3 h-3 animate-pulse text-white" />
+                    <span>Cámara en Vivo (5 min)</span>
+                  </button>
+                </div>
+
+                {mediaMode === "LIVE" && (
+                  <span className="text-[10px] font-mono font-bold text-red-400 bg-red-950/80 border border-red-500/40 px-2 py-0.5 rounded-full animate-pulse flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                    8 FPS
+                  </span>
+                )}
+              </div>
+
+              <div className="flex-1 min-h-[300px] flex flex-col">
+                {mediaMode === "BURST" ? (
+                  <BurstViewer
+                    images={alert.images}
+                    evidenceTimeline={alert.aiVerdict?.evidenceTimeline}
+                  />
+                ) : (
+                  <div className="relative flex-1 w-full rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 flex items-center justify-center min-h-[300px]">
+                    {liveFrame ? (
+                      <>
+                        <img
+                          src={liveFrame}
+                          alt="Transmisión en vivo"
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute top-2.5 left-2.5 bg-red-950/90 backdrop-blur px-2.5 py-1 rounded-lg border border-red-500/40 flex items-center gap-1.5 text-[10px] font-mono text-red-300 font-bold shadow-lg">
+                          <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
+                          <span>TRANSMISIÓN EN VIVO ACTIVA (5 MINUTOS)</span>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-center p-6 space-y-3 max-w-sm">
+                        <Camera className="w-10 h-10 text-red-500 animate-pulse mx-auto" />
+                        <h4 className="text-xs font-bold text-red-400 uppercase">Sincronizando Cámara de Terminal...</h4>
+                        <p className="text-[11px] text-slate-400 leading-relaxed">
+                          La terminal transmite en vivo durante 5 minutos tras el pánico. Si la terminal está en segundo plano o el tiempo expiró, consulta la ráfaga de fotogramas capturada.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* Right: GPS Location Map & Quick Stats (5 cols) */}
-            <div className="lg:col-span-5 space-y-2">
-              <h3 className="text-[11px] uppercase tracking-wider font-bold text-slate-400 flex items-center gap-1.5">
-                <MapPin className="w-3 h-3 text-blue-400" />
-                Geolocalización & Posición Satelital
-              </h3>
-              <TacticalMap
-                coordinates={alert.store.coordinates}
-                storeName={alert.store.storeName}
-                address={alert.store.address}
-                city={alert.store.city}
-                className="h-32 sm:h-36"
-              />
+            {/* Right: GPS Location Map & Quick Stats (6 cols) */}
+            <div className="lg:col-span-6 space-y-2 flex flex-col justify-between">
+              <div className="flex items-center justify-between">
+                <h3 className="text-[11px] uppercase tracking-wider font-bold text-slate-400 flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-blue-400" />
+                  Geolocalización & Mapa Táctico Oficial
+                </h3>
+              </div>
+              <div className="flex-1 flex flex-col min-h-[340px] sm:min-h-[380px]">
+                <TacticalMap
+                  coordinates={alert.store.coordinates}
+                  storeName={alert.store.storeName}
+                  address={alert.store.address}
+                  city={alert.store.city}
+                  className="w-full h-full flex-1 min-h-[320px] sm:min-h-[360px]"
+                />
+              </div>
 
               {/* Status and Dispatched Unit pill */}
-              <div className="p-2 rounded-xl bg-slate-950/70 border border-slate-800 space-y-1 text-[11px]">
+              <div className="p-2.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1 text-xs shrink-0">
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-400">Estado:</span>
+                  <span className="text-slate-400">Estado del Incidente:</span>
                   <span
-                    className={`px-2 py-0.5 rounded-full font-bold uppercase text-[10px] ${
+                    className={`px-2.5 py-0.5 rounded-full font-bold uppercase text-[10px] ${
                       alert.status === "ACTIVE"
                         ? "bg-red-500/20 text-red-300 border border-red-500/40 animate-pulse"
                         : alert.status === "DISPATCHED"
@@ -186,7 +325,7 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
                 </div>
                 {alert.dispatchedUnit && (
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Unidad:</span>
+                    <span className="text-slate-400">Patrulla Asignada:</span>
                     <span className="font-mono text-blue-400 font-semibold">{alert.dispatchedUnit}</span>
                   </div>
                 )}
@@ -201,11 +340,47 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
             aiError={alert.aiError}
           />
 
-          {/* Operator Action Dispatch Controls */}
+          {/* Bitácora Unificada de Eventos & Procesos en Tiempo Real */}
+          <div className="p-3 rounded-2xl bg-slate-950/90 border border-slate-800 space-y-2">
+            <div className="flex items-center justify-between">
+              <h4 className="text-[11px] uppercase tracking-wider font-bold text-slate-300 flex items-center gap-1.5">
+                <FileText className="w-3.5 h-3.5 text-blue-400" />
+                Bitácora de Eventos y Procesos en Tiempo Real ({alert.logs?.length || 0}):
+              </h4>
+            </div>
+
+            <div className="space-y-1 max-h-32 overflow-y-auto pr-1">
+              {alert.logs && alert.logs.length > 0 ? (
+                alert.logs.map((log, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-start gap-2 text-[11px] py-1 px-2 rounded bg-slate-900/80 border border-slate-800/80"
+                  >
+                    <span className="font-mono text-[10px] text-slate-500 shrink-0">
+                      {new Date(log.timestamp).toLocaleTimeString()}
+                    </span>
+                    <div className="flex-1 text-slate-300">
+                      <span className="font-medium text-slate-200">{log.action}</span>
+                      {log.operator && (
+                        <span className="text-blue-400 ml-1.5 font-bold">[{log.operator}]</span>
+                      )}
+                      {log.details && log.details !== log.action && (
+                        <div className="text-[10px] text-slate-400 mt-0.5">{log.details}</div>
+                      )}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-slate-500 text-[11px] italic">Sin registros aún.</div>
+              )}
+            </div>
+          </div>
+
+          {/* Operator Action Dispatch Controls & Bitácora Input */}
           <div className="bg-slate-950/90 border border-slate-800 rounded-xl p-3 space-y-2.5">
             <h4 className="text-[11px] uppercase tracking-wider font-bold text-slate-300 flex items-center gap-1.5">
               <Shield className="w-3.5 h-3.5 text-red-400" />
-              Consola de Despacho y Acción Táctica:
+              Consola de Despacho & Actualización de Bitácora:
             </h4>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -224,35 +399,67 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
 
               <div>
                 <label className="block text-[10px] font-medium text-slate-400 mb-0.5">
-                  Nota de Bitácora del Operador:
+                  Registrar Novedad / Proceso en Bitácora:
                 </label>
-                <input
-                  type="text"
-                  value={operatorNote}
-                  onChange={(e) => setOperatorNote(e.target.value)}
-                  placeholder="Ej. Comunicación confirmada..."
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-blue-500"
-                />
+                <div className="flex gap-1.5">
+                  <input
+                    type="text"
+                    value={operatorNote}
+                    onChange={(e) => setOperatorNote(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleAddLiveNote();
+                      }
+                    }}
+                    placeholder="Ej. Patrulla 911 en arribo al lugar..."
+                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-blue-500"
+                  />
+                  <button
+                    type="button"
+                    disabled={isSubmittingNote || !operatorNote.trim()}
+                    onClick={handleAddLiveNote}
+                    className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg text-xs font-semibold shrink-0 cursor-pointer flex items-center gap-1"
+                    title="Registrar en la bitácora sin cerrar"
+                  >
+                    <Send className="w-3 h-3" />
+                    <span>Registrar</span>
+                  </button>
+                </div>
               </div>
             </div>
 
             {/* Action Buttons */}
-            <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800">
               <button
-                onClick={() => handleAction("FALSE_ALARM")}
-                className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                type="button"
+                onClick={() => downloadAlertPdfReport(alert)}
+                className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="Descargar informe oficial con fotos y bitácora forense en PDF"
               >
-                <XCircle className="w-3.5 h-3.5 text-amber-400" />
-                Marcar Falsa Alarma
+                <FileText className="w-3.5 h-3.5 text-blue-400" />
+                <span>Exportar Bitácora PDF</span>
               </button>
 
-              <button
-                onClick={() => handleAction("RESOLVED")}
-                className="px-3 py-1.5 rounded-xl bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-300 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
-              >
-                <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
-                Cerrar Incidente
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleAction("FALSE_ALARM")}
+                  className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                >
+                  <XCircle className="w-3.5 h-3.5 text-amber-400" />
+                  Marcar Falsa Alarma
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleAction("RESOLVED")}
+                  className="px-3 py-1.5 rounded-xl bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-300 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                >
+                  <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
+                  Cerrar Incidente
+                </button>
+              </div>
             </div>
           </div>
         </div>
