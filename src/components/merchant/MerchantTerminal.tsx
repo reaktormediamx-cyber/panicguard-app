@@ -230,13 +230,6 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
             {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
             <span>{isMuted ? "Sonido Silenciado" : "Sonido Activo"}</span>
           </button>
-
-          <button
-            onClick={onOpenStoreConfig}
-            className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-sm transition-colors cursor-pointer"
-          >
-            Editar Comercio
-          </button>
         </div>
       </div>
 

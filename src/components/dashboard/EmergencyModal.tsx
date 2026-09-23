@@ -2,25 +2,19 @@ import React, { useState } from "react";
 import {
   X,
   Radio,
-  Volume2,
   VolumeX,
   Phone,
   Shield,
   Clock,
   MapPin,
   User,
-  AlertTriangle,
   CheckCircle,
   XCircle,
-  Mic,
-  FileText,
 } from "lucide-react";
 import { PanicAlert, AlertStatus, formatTriggerType } from "../../types.js";
 import { BurstViewer } from "./BurstViewer.js";
 import { TacticalMap } from "./TacticalMap.js";
 import { AiVerdictPanel } from "./AiVerdictPanel.js";
-import { LiveIntercomModal } from "./LiveIntercomModal.js";
-import { ForensicReportModal } from "./ForensicReportModal.js";
 
 interface EmergencyModalProps {
   alert: PanicAlert;
@@ -45,8 +39,6 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
 }) => {
   const [operatorNote, setOperatorNote] = useState<string>("");
   const [dispatchUnit, setDispatchUnit] = useState<string>("Patrulla Sector #911-A");
-  const [showIntercom, setShowIntercom] = useState<boolean>(false);
-  const [showForensicReport, setShowForensicReport] = useState<boolean>(false);
 
   const { label: triggerLabel, isDrill } = formatTriggerType(alert.triggerType);
 
@@ -92,23 +84,6 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
           </div>
 
           <div className="flex items-center gap-1.5">
-            {/* Advanced Central Tools: Option 2 & Option 4 */}
-            <button
-              onClick={() => setShowIntercom(true)}
-              className="px-2.5 py-1 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-[11px] flex items-center gap-1 transition-colors shadow cursor-pointer"
-            >
-              <Mic className="w-3.5 h-3.5 animate-pulse" />
-              Intercom
-            </button>
-
-            <button
-              onClick={() => setShowForensicReport(true)}
-              className="px-2.5 py-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-[11px] flex items-center gap-1 transition-colors shadow cursor-pointer border border-slate-700"
-            >
-              <FileText className="w-3.5 h-3.5 text-blue-400" />
-              PDF
-            </button>
-
             {/* Audio Alarm Control */}
             {isAudioAlarmActive && (
               <button
@@ -219,7 +194,7 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
             </div>
           </div>
 
-          {/* Dynamic Verification Verdict Section (Updates automatically in place) */}
+          {/* Dynamic Verification Verdict Section */}
           <AiVerdictPanel
             verdict={alert.aiVerdict}
             aiStatus={alert.aiStatus}
@@ -283,14 +258,6 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
         </div>
       </div>
     </div>
-
-      {showIntercom && (
-        <LiveIntercomModal alert={alert} onClose={() => setShowIntercom(false)} />
-      )}
-
-      {showForensicReport && (
-        <ForensicReportModal alert={alert} onClose={() => setShowForensicReport(false)} />
-      )}
     </>
   );
 };

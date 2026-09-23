@@ -22,19 +22,19 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
 
   useEffect(() => {
     let isMounted = true;
-    if (address && address.trim().length > 3) {
+    if (coordinates && (coordinates.latitude !== 0 || coordinates.longitude !== 0)) {
+      setMapCoords(coordinates);
+    } else if (address && address.trim().length > 3) {
       geocodeAddress(address, city).then((res) => {
         if (isMounted && res) {
           setMapCoords(res);
         }
       });
-    } else {
-      setMapCoords(coordinates);
     }
     return () => {
       isMounted = false;
     };
-  }, [address, city, coordinates.latitude, coordinates.longitude]);
+  }, [address, city, coordinates?.latitude, coordinates?.longitude]);
 
   const { latitude, longitude } = mapCoords;
   const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
