@@ -288,23 +288,35 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
                         />
                         <div className="absolute top-2.5 left-2.5 bg-red-950/90 backdrop-blur px-2.5 py-1 rounded-lg border border-red-500/40 flex items-center gap-1.5 text-[10px] font-mono text-red-300 font-bold shadow-lg">
                           <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
-                          <span>TRANSMISIÓN EN VIVO ACTIVA (5 MINUTOS)</span>
+                          <span>TRANSMISIÓN EN VIVO ACTIVA (8 FPS)</span>
                         </div>
                       </>
                     ) : (
-                      <div className="text-center p-6 space-y-3 max-w-sm">
-                        <Camera className="w-10 h-10 text-red-500 animate-pulse mx-auto" />
-                        <h4 className="text-xs font-bold text-red-400 uppercase">Sincronizando Cámara de Terminal...</h4>
-                        <p className="text-[11px] text-slate-400 leading-relaxed">
-                          La terminal física/navegador transmite video en tiempo real durante los 5 minutos posteriores a la activación de la alarma mientras esté conectada.
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => setMediaMode("BURST")}
-                          className="mt-2 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 flex items-center gap-1.5 mx-auto cursor-pointer transition-colors"
-                        >
-                          <span>Ver Ráfaga de Evidencia (3 Fotos HD)</span>
-                        </button>
+                      <div className="relative w-full h-full min-h-[300px] flex flex-col items-center justify-center p-6 bg-slate-950">
+                        {alert.images && alert.images.length > 0 && (
+                          <img
+                            src={alert.images[alert.images.length - 1]}
+                            alt="Fotograma de videoverificación"
+                            className="absolute inset-0 w-full h-full object-cover opacity-30 filter blur-xs"
+                          />
+                        )}
+                        <div className="relative z-10 text-center space-y-3 max-w-sm bg-slate-900/90 p-5 rounded-2xl border border-slate-800 backdrop-blur shadow-2xl">
+                          <Camera className="w-8 h-8 text-red-500 animate-pulse mx-auto" />
+                          <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                            Videoverificación de Terminal
+                          </h4>
+                          <p className="text-[11px] text-slate-300 leading-relaxed">
+                            La transmisión de video en vivo se activa en tiempo real cuando la terminal del comercio pulsa el botón de pánico.
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => setMediaMode("BURST")}
+                            className="w-full mt-2 py-2 px-3 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold shadow-md shadow-red-950/60 flex items-center justify-center gap-2 cursor-pointer transition-all"
+                          >
+                            <span className="w-2 h-2 rounded-full bg-white" />
+                            <span>Ver Ráfaga de Evidencia (3 Fotos HD)</span>
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>

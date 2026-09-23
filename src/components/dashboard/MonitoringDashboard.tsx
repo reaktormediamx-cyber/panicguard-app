@@ -163,33 +163,6 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
   }, [appUser, centrales]);
   const [activeTab, setActiveTab] = useState<"VERIFICATION" | "TERMINALS">("TERMINALS");
   const [terminalSearch, setTerminalSearch] = useState("");
-  const [liveCameraTerminalId, setLiveCameraTerminalId] = useState<string | null>(null);
-  const [liveStreamFrames, setLiveStreamFrames] = useState<Record<string, string>>({});
-
-  useEffect(() => {
-    const socket = (window as any).__panicSocket;
-    if (!socket) return;
-    const handleFrameUpdate = ({
-      terminalId,
-      storeId,
-      frameData,
-    }: {
-      terminalId: string;
-      storeId?: string;
-      frameData: string;
-    }) => {
-      setLiveStreamFrames((prev) => ({
-        ...prev,
-        [terminalId]: frameData,
-        ...(storeId ? { [storeId]: frameData } : {}),
-      }));
-    };
-    socket.on("terminal:frame:update", handleFrameUpdate);
-    return () => {
-      socket.off("terminal:frame:update", handleFrameUpdate);
-    };
-  }, []);
-
   const [confirmingDeactivateTerminalId, setConfirmingDeactivateTerminalId] = useState<string | null>(null);
   const [confirmingDeleteTerminalId, setConfirmingDeleteTerminalId] = useState<string | null>(null);
 
@@ -244,31 +217,6 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
   });
 
   const selectedAlert = alerts.find((a) => a.id === selectedAlertId) || filteredAlerts[0] || alerts[0];
-
-  const liveCameraTerminal = terminals.find(
-    (t) => t.id === liveCameraTerminalId || t.storeId === liveCameraTerminalId
-  ) || (selectedAlert && (selectedAlert.id === liveCameraTerminalId || selectedAlert.store.storeId === liveCameraTerminalId) ? {
-    id: selectedAlert.store.storeId,
-    storeId: selectedAlert.store.storeId,
-    storeName: selectedAlert.store.storeName,
-    ownerName: selectedAlert.store.ownerName,
-    phone: selectedAlert.store.phone,
-    address: selectedAlert.store.address,
-    city: selectedAlert.store.city,
-    isOnline: true,
-  } as any : null);
-
-  useEffect(() => {
-    if (liveCameraTerminalId) {
-      const socket = (window as any).__panicSocket;
-      if (socket) {
-        socket.emit("terminal:request_stream", {
-          terminalId: liveCameraTerminalId,
-          storeId: liveCameraTerminal?.storeId || liveCameraTerminalId,
-        });
-      }
-    }
-  }, [liveCameraTerminalId, liveCameraTerminal]);
 
   const activeCount = alerts.filter((a) => a.status === "ACTIVE").length;
   const dispatchedCount = alerts.filter((a) => a.status === "DISPATCHED").length;
@@ -693,16 +641,6 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
                 <div className="flex items-center gap-2 flex-wrap">
                   <button
                     type="button"
-                    onClick={() => setLiveCameraTerminalId(selectedAlert.store.storeId)}
-                    className="px-3.5 py-2 rounded-xl bg-red-600/90 hover:bg-red-500 border border-red-400/50 text-xs font-bold text-white flex items-center gap-1.5 transition-all shadow-md shadow-red-950/60 cursor-pointer"
-                    title="Ver transmisión de video en tiempo real de esta terminal (5 minutos)"
-                  >
-                    <Radio className="w-4 h-4 text-white animate-pulse" />
-                    <span>Ver Cámara en Vivo (5 min)</span>
-                  </button>
-
-                  <button
-                    type="button"
                     onClick={() => downloadAlertPdfReport(selectedAlert)}
                     className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-blue-700 to-indigo-700 hover:from-blue-600 hover:to-indigo-600 border border-blue-400/40 text-xs font-bold text-white flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
                     title="Descargar informe oficial con fotos y bitácora completa en PDF"
@@ -940,15 +878,6 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
                         </div>
 
                         <div className="flex items-center gap-1.5 flex-wrap justify-end">
-                          <button
-                            onClick={() => setLiveCameraTerminalId(t.id)}
-                            className="text-[10px] px-2.5 py-1 rounded-lg font-bold bg-red-600/20 hover:bg-red-600 text-red-300 hover:text-white border border-red-500/40 flex items-center gap-1.5 cursor-pointer transition-all shadow-sm"
-                            title="Ver transmisión de cámara en tiempo real (5 minutos)"
-                            type="button"
-                          >
-                            <Radio className="w-3 h-3 text-red-400 animate-pulse" />
-                            <span>Cámara (5 min)</span>
-                          </button>
                           <span
                             className={`text-[9px] px-2 py-0.5 rounded-full font-mono font-bold ${
                               isActive
@@ -1090,81 +1019,6 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
           )}
         </div>
       )}
-
-      {/* Live Camera Modal for Open Terminals */}
-      {liveCameraTerminal && (() => {
-        const isEmergencyActive = alerts.some(
-          (a) => a.store.storeId === liveCameraTerminal.storeId && a.status === "ACTIVE"
-        );
-        return (
-          <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
-            <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                <div className="flex items-center gap-2.5">
-                  <div className={`w-3 h-3 rounded-full ${isEmergencyActive ? "bg-red-500 animate-ping" : "bg-blue-500"}`} />
-                  <div>
-                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                      <Camera className="w-4 h-4 text-slate-300" />
-                      <span>Cámara en Tiempo Real: {liveCameraTerminal.storeName}</span>
-                    </h3>
-                    <span className="text-[11px] font-mono text-slate-400">
-                      ID: {liveCameraTerminal.storeId} — {isEmergencyActive ? "🔴 Transmisión de Emergencia" : "🔒 Canal Seguro (Modo de Privacidad)"}
-                    </span>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setLiveCameraTerminalId(null)}
-                  className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold cursor-pointer transition-colors"
-                  type="button"
-                >
-                  Cerrar
-                </button>
-              </div>
-
-              <div className="relative aspect-video rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 flex items-center justify-center shadow-inner">
-                {isEmergencyActive ? (
-                  (liveStreamFrames[liveCameraTerminal.id] || liveStreamFrames[liveCameraTerminal.storeId]) ? (
-                    <>
-                      <img
-                        src={liveStreamFrames[liveCameraTerminal.id] || liveStreamFrames[liveCameraTerminal.storeId]}
-                        alt="Transmisión en vivo"
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute top-3 left-3 bg-red-950/90 backdrop-blur px-2.5 py-1 rounded-lg border border-red-500/30 flex items-center gap-1.5 text-[10px] font-mono text-red-400 font-bold animate-pulse">
-                        <div className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
-                        <span>EMERGENCIA ACTIVA - TRANSMISIÓN DE SEGURIDAD (5 MINS)</span>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="text-center space-y-3 p-6 max-w-sm">
-                      <Radio className="w-10 h-10 animate-pulse text-red-500 mx-auto" />
-                      <p className="text-xs font-bold text-red-400 uppercase">Sincronizando con la terminal...</p>
-                      <p className="text-[11px] text-slate-500">Conectando canal de videoverificación prioritario de 8 FPS.</p>
-                    </div>
-                  )
-                ) : (
-                  <div className="text-center p-6 max-w-md space-y-3">
-                    <ShieldCheck className="w-12 h-12 text-blue-500 mx-auto opacity-80" />
-                    <p className="text-sm font-bold text-slate-200 uppercase tracking-wider">Cámara en Modo de Privacidad / Espera</p>
-                    <p className="text-xs text-slate-400 px-4">
-                      Por políticas de privacidad del comercio y optimización de datos, la cámara del comercio permanece apagada en tiempo de paz.
-                    </p>
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-[10px] text-emerald-400 font-mono">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
-                      Transmisión activa únicamente durante un pánico (5 minutos máximo)
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex items-center justify-between text-xs text-slate-400 bg-slate-950 p-3 rounded-2xl border border-slate-800">
-                <div>Titular: <span className="text-white">{liveCameraTerminal.ownerName}</span></div>
-                <div>Ubicación: <span className="text-white">{liveCameraTerminal.address}, {liveCameraTerminal.city}</span></div>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
 
       {/* MODAL: EDITAR TERMINAL (CENTRAL OPERATOR) */}
       {editingTerminal && (
