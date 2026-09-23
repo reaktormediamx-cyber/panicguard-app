@@ -169,14 +169,27 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
   useEffect(() => {
     const socket = (window as any).__panicSocket;
     if (!socket) return;
-    const handleFrameUpdate = ({ terminalId, frameData }: { terminalId: string; frameData: string }) => {
-      setLiveStreamFrames(prev => ({ ...prev, [terminalId]: frameData }));
+    const handleFrameUpdate = ({
+      terminalId,
+      storeId,
+      frameData,
+    }: {
+      terminalId: string;
+      storeId?: string;
+      frameData: string;
+    }) => {
+      setLiveStreamFrames((prev) => ({
+        ...prev,
+        [terminalId]: frameData,
+        ...(storeId ? { [storeId]: frameData } : {}),
+      }));
     };
     socket.on("terminal:frame:update", handleFrameUpdate);
     return () => {
       socket.off("terminal:frame:update", handleFrameUpdate);
     };
   }, []);
+
   const [confirmingDeactivateTerminalId, setConfirmingDeactivateTerminalId] = useState<string | null>(null);
   const [confirmingDeleteTerminalId, setConfirmingDeleteTerminalId] = useState<string | null>(null);
 
@@ -244,6 +257,18 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
     city: selectedAlert.store.city,
     isOnline: true,
   } as any : null);
+
+  useEffect(() => {
+    if (liveCameraTerminalId) {
+      const socket = (window as any).__panicSocket;
+      if (socket) {
+        socket.emit("terminal:request_stream", {
+          terminalId: liveCameraTerminalId,
+          storeId: liveCameraTerminal?.storeId || liveCameraTerminalId,
+        });
+      }
+    }
+  }, [liveCameraTerminalId, liveCameraTerminal]);
 
   const activeCount = alerts.filter((a) => a.status === "ACTIVE").length;
   const dispatchedCount = alerts.filter((a) => a.status === "DISPATCHED").length;
@@ -1098,10 +1123,10 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
 
               <div className="relative aspect-video rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 flex items-center justify-center shadow-inner">
                 {isEmergencyActive ? (
-                  liveStreamFrames[liveCameraTerminal.id] ? (
+                  (liveStreamFrames[liveCameraTerminal.id] || liveStreamFrames[liveCameraTerminal.storeId]) ? (
                     <>
                       <img
-                        src={liveStreamFrames[liveCameraTerminal.id]}
+                        src={liveStreamFrames[liveCameraTerminal.id] || liveStreamFrames[liveCameraTerminal.storeId]}
                         alt="Transmisión en vivo"
                         className="w-full h-full object-cover"
                       />

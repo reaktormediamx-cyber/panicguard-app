@@ -49,17 +49,33 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
   const [mediaMode, setMediaMode] = useState<"BURST" | "LIVE">("BURST");
   const [liveFrame, setLiveFrame] = useState<string | null>(null);
 
-  // Escuchar fotogramas de transmisión en tiempo real
+  // Escuchar fotogramas de transmisión en tiempo real y solicitar transmisión
   useEffect(() => {
     const socket = (window as any).__panicSocket;
     if (!socket) return;
 
-    const handleFrameUpdate = ({ terminalId, frameData }: { terminalId: string; frameData: string }) => {
+    if (mediaMode === "LIVE") {
+      socket.emit("terminal:request_stream", {
+        terminalId: (alert as any).terminalId || alert.store?.storeId,
+        storeId: alert.store?.storeId,
+      });
+    }
+
+    const handleFrameUpdate = ({
+      terminalId,
+      storeId,
+      frameData,
+    }: {
+      terminalId?: string;
+      storeId?: string;
+      frameData: string;
+    }) => {
       const match =
         terminalId === alert.store?.storeId ||
+        storeId === alert.store?.storeId ||
         terminalId === (alert as any).terminalId ||
-        alert.store?.storeId?.includes(terminalId) ||
-        terminalId?.includes(alert.store?.storeId || "___");
+        (alert.store?.storeId && terminalId?.includes(alert.store.storeId)) ||
+        (terminalId && alert.store?.storeId?.includes(terminalId));
 
       if (match) {
         setLiveFrame(frameData);
@@ -70,7 +86,7 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
     return () => {
       socket.off("terminal:frame:update", handleFrameUpdate);
     };
-  }, [alert.store?.storeId]);
+  }, [alert.store?.storeId, mediaMode]);
 
   const { label: triggerLabel, isDrill } = formatTriggerType(alert.triggerType);
 
@@ -280,8 +296,15 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
                         <Camera className="w-10 h-10 text-red-500 animate-pulse mx-auto" />
                         <h4 className="text-xs font-bold text-red-400 uppercase">Sincronizando Cámara de Terminal...</h4>
                         <p className="text-[11px] text-slate-400 leading-relaxed">
-                          La terminal transmite en vivo durante 5 minutos tras el pánico. Si la terminal está en segundo plano o el tiempo expiró, consulta la ráfaga de fotogramas capturada.
+                          La terminal física/navegador transmite video en tiempo real durante los 5 minutos posteriores a la activación de la alarma mientras esté conectada.
                         </p>
+                        <button
+                          type="button"
+                          onClick={() => setMediaMode("BURST")}
+                          className="mt-2 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 flex items-center gap-1.5 mx-auto cursor-pointer transition-colors"
+                        >
+                          <span>Ver Ráfaga de Evidencia (3 Fotos HD)</span>
+                        </button>
                       </div>
                     )}
                   </div>

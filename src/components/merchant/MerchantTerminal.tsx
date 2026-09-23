@@ -158,7 +158,38 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
 
   // Live camera feed broadcast to central via Socket.IO (optimized real-time video streaming)
   useEffect(() => {
-    if (!firestoreId) return;
+    const socket = (window as any).__panicSocket;
+    if (!socket) return;
+
+    const handleStartStream = (payload: { terminalId?: string; storeId?: string }) => {
+      const isTarget =
+        payload.terminalId === firestoreId ||
+        payload.storeId === activeStore.storeId ||
+        payload.terminalId === activeStore.storeId;
+
+      if (isTarget) {
+        setIsStreamingActive(true);
+        if (!hasCameraPermission) {
+          startCamera();
+        }
+        if (streamingTimeoutRef.current) {
+          clearTimeout(streamingTimeoutRef.current);
+        }
+        streamingTimeoutRef.current = setTimeout(() => {
+          setIsStreamingActive(false);
+        }, 300000); // 5 minutes
+      }
+    };
+
+    socket.on("terminal:start_stream", handleStartStream);
+
+    return () => {
+      socket.off("terminal:start_stream", handleStartStream);
+    };
+  }, [firestoreId, activeStore.storeId, hasCameraPermission, startCamera]);
+
+  useEffect(() => {
+    if (!firestoreId && !activeStore.storeId) return;
     const interval = setInterval(() => {
       try {
         if (isStreamingActive && canvasRef.current && videoRef.current && videoRef.current.videoWidth > 0) {
@@ -173,7 +204,11 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
             
             const socket = (window as any).__panicSocket;
             if (socket) {
-              socket.emit("terminal:frame", { terminalId: firestoreId, frameData: dataUrl });
+              socket.emit("terminal:frame", {
+                terminalId: firestoreId || activeStore.storeId,
+                storeId: activeStore.storeId,
+                frameData: dataUrl
+              });
             }
           }
         }
@@ -206,7 +241,7 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
         }, { merge: true }).catch(() => {});
       }
     };
-  }, [firestoreId, isStreamingActive]);
+  }, [firestoreId, activeStore.storeId, isStreamingActive]);
 
   return (
     <div className="w-full max-w-6xl mx-auto p-4 sm:p-6 space-y-6">

@@ -34,12 +34,6 @@ const io = new SocketIOServer(server, {
   maxHttpBufferSize: 5e7, // 50MB
 });
 
-io.on("connection", (socket) => {
-  socket.on("terminal:frame", ({ terminalId, frameData }) => {
-    socket.broadcast.emit("terminal:frame:update", { terminalId, frameData });
-  });
-});
-
 // In-memory alert store with sample seeded alerts
 const alertStore: Map<string, PanicAlert> = new Map();
 
@@ -184,6 +178,16 @@ io.on("connection", (socket) => {
     if (typeof callback === "function") {
       callback();
     }
+  });
+
+  // Relay live camera frames from terminal to central
+  socket.on("terminal:frame", (payload: { terminalId: string; storeId?: string; frameData: string }) => {
+    socket.broadcast.emit("terminal:frame:update", payload);
+  });
+
+  // Central requests terminal to start streaming on-demand
+  socket.on("terminal:request_stream", (payload: { terminalId?: string; storeId?: string }) => {
+    socket.broadcast.emit("terminal:start_stream", payload);
   });
 
   // Send current alerts upon client connection
