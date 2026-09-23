@@ -154,7 +154,6 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
   const [selectedAlertId, setSelectedAlertId] = useState<string | null>(
     alerts.length > 0 ? alerts[0].id : null
   );
-  const [isSimulating, setIsSimulating] = useState<boolean>(false);
   const [isMuted, setIsMuted] = useState<boolean>(false);
 
   // Filter terminals for the current Central (or all if Super Admin on this view)
@@ -188,22 +187,6 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
   // Test sound button
   const handleTestSound = () => {
     alarmSound.playAlertNotification();
-  };
-
-  // Run synthetic test alert on the server
-  const handleTriggerSimulation = async (scenario: "armed" | "silent" | "drill") => {
-    try {
-      setIsSimulating(true);
-      await fetch("/api/alerts/simulate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ scenario }),
-      });
-    } catch (e) {
-      console.error("Simulation error:", e);
-    } finally {
-      setIsSimulating(false);
-    }
   };
 
   // Filtered alerts list
@@ -315,15 +298,6 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
           >
             Probar Tono
           </button>
-
-          <button
-            onClick={() => handleTriggerSimulation("armed")}
-            disabled={isSimulating}
-            className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white text-xs font-bold flex items-center gap-1.5 shadow transition-all cursor-pointer"
-          >
-            <AlertTriangle className="w-3.5 h-3.5" />
-            {isSimulating ? "Simulando..." : "Simular Alerta"}
-          </button>
         </div>
       </div>
 
@@ -345,7 +319,7 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
 
         <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 flex items-center justify-between">
           <div>
-            <div className="text-xs text-slate-400 font-medium">Patrullas Despachadas</div>
+            <div className="text-xs text-slate-400 font-medium">Emergencias despachadas</div>
             <div className="text-2xl font-black text-blue-400 mt-1">{dispatchedCount}</div>
           </div>
           <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400">
