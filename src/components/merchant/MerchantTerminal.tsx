@@ -322,13 +322,17 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
             onClick={toggleSound}
             className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl border text-sm font-medium transition-colors cursor-pointer ${
               isMuted 
-                ? "bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-200" 
+                ? "bg-amber-950/40 border-amber-500/40 text-amber-300 hover:bg-amber-900/50" 
                 : "bg-blue-950/80 border-blue-500/30 text-blue-400 hover:bg-blue-900/80"
             }`}
-            title={isMuted ? "Activar sonido de alerta" : "Silenciar sonido de alerta"}
+            title={
+              isMuted
+                ? "Terminal en Modo Silencioso: Al activar alerta, el celular del guardia sonará y vibrará sin emitir ruido en esta pantalla"
+                : "Silenciar terminal local para activar alertas silenciosas (sonará en el celular del guardia)"
+            }
           >
-            {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-            <span>{isMuted ? "Sonido Silenciado" : "Sonido Activo"}</span>
+            {isMuted ? <VolumeX className="w-4 h-4 text-amber-400" /> : <Volume2 className="w-4 h-4" />}
+            <span>{isMuted ? "Terminal Silenciosa (Suena en Guardia)" : "Sonido Activo"}</span>
           </button>
         </div>
       </div>

@@ -237,29 +237,31 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
     };
   }, [isOnDuty]);
 
-  // Auto-siren & vibration when active emergency matches this guard
-  const previousActiveCount = useRef<number>(0);
+  // Auto-siren & vibration loop when active emergency matches this guard
+  // Plays siren and vibrates phone continuously until guard responds (Voy en camino)
+  // or Central operator dispatches/resolves the alert (even if terminal operator muted local sound)
   useEffect(() => {
     if (isOnDuty && activeAlerts.length > 0) {
-      if (activeAlerts.length > previousActiveCount.current) {
-        alarmSound.playGuardTacticalSiren();
+      alarmSound.startGuardTacticalLoop();
 
-        if (typeof window !== "undefined" && "Notification" in window) {
-          if (Notification.permission === "granted") {
-            try {
-              new Notification("🚨 ¡EMERGENCIA EN CURSO!", {
-                body: `${activeAlerts[0].store.storeName} (${activeAlerts[0].store.address})`,
-                icon: "/favicon.ico",
-              });
-            } catch {}
-          }
+      if (typeof window !== "undefined" && "Notification" in window) {
+        if (Notification.permission === "granted") {
+          try {
+            new Notification("🚨 ¡EMERGENCIA EN CURSO!", {
+              body: `${activeAlerts[0].store.storeName} (${activeAlerts[0].store.address})`,
+              icon: "/favicon.ico",
+            });
+          } catch {}
         }
       }
-    } else if (activeAlerts.length === 0 && previousActiveCount.current > 0) {
-      // Dispatched or resolved by Central operator -> Stop alarm immediately and return to quiet standby
-      alarmSound.stopAlarm();
+    } else {
+      // Dispatched or resolved -> Stop alarm loop immediately and return to quiet standby
+      alarmSound.stopGuardTacticalLoop();
     }
-    previousActiveCount.current = activeAlerts.length;
+
+    return () => {
+      alarmSound.stopGuardTacticalLoop();
+    };
   }, [activeAlerts.length, isOnDuty]);
 
   // Test sound & vibration
@@ -273,7 +275,7 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
 
   // Guard Actions (1-Tap Response Protocol)
   const handleDispatchEnCamino = (alert: PanicAlert) => {
-    alarmSound.stopAlarm();
+    alarmSound.stopGuardTacticalLoop();
     alarmSound.playSuccessTone();
     const officerLabel = guardName.trim() || "Guardia en Turno";
     updateAlertStatus(
@@ -295,6 +297,7 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
   };
 
   const handleArrivedOnSite = (alert: PanicAlert) => {
+    alarmSound.stopGuardTacticalLoop();
     alarmSound.playSuccessTone();
     const officerLabel = guardName.trim() || "Guardia en Turno";
     const socket = (window as any).__panicSocket;
@@ -308,6 +311,7 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
   };
 
   const handlePerimeterSecured = (alert: PanicAlert) => {
+    alarmSound.stopGuardTacticalLoop();
     alarmSound.playSuccessTone();
     const officerLabel = guardName.trim() || "Guardia en Turno";
     updateAlertStatus(

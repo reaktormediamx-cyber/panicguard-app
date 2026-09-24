@@ -4,6 +4,8 @@ class AlarmSoundEngine {
   private ctx: AudioContext | null = null;
   private isAlarmPlaying = false;
   private alarmInterval: number | null = null;
+  private isGuardSirenPlaying = false;
+  private guardSirenInterval: number | null = null;
   private muted = false;
 
   private initContext(): AudioContext {
@@ -29,7 +31,7 @@ class AlarmSoundEngine {
   }
 
   /**
-   * Plays a distinct double high-low warning pulse (Dispatch Bell/Siren)
+   * Plays a distinct double high-low warning pulse (Dispatch Bell/Siren for Central / Terminal)
    */
   public playAlertNotification() {
     if (this.muted) return;
@@ -74,7 +76,7 @@ class AlarmSoundEngine {
   }
 
   /**
-   * Starts a continuous emergency strobe pulse (can be stopped when operator acknowledges)
+   * Starts a continuous emergency strobe pulse for Central / Terminal
    */
   public startEmergencySiren() {
     if (this.muted || this.isAlarmPlaying) return;
@@ -97,7 +99,6 @@ class AlarmSoundEngine {
   }
 
   public playSuccessTone() {
-    if (this.muted) return;
     try {
       const ctx = this.initContext();
       const now = ctx.currentTime;
@@ -123,10 +124,11 @@ class AlarmSoundEngine {
   }
 
   /**
-   * High-urgency tactical siren specifically tuned for guards on mobile
+   * High-urgency tactical siren & vibration specifically for Security Guards on mobile.
+   * NOTE: This ALWAYS plays and vibrates on the guard's phone even if the terminal operator
+   * disabled sound locally (Silent Panic mode).
    */
   public playGuardTacticalSiren() {
-    if (this.muted) return;
     try {
       const ctx = this.initContext();
       const now = ctx.currentTime;
@@ -135,12 +137,12 @@ class AlarmSoundEngine {
       const gain = ctx.createGain();
 
       osc.type = "sawtooth";
-      // Aggressive wail from 700Hz to 1400Hz and back
-      osc.frequency.setValueAtTime(700, now);
-      osc.frequency.linearRampToValueAtTime(1400, now + 0.35);
-      osc.frequency.linearRampToValueAtTime(700, now + 0.7);
+      // Aggressive tactical wail from 750Hz to 1500Hz and back
+      osc.frequency.setValueAtTime(750, now);
+      osc.frequency.linearRampToValueAtTime(1500, now + 0.35);
+      osc.frequency.linearRampToValueAtTime(750, now + 0.7);
 
-      gain.gain.setValueAtTime(0.4, now);
+      gain.gain.setValueAtTime(0.5, now);
       gain.gain.exponentialRampToValueAtTime(0.05, now + 0.7);
 
       osc.connect(gain);
@@ -149,7 +151,7 @@ class AlarmSoundEngine {
       osc.start(now);
       osc.stop(now + 0.7);
 
-      // Trigger hardware phone vibration if available
+      // Trigger tactile mobile vibration pattern (High-urgency pulses)
       if (typeof navigator !== "undefined" && "vibrate" in navigator) {
         try {
           navigator.vibrate([400, 150, 400, 150, 600]);
@@ -157,6 +159,37 @@ class AlarmSoundEngine {
       }
     } catch (e) {
       console.warn("Guard audio error:", e);
+    }
+  }
+
+  /**
+   * Starts a continuous emergency siren + vibration loop on the guard's phone
+   * Continues until guard takes action (e.g. Voy en Camino) or emergency is resolved.
+   */
+  public startGuardTacticalLoop() {
+    if (this.isGuardSirenPlaying) return;
+    this.isGuardSirenPlaying = true;
+    this.playGuardTacticalSiren();
+
+    if (this.guardSirenInterval) {
+      clearInterval(this.guardSirenInterval);
+    }
+
+    this.guardSirenInterval = window.setInterval(() => {
+      if (this.isGuardSirenPlaying) {
+        this.playGuardTacticalSiren();
+      }
+    }, 2200);
+  }
+
+  /**
+   * Stops the guard tactical loop
+   */
+  public stopGuardTacticalLoop() {
+    this.isGuardSirenPlaying = false;
+    if (this.guardSirenInterval) {
+      clearInterval(this.guardSirenInterval);
+      this.guardSirenInterval = null;
     }
   }
 }
