@@ -486,6 +486,17 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
                   Marcar Falsa Alarma
                 </button>
 
+                {alert.status === "ACTIVE" && (
+                  <button
+                    type="button"
+                    onClick={() => handleAction("DISPATCHED")}
+                    className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 border border-blue-400/60 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-md shadow-blue-950 cursor-pointer"
+                  >
+                    <Shield className="w-3.5 h-3.5 text-white" />
+                    <span>Despachar Alerta</span>
+                  </button>
+                )}
+
                 <button
                   type="button"
                   onClick={() => handleAction("RESOLVED")}

@@ -136,14 +136,14 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
     return relevantAlerts.filter((a) => a.status === "ACTIVE");
   }, [relevantAlerts]);
 
-  // Current emergency requiring attention
+  // Current emergency requiring attention (only ACTIVE alerts - deactivates when central dispatches or resolves)
   const currentEmergency: PanicAlert | null = useMemo(() => {
     if (selectedAlertId) {
-      const found = relevantAlerts.find((a) => a.id === selectedAlertId);
+      const found = activeAlerts.find((a) => a.id === selectedAlertId);
       if (found) return found;
     }
-    return activeAlerts[0] || relevantAlerts[0] || null;
-  }, [relevantAlerts, activeAlerts, selectedAlertId]);
+    return activeAlerts[0] || null;
+  }, [activeAlerts, selectedAlertId]);
 
   // Resolve matching terminal from database to ensure calibrated tactical coordinates & address
   const matchedTerminal = useMemo(() => {
@@ -241,6 +241,9 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
           }
         }
       }
+    } else if (activeAlerts.length === 0 && previousActiveCount.current > 0) {
+      // Dispatched or resolved by Central operator -> Stop alarm immediately and return to quiet standby
+      alarmSound.stopAlarm();
     }
     previousActiveCount.current = activeAlerts.length;
   }, [activeAlerts.length, isOnDuty]);

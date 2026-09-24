@@ -593,6 +593,51 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
                 </div>
 
                 <div className="flex items-center gap-2 flex-wrap">
+                  {selectedAlert.status === "ACTIVE" && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        updateAlertStatus(
+                          selectedAlert.id,
+                          "DISPATCHED",
+                          `Operador Central (${assignedCentralName || "C4"})`,
+                          "Patrulla y guardia despachados a la ubicación.",
+                          "Patrulla de Cuadrante"
+                        );
+                        if (isAudioAlarmActive) {
+                          acknowledgeAlarmSound();
+                        }
+                      }}
+                      className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 border border-blue-400 text-xs font-bold text-white flex items-center gap-1.5 transition-all shadow-md shadow-blue-950 cursor-pointer"
+                      title="Despachar unidad y notificar al guardia para volver a estado normal"
+                    >
+                      <Shield className="w-4 h-4 text-white" />
+                      <span>Despachar Alerta</span>
+                    </button>
+                  )}
+
+                  {selectedAlert.status !== "RESOLVED" && selectedAlert.status !== "FALSE_ALARM" && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        updateAlertStatus(
+                          selectedAlert.id,
+                          "RESOLVED",
+                          `Operador Central (${assignedCentralName || "C4"})`,
+                          "Incidente resuelto y finalizado por la central."
+                        );
+                        if (isAudioAlarmActive) {
+                          acknowledgeAlarmSound();
+                        }
+                      }}
+                      className="px-3 py-2 rounded-xl bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/40 text-xs font-bold text-emerald-300 flex items-center gap-1.5 transition-colors cursor-pointer"
+                      title="Cerrar y concluir este incidente"
+                    >
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                      <span>Cerrar</span>
+                    </button>
+                  )}
+
                   <button
                     type="button"
                     onClick={() => downloadAlertPdfReport(selectedAlert)}
@@ -600,7 +645,7 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
                     title="Descargar informe oficial con fotos y bitácora completa en PDF"
                   >
                     <Download className="w-4 h-4 text-white" />
-                    <span>Descargar Bitácora PDF</span>
+                    <span>Bitácora PDF</span>
                   </button>
 
                   <button
@@ -608,7 +653,7 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
                     className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold text-white flex items-center gap-1.5 transition-colors cursor-pointer"
                   >
                     <Eye className="w-4 h-4 text-blue-400" />
-                    Modo Pantalla Completa
+                    Pantalla Completa
                   </button>
                 </div>
               </div>
