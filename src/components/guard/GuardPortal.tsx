@@ -101,9 +101,84 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
   const [isAudioTestActive, setIsAudioTestActive] = useState<boolean>(false);
   const [selectedAlertId, setSelectedAlertId] = useState<string | null>(null);
   const [showTacticalMap, setShowTacticalMap] = useState<boolean>(true);
+  const [hasNotificationPermission, setHasNotificationPermission] = useState<boolean>(() => {
+    return typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted";
+  });
 
   // Screen WakeLock ref
   const wakeLockRef = useRef<any>(null);
+
+  // Background Audio Keep-Alive & WakeLock System
+  // Keeps the mobile audio session alive so sirens and vibration fire even when the screen turns off/locks
+  useEffect(() => {
+    if (isOnDuty) {
+      alarmSound.enableBackgroundGuardMode();
+    } else {
+      alarmSound.disableBackgroundGuardMode();
+    }
+
+    const requestWakeLock = async () => {
+      if (isOnDuty && "wakeLock" in navigator) {
+        try {
+          if (!wakeLockRef.current || wakeLockRef.current.released) {
+            wakeLockRef.current = await (navigator as any).wakeLock.request("screen");
+          }
+        } catch {}
+      }
+    };
+
+    requestWakeLock();
+
+    // Auto-restore WakeLock and background audio on screen turn-on / visibility change
+    const handleReactivation = () => {
+      if (document.visibilityState === "visible") {
+        requestWakeLock();
+        if (isOnDuty) {
+          alarmSound.enableBackgroundGuardMode();
+        }
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleReactivation);
+    window.addEventListener("focus", handleReactivation);
+    window.addEventListener("pageshow", handleReactivation);
+
+    // Audio unlocking on user touch
+    const handleUserInteraction = () => {
+      if (isOnDuty) {
+        alarmSound.enableBackgroundGuardMode();
+      }
+    };
+    window.addEventListener("touchstart", handleUserInteraction, { passive: true });
+    window.addEventListener("click", handleUserInteraction, { passive: true });
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleReactivation);
+      window.removeEventListener("focus", handleReactivation);
+      window.removeEventListener("pageshow", handleReactivation);
+      window.removeEventListener("touchstart", handleUserInteraction);
+      window.removeEventListener("click", handleUserInteraction);
+      if (wakeLockRef.current) {
+        try {
+          wakeLockRef.current.release();
+          wakeLockRef.current = null;
+        } catch {}
+      }
+    };
+  }, [isOnDuty]);
+
+  // Request Lockscreen Notification Permission
+  const requestNotificationPermission = async () => {
+    if (typeof window !== "undefined" && "Notification" in window) {
+      try {
+        const perm = await Notification.requestPermission();
+        setHasNotificationPermission(perm === "granted");
+        if (perm === "granted") {
+          alarmSound.enableBackgroundGuardMode();
+        }
+      } catch {}
+    }
+  };
 
   // Read and react to URL query parameters for store binding from QR
   useEffect(() => {
@@ -215,28 +290,6 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
     localStorage.setItem("pg_guard_store_name", assignedStoreName);
   }, [guardName, isOnDuty, assignedStoreId, assignedStoreName]);
 
-  // Screen WakeLock so phone stays awake
-  useEffect(() => {
-    const requestWakeLock = async () => {
-      if (isOnDuty && "wakeLock" in navigator) {
-        try {
-          wakeLockRef.current = await (navigator as any).wakeLock.request("screen");
-        } catch {}
-      }
-    };
-
-    requestWakeLock();
-
-    return () => {
-      if (wakeLockRef.current) {
-        try {
-          wakeLockRef.current.release();
-          wakeLockRef.current = null;
-        } catch {}
-      }
-    };
-  }, [isOnDuty]);
-
   // Auto-siren & vibration loop when active emergency matches this guard
   // Plays siren and vibrates phone continuously until guard responds (Voy en camino)
   // or Central operator dispatches/resolves the alert (even if terminal operator muted local sound)
@@ -250,7 +303,11 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
             new Notification("🚨 ¡EMERGENCIA EN CURSO!", {
               body: `${activeAlerts[0].store.storeName} (${activeAlerts[0].store.address})`,
               icon: "/favicon.ico",
-            });
+              tag: "panic-alert",
+              renotify: true,
+              requireInteraction: true,
+              vibrate: [500, 200, 500, 200, 800],
+            } as any);
           } catch {}
         }
       }
@@ -749,6 +806,15 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
               <span>Sirena y vibración táctica activas en celular</span>
             </div>
+
+            {!hasNotificationPermission && typeof window !== "undefined" && "Notification" in window && (
+              <button
+                onClick={requestNotificationPermission}
+                className="w-full p-2.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 active:scale-95 border border-amber-500/40 text-amber-300 text-xs font-bold font-mono flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm"
+              >
+                <span>🔔 Permitir Alertas con Pantalla Bloqueada</span>
+              </button>
+            )}
 
             <div className="pt-2">
               <button

@@ -1,4 +1,62 @@
-// Web Audio API emergency alarm synthesizer (no external audio files needed)
+// Tactical Web Audio & Background Mobile Audio Engine for PanicGuard
+
+function writeString(view: DataView, offset: number, string: string) {
+  for (let i = 0; i < string.length; i++) {
+    view.setUint8(offset + i, string.charCodeAt(i));
+  }
+}
+
+/**
+ * Synthesizes a raw PCM WAV Data URI dynamically without requiring any external MP3/WAV assets.
+ */
+function generateWavDataUri(
+  sampleRate: number,
+  durationSeconds: number,
+  sampleGenerator: (time: number, index: number) => number
+): string {
+  const numSamples = Math.floor(sampleRate * durationSeconds);
+  const buffer = new ArrayBuffer(44 + numSamples * 2);
+  const view = new DataView(buffer);
+
+  // RIFF Chunk
+  writeString(view, 0, "RIFF");
+  view.setUint32(4, 36 + numSamples * 2, true);
+  writeString(view, 8, "WAVE");
+
+  // Format Chunk
+  writeString(view, 12, "fmt ");
+  view.setUint32(16, 16, true); // SubChunk1Size (16 for PCM)
+  view.setUint16(20, 1, true); // AudioFormat (1 = PCM)
+  view.setUint16(22, 1, true); // NumChannels (1 = Mono)
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true); // ByteRate (SampleRate * NumChannels * BitsPerSample/8)
+  view.setUint16(32, 2, true); // BlockAlign (NumChannels * BitsPerSample/8)
+  view.setUint16(34, 16, true); // BitsPerSample (16-bit)
+
+  // Data Chunk
+  writeString(view, 36, "data");
+  view.setUint32(40, numSamples * 2, true);
+
+  // Write samples (16-bit signed PCM)
+  let offset = 44;
+  for (let i = 0; i < numSamples; i++) {
+    const t = i / sampleRate;
+    const rawVal = sampleGenerator(t, i);
+    const clamped = Math.max(-1, Math.min(1, rawVal));
+    const intVal = clamped < 0 ? clamped * 0x8000 : clamped * 0x7fff;
+    view.setInt16(offset, Math.floor(intVal), true);
+    offset += 2;
+  }
+
+  // Convert buffer to base64
+  let binary = "";
+  const bytes = new Uint8Array(buffer);
+  const len = bytes.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return `data:audio/wav;base64,${btoa(binary)}`;
+}
 
 class AlarmSoundEngine {
   private ctx: AudioContext | null = null;
@@ -8,13 +66,55 @@ class AlarmSoundEngine {
   private guardSirenInterval: number | null = null;
   private muted = false;
 
+  // Dedicated HTML5 Audio elements for mobile lock-screen & background playback
+  private bgAudioElement: HTMLAudioElement | null = null;
+  private silentWavUri: string | null = null;
+  private sirenWavUri: string | null = null;
+  private isBackgroundGuardModeActive = false;
+
+  constructor() {
+    this.initAudioAssets();
+  }
+
+  private initAudioAssets() {
+    if (typeof window === "undefined") return;
+
+    try {
+      // 1. Silent keepalive carrier WAV (1 second silent loop)
+      this.silentWavUri = generateWavDataUri(11025, 1.0, () => 0);
+
+      // 2. High-urgency Tactical Siren WAV (2.0 seconds looping wail from 750Hz to 1600Hz)
+      const sampleRate = 22050;
+      const duration = 2.0;
+      let phase = 0;
+      this.sirenWavUri = generateWavDataUri(sampleRate, duration, (t) => {
+        // Fast dual wail frequency modulation
+        const freq = 800 + 750 * Math.sin(2 * Math.PI * 1.5 * t);
+        phase += (2 * Math.PI * freq) / sampleRate;
+        // Harmonic blend of Sine + Sawtooth for penetrating alarm tone
+        const sine = Math.sin(phase);
+        const saw = 2 * ((phase / (2 * Math.PI)) % 1) - 1;
+        const envelope = 0.85;
+        return (0.6 * sine + 0.4 * saw) * envelope;
+      });
+
+      // Initialize the background audio element
+      this.bgAudioElement = new Audio();
+      this.bgAudioElement.loop = true;
+      this.bgAudioElement.preload = "auto";
+      this.bgAudioElement.src = this.silentWavUri;
+    } catch (e) {
+      console.warn("Could not pre-synthesize audio assets:", e);
+    }
+  }
+
   private initContext(): AudioContext {
     if (!this.ctx) {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
       this.ctx = new AudioCtx();
     }
     if (this.ctx.state === "suspended") {
-      this.ctx.resume();
+      this.ctx.resume().catch(() => {});
     }
     return this.ctx;
   }
@@ -31,6 +131,52 @@ class AlarmSoundEngine {
   }
 
   /**
+   * Enables the Mobile Background Keep-Alive Audio Engine.
+   * Call this on any user interaction (e.g. entering "EN TURNO" or touching screen).
+   * This registers the tab with mobile OS media session (iOS/Android) preventing
+   * the browser from sleeping, killing WebSockets, or silencing sirens when the screen locks.
+   */
+  public enableBackgroundGuardMode() {
+    this.isBackgroundGuardModeActive = true;
+    this.initContext();
+
+    if (this.bgAudioElement && this.silentWavUri) {
+      if (!this.isGuardSirenPlaying) {
+        if (this.bgAudioElement.src !== this.silentWavUri) {
+          this.bgAudioElement.src = this.silentWavUri;
+        }
+        this.bgAudioElement.volume = 0.01;
+        this.bgAudioElement.loop = true;
+        this.bgAudioElement.play().catch(() => {});
+      }
+    }
+
+    if (typeof navigator !== "undefined" && "mediaSession" in navigator) {
+      try {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: "PanicGuard Táctico",
+          artist: "Guardia en Turno - Canal Activo",
+          album: "Sistema de Alerta Móvil",
+        });
+        navigator.mediaSession.playbackState = "playing";
+      } catch {}
+    }
+  }
+
+  /**
+   * Disables background guard keepalive mode (e.g. when going off-duty)
+   */
+  public disableBackgroundGuardMode() {
+    this.isBackgroundGuardModeActive = false;
+    this.stopGuardTacticalLoop();
+    if (this.bgAudioElement) {
+      try {
+        this.bgAudioElement.pause();
+      } catch {}
+    }
+  }
+
+  /**
    * Plays a distinct double high-low warning pulse (Dispatch Bell/Siren for Central / Terminal)
    */
   public playAlertNotification() {
@@ -43,7 +189,7 @@ class AlarmSoundEngine {
       const osc1 = ctx.createOscillator();
       const gain1 = ctx.createGain();
       osc1.type = "sawtooth";
-      osc1.frequency.setValueAtTime(880, now); // A5
+      osc1.frequency.setValueAtTime(880, now);
       osc1.frequency.exponentialRampToValueAtTime(440, now + 0.25);
 
       gain1.gain.setValueAtTime(0.3, now);
@@ -59,7 +205,7 @@ class AlarmSoundEngine {
       const osc2 = ctx.createOscillator();
       const gain2 = ctx.createGain();
       osc2.type = "sawtooth";
-      osc2.frequency.setValueAtTime(987.77, now + 0.28); // B5
+      osc2.frequency.setValueAtTime(987.77, now + 0.28);
       osc2.frequency.exponentialRampToValueAtTime(493.88, now + 0.55);
 
       gain2.gain.setValueAtTime(0.35, now + 0.28);
@@ -106,9 +252,9 @@ class AlarmSoundEngine {
       const gain = ctx.createGain();
 
       osc.type = "sine";
-      osc.frequency.setValueAtTime(523.25, now); // C5
-      osc.frequency.setValueAtTime(659.25, now + 0.1); // E5
-      osc.frequency.setValueAtTime(783.99, now + 0.2); // G5
+      osc.frequency.setValueAtTime(523.25, now);
+      osc.frequency.setValueAtTime(659.25, now + 0.1);
+      osc.frequency.setValueAtTime(783.99, now + 0.2);
 
       gain.gain.setValueAtTime(0.2, now);
       gain.gain.linearRampToValueAtTime(0.01, now + 0.4);
@@ -125,10 +271,23 @@ class AlarmSoundEngine {
 
   /**
    * High-urgency tactical siren & vibration specifically for Security Guards on mobile.
-   * NOTE: This ALWAYS plays and vibrates on the guard's phone even if the terminal operator
-   * disabled sound locally (Silent Panic mode).
+   * Plays BOTH via Web Audio API AND via dedicated HTML5 Audio element to ensure
+   * it sounds even when the phone screen is locked or turned off.
    */
   public playGuardTacticalSiren() {
+    // 1. Play through HTML5 Audio element (works on mobile lockscreen & background)
+    if (this.bgAudioElement && this.sirenWavUri) {
+      try {
+        if (this.bgAudioElement.src !== this.sirenWavUri) {
+          this.bgAudioElement.src = this.sirenWavUri;
+        }
+        this.bgAudioElement.volume = 1.0;
+        this.bgAudioElement.loop = true;
+        this.bgAudioElement.play().catch(() => {});
+      } catch {}
+    }
+
+    // 2. Play through Web Audio API oscillator (works when screen is active)
     try {
       const ctx = this.initContext();
       const now = ctx.currentTime;
@@ -137,12 +296,11 @@ class AlarmSoundEngine {
       const gain = ctx.createGain();
 
       osc.type = "sawtooth";
-      // Aggressive tactical wail from 750Hz to 1500Hz and back
       osc.frequency.setValueAtTime(750, now);
       osc.frequency.linearRampToValueAtTime(1500, now + 0.35);
       osc.frequency.linearRampToValueAtTime(750, now + 0.7);
 
-      gain.gain.setValueAtTime(0.5, now);
+      gain.gain.setValueAtTime(0.6, now);
       gain.gain.exponentialRampToValueAtTime(0.05, now + 0.7);
 
       osc.connect(gain);
@@ -150,15 +308,15 @@ class AlarmSoundEngine {
 
       osc.start(now);
       osc.stop(now + 0.7);
-
-      // Trigger tactile mobile vibration pattern (High-urgency pulses)
-      if (typeof navigator !== "undefined" && "vibrate" in navigator) {
-        try {
-          navigator.vibrate([400, 150, 400, 150, 600]);
-        } catch {}
-      }
     } catch (e) {
       console.warn("Guard audio error:", e);
+    }
+
+    // 3. Trigger phone tactile vibration pattern
+    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+      try {
+        navigator.vibrate([500, 200, 500, 200, 800]);
+      } catch {}
     }
   }
 
@@ -179,17 +337,31 @@ class AlarmSoundEngine {
       if (this.isGuardSirenPlaying) {
         this.playGuardTacticalSiren();
       }
-    }, 2200);
+    }, 2000);
   }
 
   /**
-   * Stops the guard tactical loop
+   * Stops the guard tactical loop and restores silent background keepalive
    */
   public stopGuardTacticalLoop() {
     this.isGuardSirenPlaying = false;
     if (this.guardSirenInterval) {
       clearInterval(this.guardSirenInterval);
       this.guardSirenInterval = null;
+    }
+
+    // Return HTML5 audio element to silent carrier loop to keep background thread awake
+    if (this.bgAudioElement) {
+      try {
+        if (this.isBackgroundGuardModeActive && this.silentWavUri) {
+          this.bgAudioElement.src = this.silentWavUri;
+          this.bgAudioElement.volume = 0.01;
+          this.bgAudioElement.loop = true;
+          this.bgAudioElement.play().catch(() => {});
+        } else {
+          this.bgAudioElement.pause();
+        }
+      } catch {}
     }
   }
 }
