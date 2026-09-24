@@ -3,27 +3,24 @@ import {
   ShieldAlert,
   Shield,
   ShieldCheck,
-  Radio,
   MapPin,
   Phone,
   Navigation,
   CheckCircle2,
   AlertTriangle,
   Volume2,
-  VolumeX,
   User,
   Clock,
-  ExternalLink,
-  Send,
-  Sparkles,
   Maximize2,
   X,
-  Smartphone,
   Store as StoreIcon,
   LogOut,
-  Settings,
-  ChevronRight,
-  BellRing
+  QrCode,
+  Radio,
+  Send,
+  Sparkles,
+  Smartphone,
+  Check,
 } from "lucide-react";
 import { PanicAlert, AlertStatus } from "../../types.js";
 import { alarmSound } from "../../utils/audio.js";
@@ -48,39 +45,52 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
   const [guardName, setGuardName] = useState<string>(() => {
     return localStorage.getItem("pg_guard_name") || appUser?.displayName || "Oficial de Seguridad";
   });
-  const [guardBadge, setGuardBadge] = useState<string>(() => {
-    return localStorage.getItem("pg_guard_badge") || "SEC-01";
-  });
   const [isOnDuty, setIsOnDuty] = useState<boolean>(() => {
     return localStorage.getItem("pg_guard_duty") !== "false";
   });
 
-  // Store-specific binding (restricts alerts to this store only if set)
-  const [assignedStoreId, setAssignedStoreId] = useState<string>(() => {
-    if (typeof window !== "undefined") {
+  // Function to extract store binding from window URL (search or hash)
+  const extractStoreParamsFromUrl = () => {
+    if (typeof window === "undefined") return { sid: "", sname: "" };
+    try {
       const url = new URL(window.location.href);
-      const sid = url.searchParams.get("storeId");
-      if (sid) return sid;
-      if (window.location.hash.includes("storeId=")) {
-        const hashParams = new URLSearchParams(window.location.hash.split("?")[1] || "");
-        const hSid = hashParams.get("storeId");
-        if (hSid) return hSid;
+      let sid = url.searchParams.get("storeId") || url.searchParams.get("storeid") || "";
+      let sname = url.searchParams.get("storeName") || url.searchParams.get("storename") || "";
+
+      if (!sid && window.location.hash) {
+        const hash = window.location.hash;
+        let queryPart = "";
+        if (hash.includes("?")) {
+          queryPart = hash.split("?")[1] || "";
+        } else if (hash.includes("storeId=") || hash.includes("storeid=")) {
+          queryPart = hash.replace(/^#\/?guard\??/i, "");
+        }
+        if (queryPart) {
+          const hashParams = new URLSearchParams(queryPart);
+          if (!sid) sid = hashParams.get("storeId") || hashParams.get("storeid") || "";
+          if (!sname) sname = hashParams.get("storeName") || hashParams.get("storename") || "";
+        }
       }
+
+      return {
+        sid: sid.trim(),
+        sname: sname ? decodeURIComponent(sname.trim()) : ""
+      };
+    } catch {
+      return { sid: "", sname: "" };
     }
+  };
+
+  // Store-specific binding locked to the scanned QR code
+  const [assignedStoreId, setAssignedStoreId] = useState<string>(() => {
+    const fromUrl = extractStoreParamsFromUrl();
+    if (fromUrl.sid) return fromUrl.sid;
     return localStorage.getItem("pg_guard_store_id") || "";
   });
 
   const [assignedStoreName, setAssignedStoreName] = useState<string>(() => {
-    if (typeof window !== "undefined") {
-      const url = new URL(window.location.href);
-      const sname = url.searchParams.get("storeName");
-      if (sname) return decodeURIComponent(sname);
-      if (window.location.hash.includes("storeName=")) {
-        const hashParams = new URLSearchParams(window.location.hash.split("?")[1] || "");
-        const hSname = hashParams.get("storeName");
-        if (hSname) return decodeURIComponent(hSname);
-      }
-    }
+    const fromUrl = extractStoreParamsFromUrl();
+    if (fromUrl.sname) return fromUrl.sname;
     return localStorage.getItem("pg_guard_store_name") || "";
   });
 
@@ -88,39 +98,38 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
   const [selectedFrameIndex, setSelectedFrameIndex] = useState<number>(0);
   const [isZoomImageOpen, setIsZoomImageOpen] = useState<boolean>(false);
   const [quickNoteText, setQuickNoteText] = useState<string>("");
-  const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [isAudioTestActive, setIsAudioTestActive] = useState<boolean>(false);
   const [selectedAlertId, setSelectedAlertId] = useState<string | null>(null);
+  const [showTacticalMap, setShowTacticalMap] = useState<boolean>(true);
 
   // Screen WakeLock ref
   const wakeLockRef = useRef<any>(null);
 
-  // Read URL query parameters for store binding
+  // Read and react to URL query parameters for store binding from QR
   useEffect(() => {
-    try {
-      const url = new URL(window.location.href);
-      let sid = url.searchParams.get("storeId");
-      let sname = url.searchParams.get("storeName");
-
-      if (!sid && window.location.hash.includes("storeId=")) {
-        const hashParams = new URLSearchParams(window.location.hash.split("?")[1] || "");
-        sid = hashParams.get("storeId");
-        sname = hashParams.get("storeName");
-      }
-
+    const syncFromUrl = () => {
+      const { sid, sname } = extractStoreParamsFromUrl();
       if (sid) {
         setAssignedStoreId(sid);
         localStorage.setItem("pg_guard_store_id", sid);
         if (sname) {
-          const decoded = decodeURIComponent(sname);
-          setAssignedStoreName(decoded);
-          localStorage.setItem("pg_guard_store_name", decoded);
+          setAssignedStoreName(sname);
+          localStorage.setItem("pg_guard_store_name", sname);
         }
       }
-    } catch {}
+    };
+
+    syncFromUrl();
+    window.addEventListener("hashchange", syncFromUrl);
+    window.addEventListener("popstate", syncFromUrl);
+
+    return () => {
+      window.removeEventListener("hashchange", syncFromUrl);
+      window.removeEventListener("popstate", syncFromUrl);
+    };
   }, []);
 
-  // Filter alerts: only show for assigned store if bound, or all if general
+  // Filter alerts: only show for assigned store if bound via QR, or all if general
   const relevantAlerts = useMemo(() => {
     if (assignedStoreId && assignedStoreId.trim() !== "" && assignedStoreId !== "ALL") {
       return alerts.filter(
@@ -152,6 +161,14 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
       (t) => t.storeId === currentEmergency.store?.storeId || t.id === currentEmergency.store?.storeId
     );
   }, [currentEmergency, terminals]);
+
+  // Also resolve assigned terminal data for the standby banner
+  const boundTerminalInfo = useMemo(() => {
+    if (!assignedStoreId) return null;
+    return terminals.find(
+      (t) => t.storeId === assignedStoreId || t.id === assignedStoreId
+    );
+  }, [assignedStoreId, terminals]);
 
   // Effective store with tactical metadata
   const effectiveStore = useMemo(() => {
@@ -190,16 +207,13 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
     return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(fullSearchQuery)}`;
   }, [effectiveStore]);
 
-  const [showTacticalMap, setShowTacticalMap] = useState<boolean>(true);
-
   // Persist Profile
   useEffect(() => {
     localStorage.setItem("pg_guard_name", guardName);
-    localStorage.setItem("pg_guard_badge", guardBadge);
     localStorage.setItem("pg_guard_duty", isOnDuty.toString());
     localStorage.setItem("pg_guard_store_id", assignedStoreId);
     localStorage.setItem("pg_guard_store_name", assignedStoreName);
-  }, [guardName, guardBadge, isOnDuty, assignedStoreId, assignedStoreName]);
+  }, [guardName, isOnDuty, assignedStoreId, assignedStoreName]);
 
   // Screen WakeLock so phone stays awake
   useEffect(() => {
@@ -261,13 +275,13 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
   const handleDispatchEnCamino = (alert: PanicAlert) => {
     alarmSound.stopAlarm();
     alarmSound.playSuccessTone();
-    const officerLabel = `${guardName} (${guardBadge})`;
+    const officerLabel = guardName.trim() || "Guardia en Turno";
     updateAlertStatus(
       alert.id,
       "DISPATCHED",
       officerLabel,
       `Guardia ${officerLabel} va en camino hacia el local.`,
-      `Guardia: ${guardName}`
+      `Guardia: ${officerLabel}`
     );
 
     const socket = (window as any).__panicSocket;
@@ -282,7 +296,7 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
 
   const handleArrivedOnSite = (alert: PanicAlert) => {
     alarmSound.playSuccessTone();
-    const officerLabel = `${guardName} (${guardBadge})`;
+    const officerLabel = guardName.trim() || "Guardia en Turno";
     const socket = (window as any).__panicSocket;
     if (socket) {
       socket.emit("alert:add_note", {
@@ -295,7 +309,7 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
 
   const handlePerimeterSecured = (alert: PanicAlert) => {
     alarmSound.playSuccessTone();
-    const officerLabel = `${guardName} (${guardBadge})`;
+    const officerLabel = guardName.trim() || "Guardia en Turno";
     updateAlertStatus(
       alert.id,
       "RESOLVED",
@@ -317,7 +331,7 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
     const textToSend = noteText || quickNoteText;
     if (!textToSend.trim()) return;
 
-    const officerLabel = `${guardName} (${guardBadge})`;
+    const officerLabel = guardName.trim() || "Guardia en Turno";
     const socket = (window as any).__panicSocket;
     if (socket) {
       socket.emit("alert:add_note", {
@@ -329,15 +343,29 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
     setQuickNoteText("");
   };
 
+  const handleGuardExit = async () => {
+    localStorage.removeItem("pg_guard_store_id");
+    localStorage.removeItem("pg_guard_store_name");
+    localStorage.removeItem("pg_guard_duty");
+    if (typeof window !== "undefined") {
+      window.location.hash = "";
+      if (window.history && window.history.replaceState) {
+        window.history.replaceState(null, "", window.location.pathname);
+      }
+    }
+    await logout();
+    window.location.reload();
+  };
+
   return (
-    <div className="w-full max-w-md mx-auto min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between pb-8">
-      {/* MOBILE TACTICAL TOP BAR */}
-      <div className="sticky top-0 z-30 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 p-3 shadow-md">
+    <div className="w-full max-w-lg mx-auto min-h-[100dvh] bg-slate-950 text-slate-100 flex flex-col justify-between selection:bg-red-500 selection:text-white pb-6 sm:pb-8 font-sans">
+      {/* ================= MOBILE TACTICAL TOP BAR ================= */}
+      <header className="sticky top-0 z-30 bg-slate-900/95 backdrop-blur-md border-b border-slate-800/90 px-3.5 py-2.5 shadow-lg">
         <div className="flex items-center justify-between gap-2">
-          {/* Officer identity */}
+          {/* Brand & Tactical Channel Indicator */}
           <div className="flex items-center gap-2.5 min-w-0">
             <div
-              className={`w-10 h-10 rounded-xl flex items-center justify-center text-white flex-shrink-0 transition-all ${
+              className={`w-9 h-9 rounded-xl flex items-center justify-center text-white flex-shrink-0 transition-all ${
                 isOnDuty
                   ? "bg-emerald-600 shadow-md shadow-emerald-950 ring-2 ring-emerald-400/40"
                   : "bg-slate-800 text-slate-400"
@@ -346,146 +374,139 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
               <Shield className="w-5 h-5" />
             </div>
 
-            <div className="min-w-0 truncate">
-              <div className="flex items-center gap-1.5 truncate">
-                <span className="font-black text-white text-sm truncate">{guardName}</span>
-                <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-slate-800 text-amber-300 font-bold border border-amber-500/30 flex-shrink-0">
-                  {guardBadge}
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="font-black text-white text-xs tracking-wider uppercase">PANICGUARD</span>
+                <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-red-600/30 text-red-300 font-bold border border-red-500/40">
+                  TÁCTICO
                 </span>
               </div>
               <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-mono">
                 <span className={`w-2 h-2 rounded-full flex-shrink-0 ${isConnected ? "bg-emerald-400 animate-pulse" : "bg-red-400"}`} />
-                <span className="truncate">{isConnected ? "Canal Táctico Activo" : "Reconectando..."}</span>
+                <span className="truncate">{isConnected ? "Canal Activo en Vivo" : "Reconectando..."}</span>
               </div>
             </div>
           </div>
 
-          {/* Quick duty toggle & action buttons */}
-          <div className="flex items-center gap-1.5 flex-shrink-0">
+          {/* Quick duty toggle & Exit button (No Gear Icon!) */}
+          <div className="flex items-center gap-2 flex-shrink-0">
             <button
               onClick={() => setIsOnDuty(!isOnDuty)}
-              className={`px-2.5 py-1.5 rounded-xl text-[10px] font-bold font-mono transition-all flex items-center gap-1.5 cursor-pointer ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold font-mono transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 shadow-sm ${
                 isOnDuty
-                  ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
-                  : "bg-slate-800 text-slate-400 border border-slate-700"
+                  ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 hover:bg-emerald-500/30"
+                  : "bg-slate-800 text-slate-400 border border-slate-700 hover:bg-slate-750"
               }`}
               title="Cambiar estado de guardia"
             >
-              <span className={`w-1.5 h-1.5 rounded-full ${isOnDuty ? "bg-emerald-400 animate-ping" : "bg-slate-500"}`} />
+              <span className={`w-2 h-2 rounded-full ${isOnDuty ? "bg-emerald-400 animate-ping" : "bg-slate-500"}`} />
               <span>{isOnDuty ? "EN TURNO" : "PAUSA"}</span>
             </button>
 
             <button
-              onClick={() => setIsSettingsOpen(!isSettingsOpen)}
-              className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 transition-colors cursor-pointer"
-              title="Ajustes de guardia"
+              onClick={handleGuardExit}
+              className="p-2 rounded-xl bg-slate-800/80 hover:bg-red-950 hover:text-red-400 hover:border-red-800/80 border border-slate-700/80 text-slate-400 transition-all cursor-pointer active:scale-95"
+              title="Cerrar sesión / Salir"
             >
-              <Settings className="w-3.5 h-3.5" />
-            </button>
-
-            <button
-              onClick={logout}
-              className="p-2 rounded-xl bg-slate-800 hover:bg-red-950/80 hover:text-red-400 hover:border-red-800 border border-slate-700 text-slate-400 transition-all cursor-pointer"
-              title="Cerrar sesión de guardia"
-            >
-              <LogOut className="w-3.5 h-3.5" />
+              <LogOut className="w-4 h-4" />
             </button>
           </div>
         </div>
+      </header>
 
-        {/* Assigned Terminal/Store Filter Status */}
-        <div className="mt-2 pt-2 border-t border-slate-800 flex items-center justify-between text-[11px]">
-          <div className="flex items-center gap-1 text-slate-300 truncate">
-            {assignedStoreId && assignedStoreId !== "ALL" ? (
-              <span className="flex items-center gap-1 text-amber-300 font-bold font-mono truncate">
-                <StoreIcon className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
-                <span className="truncate">Local: {assignedStoreName || assignedStoreId}</span>
-              </span>
-            ) : (
-              <span className="text-blue-300 font-mono flex items-center gap-1">
-                🌐 Patrullaje General (Toda la Plaza)
-              </span>
-            )}
+      {/* ================= PERMANENT GUARD IDENTIFIER & TERMINAL ASIGNADA (DIRECTAMENTE A LA VISTA) ================= */}
+      <section className="px-3.5 pt-3 pb-1 space-y-2.5">
+        {/* Guard Name Input Direct Field (No Gear Needed!) */}
+        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-3 shadow-md space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <label className="text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold flex items-center gap-1.5">
+              <User className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Nombre del Guardia en Turno:</span>
+            </label>
+            <span className="text-[9px] font-mono text-emerald-400/90 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+              Auto-guardado
+            </span>
           </div>
 
-          <button
-            onClick={handleTestSiren}
-            disabled={isAudioTestActive}
-            className="text-[10px] text-amber-400 font-mono flex items-center gap-1 hover:underline cursor-pointer flex-shrink-0"
-          >
-            <Volume2 className={`w-3 h-3 ${isAudioTestActive ? "animate-bounce text-red-400" : ""}`} />
-            <span>Probar Sirena</span>
-          </button>
+          <div className="relative">
+            <input
+              type="text"
+              value={guardName}
+              onChange={(e) => setGuardName(e.target.value)}
+              placeholder="Escribe tu nombre (Ej. Oficial Carlos R.)"
+              className="w-full bg-slate-950 border border-slate-800/90 hover:border-slate-700 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 rounded-xl px-3.5 py-2.5 text-white text-sm font-semibold placeholder:text-slate-600 transition-all outline-none"
+            />
+          </div>
         </div>
-      </div>
 
-      {/* QUICK SETTINGS PANEL (COLLAPSIBLE) */}
-      {isSettingsOpen && (
-        <div className="m-3 bg-slate-900 border border-slate-800 rounded-2xl p-3.5 space-y-3 shadow-xl">
-          <div className="flex items-center justify-between">
-            <h4 className="text-xs font-bold text-white font-mono">⚙️ Perfil del Guardia</h4>
-            <button
-              onClick={() => setIsSettingsOpen(false)}
-              className="p-1 rounded-lg bg-slate-800 text-slate-400 hover:text-white"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
+        {/* Solo la Terminal Asignada al QR (Read-only, Locked from QR Scan) */}
+        <div className="bg-gradient-to-r from-slate-900 to-slate-900/90 border border-slate-800 rounded-2xl p-3 shadow-md">
+          <div className="flex items-start justify-between gap-2">
+            <div className="space-y-1 min-w-0">
+              <div className="flex items-center gap-1.5 text-[10px] font-mono font-bold uppercase tracking-wider text-amber-400">
+                <QrCode className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+                <span>Terminal Asignada por QR:</span>
+              </div>
 
-          <div className="space-y-2 text-xs">
-            <div>
-              <label className="block text-[10px] font-mono text-slate-400 mb-0.5">Nombre del Oficial:</label>
-              <input
-                type="text"
-                value={guardName}
-                onChange={(e) => setGuardName(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-white text-xs focus:outline-none focus:border-emerald-500"
-              />
+              {assignedStoreId && assignedStoreId !== "ALL" ? (
+                <div>
+                  <div className="text-base font-black text-white truncate flex items-center gap-1.5">
+                    <StoreIcon className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                    <span className="truncate">{assignedStoreName || boundTerminalInfo?.storeName || assignedStoreId}</span>
+                  </div>
+                  <div className="text-[11px] text-slate-400 font-mono flex items-center gap-2 mt-0.5">
+                    <span className="text-amber-300/90 font-bold">ID: {assignedStoreId}</span>
+                    {boundTerminalInfo?.address && (
+                      <>
+                        <span>•</span>
+                        <span className="truncate">{boundTerminalInfo.address}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="py-1">
+                  <div className="text-sm font-bold text-slate-300">
+                    🌐 Patrullaje General (Todos los Locales)
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-0.5">
+                    Para asignar una terminal específica, escanea el código QR exclusivo del comercio.
+                  </p>
+                </div>
+              )}
             </div>
 
-            <div>
-              <label className="block text-[10px] font-mono text-slate-400 mb-0.5">Indicativo / Placa:</label>
-              <input
-                type="text"
-                value={guardBadge}
-                onChange={(e) => setGuardBadge(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-white font-mono text-xs focus:outline-none focus:border-emerald-500"
-              />
-            </div>
+            {/* QR Verified Badge or Siren Test */}
+            <div className="flex flex-col items-end gap-1 flex-shrink-0">
+              {assignedStoreId && assignedStoreId !== "ALL" ? (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                  <Check className="w-3 h-3 text-emerald-400" />
+                  <span>QR Vinculado</span>
+                </span>
+              ) : null}
 
-            <div>
-              <label className="block text-[10px] font-mono text-amber-300 mb-0.5 font-bold">
-                🎯 Asignación de Terminal / Local:
-              </label>
-              <select
-                value={assignedStoreId || ""}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setAssignedStoreId(val);
-                  const selectedT = terminals.find((t) => t.storeId === val);
-                  setAssignedStoreName(selectedT?.storeName || "");
-                }}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white text-xs focus:outline-none focus:border-amber-500"
+              <button
+                onClick={handleTestSiren}
+                disabled={isAudioTestActive}
+                className="mt-1 text-[10px] font-mono font-bold text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 active:scale-95 border border-amber-500/30 px-2 py-1 rounded-lg flex items-center gap-1 cursor-pointer transition-all"
+                title="Probar sonido de alarma"
               >
-                <option value="">🌐 Patrullaje General (Todos los Locales)</option>
-                {terminals.map((t) => (
-                  <option key={t.id} value={t.storeId}>
-                    🏬 {t.storeName} ({t.storeId})
-                  </option>
-                ))}
-              </select>
+                <Volume2 className={`w-3 h-3 ${isAudioTestActive ? "animate-bounce text-red-400" : ""}`} />
+                <span>{isAudioTestActive ? "Sonando..." : "Probar Sirena"}</span>
+              </button>
             </div>
           </div>
         </div>
-      )}
+      </section>
 
-      {/* ================= PRIMARY EMERGENCY VIEW (MOBILE ONLY) ================= */}
-      <div className="flex-1 p-3 space-y-3">
+      {/* ================= MAIN TACTICAL CONTENT (ADAPTED FOR MOBILE) ================= */}
+      <main className="flex-1 px-3.5 py-2 space-y-3">
         {currentEmergency ? (
+          /* ACTIVE EMERGENCY CARD */
           <div
             className={`rounded-2xl border overflow-hidden shadow-2xl transition-all ${
               currentEmergency.status === "ACTIVE"
-                ? "bg-slate-900 border-red-500 ring-2 ring-red-500/30"
+                ? "bg-slate-900 border-red-500 ring-2 ring-red-500/40"
                 : currentEmergency.status === "DISPATCHED"
                 ? "bg-slate-900 border-amber-500/80"
                 : "bg-slate-900 border-slate-800"
@@ -493,9 +514,9 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
           >
             {/* Emergency Alert Banner */}
             <div
-              className={`p-3 text-white flex items-center justify-between gap-2 ${
+              className={`p-3.5 text-white flex items-center justify-between gap-2 ${
                 currentEmergency.status === "ACTIVE"
-                  ? "bg-gradient-to-r from-red-600 to-red-800 animate-pulse"
+                  ? "bg-gradient-to-r from-red-600 via-red-700 to-red-800 animate-pulse"
                   : currentEmergency.status === "DISPATCHED"
                   ? "bg-gradient-to-r from-amber-600 to-amber-800"
                   : currentEmergency.status === "RESOLVED"
@@ -503,53 +524,55 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
                   : "bg-slate-800"
               }`}
             >
-              <div className="flex items-center gap-2">
-                <ShieldAlert className="w-5 h-5 flex-shrink-0" />
+              <div className="flex items-center gap-2.5">
+                <ShieldAlert className="w-6 h-6 flex-shrink-0 animate-bounce" />
                 <div>
-                  <span className="font-black text-xs sm:text-sm uppercase block tracking-tight">
+                  <span className="font-black text-sm uppercase block tracking-wide">
                     {currentEmergency.status === "ACTIVE"
                       ? "🚨 ¡ALERTA DE PÁNICO ACTIVA!"
                       : currentEmergency.status === "DISPATCHED"
                       ? "🏃 ACUDIENDO AL LOCAL"
                       : "✅ INCIDENTE ASEGURADO"}
                   </span>
-                  <span className="text-[10px] text-white/80 font-mono">
+                  <span className="text-[10px] text-white/90 font-mono">
                     {new Date(currentEmergency.timestamp).toLocaleTimeString()} • {currentEmergency.id}
                   </span>
                 </div>
               </div>
 
-              <span className="text-[10px] font-mono font-black bg-black/40 px-2 py-0.5 rounded border border-white/20">
+              <span className="text-[10px] font-mono font-black bg-black/50 px-2.5 py-1 rounded-lg border border-white/20 uppercase">
                 {currentEmergency.status}
               </span>
             </div>
 
-            <div className="p-3 space-y-3">
+            <div className="p-3.5 space-y-3">
               {/* Store Information & Direct Action Buttons */}
-              <div className="bg-slate-950 border border-slate-800 rounded-xl p-3 space-y-2">
+              <div className="bg-slate-950 border border-slate-800 rounded-xl p-3.5 space-y-2.5 shadow-inner">
                 <div>
-                  <span className="text-[9px] font-mono text-red-400 font-bold uppercase">COMERCIO AFECTADO</span>
-                  <h3 className="text-lg font-black text-white leading-tight">
+                  <span className="text-[9px] font-mono text-red-400 font-bold uppercase tracking-wider">
+                    COMERCIO AFECTADO
+                  </span>
+                  <h3 className="text-xl font-black text-white leading-tight mt-0.5">
                     {effectiveStore?.storeName || currentEmergency.store.storeName}
                   </h3>
-                  <p className="text-[11px] text-slate-400">
-                    {effectiveStore?.category || currentEmergency.store.category} • {effectiveStore?.storeId || currentEmergency.store.storeId}
+                  <p className="text-xs text-slate-400 font-mono mt-0.5">
+                    {effectiveStore?.category || currentEmergency.store.category} • ID: {effectiveStore?.storeId || currentEmergency.store.storeId}
                   </p>
                 </div>
 
                 {/* Address */}
-                <div className="text-xs text-slate-300 flex items-start gap-1.5 pt-1 border-t border-slate-900">
-                  <MapPin className="w-3.5 h-3.5 text-red-400 flex-shrink-0 mt-0.5" />
+                <div className="text-xs text-slate-300 flex items-start gap-1.5 pt-1.5 border-t border-slate-900">
+                  <MapPin className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
                   <span className="leading-snug">{effectiveStore?.address || currentEmergency.store.address}</span>
                 </div>
 
-                {/* Contact and GPS Buttons */}
-                <div className="grid grid-cols-2 gap-2 pt-1">
+                {/* Contact and GPS Buttons (Large Touch Targets for Mobile) */}
+                <div className="grid grid-cols-2 gap-2.5 pt-1.5">
                   <a
                     href={`tel:${effectiveStore?.phone || currentEmergency.store.phone}`}
-                    className="py-2.5 px-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow transition-all cursor-pointer"
+                    className="py-3 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer"
                   >
-                    <Phone className="w-3.5 h-3.5" />
+                    <Phone className="w-4 h-4" />
                     <span>Llamar Local</span>
                   </a>
 
@@ -557,24 +580,24 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
                     href={gpsDirectionsUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="py-2.5 px-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow transition-all cursor-pointer"
+                    className="py-3 px-3 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer"
                   >
-                    <Navigation className="w-3.5 h-3.5 text-white" />
+                    <Navigation className="w-4 h-4 text-white" />
                     <span>Ruta GPS</span>
                   </a>
                 </div>
               </div>
 
-              {/* TACTICAL MAP EMBEDDED PREVIEW (CORRESPONDS 100% WITH CENTRAL TACTICAL LOCATION) */}
-              <div className="bg-slate-950 border border-slate-800 rounded-xl overflow-hidden">
+              {/* TACTICAL MAP EMBEDDED PREVIEW */}
+              <div className="bg-slate-950 border border-slate-800 rounded-xl overflow-hidden shadow-md">
                 <button
                   type="button"
                   onClick={() => setShowTacticalMap(!showTacticalMap)}
-                  className="w-full p-2.5 bg-slate-900/90 border-b border-slate-800 flex items-center justify-between text-xs font-bold text-slate-200 hover:bg-slate-850 cursor-pointer"
+                  className="w-full p-2.5 bg-slate-900 border-b border-slate-800 flex items-center justify-between text-xs font-bold text-slate-200 hover:bg-slate-850 cursor-pointer"
                 >
                   <div className="flex items-center gap-2">
-                    <MapPin className="w-3.5 h-3.5 text-red-400" />
-                    <span>Mapa Táctico del Establecimiento</span>
+                    <MapPin className="w-4 h-4 text-red-400" />
+                    <span>Mapa Táctico de Ubicación</span>
                   </div>
                   <span className="text-[10px] text-blue-400 font-mono">
                     {showTacticalMap ? "Ocultar ▲" : "Ver Mapa ▼"}
@@ -594,19 +617,19 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
                 )}
               </div>
 
-              {/* EVIDENCE PHOTO VIEWER (MOBILE ADAPTED) */}
+              {/* EVIDENCE PHOTO VIEWER */}
               {currentEmergency.images && currentEmergency.images.length > 0 && (
-                <div className="bg-slate-950 border border-slate-800 rounded-xl p-2.5 space-y-2">
+                <div className="bg-slate-950 border border-slate-800 rounded-xl p-3 space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-mono text-slate-400 font-bold uppercase">
                       📸 FOTOS DE EVIDENCIA ({selectedFrameIndex + 1}/{currentEmergency.images.length})
                     </span>
                     <button
                       onClick={() => setIsZoomImageOpen(true)}
-                      className="text-[10px] text-cyan-400 font-mono flex items-center gap-1 cursor-pointer"
+                      className="text-[10px] text-cyan-400 font-mono flex items-center gap-1 cursor-pointer hover:underline"
                     >
                       <Maximize2 className="w-3 h-3" />
-                      <span>Zoom</span>
+                      <span>Ampliar Zoom</span>
                     </button>
                   </div>
 
@@ -620,15 +643,15 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
                     />
 
                     {/* Thumbnail selectors */}
-                    <div className="absolute bottom-1.5 left-1.5 flex gap-1">
+                    <div className="absolute bottom-2 left-2 flex gap-1.5">
                       {currentEmergency.images.map((_, idx) => (
                         <button
                           key={idx}
                           onClick={() => setSelectedFrameIndex(idx)}
-                          className={`px-2 py-0.5 rounded text-[9px] font-mono font-bold transition-all ${
+                          className={`px-2.5 py-1 rounded-md text-[10px] font-mono font-bold transition-all shadow ${
                             selectedFrameIndex === idx
-                              ? "bg-red-600 text-white"
-                              : "bg-black/70 text-slate-300"
+                              ? "bg-red-600 text-white ring-1 ring-white"
+                              : "bg-black/80 text-slate-300"
                           }`}
                         >
                           #{idx + 1}
@@ -639,17 +662,17 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
                 </div>
               )}
 
-              {/* 3 GIANT ONE-TAP ACTION BUTTONS */}
+              {/* 3 GIANT ONE-TAP MOBILE ACTION BUTTONS */}
               <div className="space-y-2 pt-1">
-                <span className="text-[10px] font-mono text-slate-400 font-bold uppercase block">
-                  ⚡ RESPUESTA TÁCTICA DEL GUARDIA:
+                <span className="text-[10px] font-mono text-slate-400 font-bold uppercase block tracking-wider">
+                  ⚡ ACCIONES TÁCTICAS DEL GUARDIA:
                 </span>
 
-                <div className="grid grid-cols-1 gap-2">
+                <div className="grid grid-cols-1 gap-2.5">
                   {/* 1. Voy en camino */}
                   <button
                     onClick={() => handleDispatchEnCamino(currentEmergency)}
-                    className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-amber-600 to-amber-700 active:scale-95 text-white font-black text-sm flex items-center justify-center gap-2 shadow-lg shadow-amber-950/60 cursor-pointer"
+                    className="w-full py-4 px-4 rounded-xl bg-gradient-to-r from-amber-600 to-amber-700 active:scale-95 text-white font-black text-sm flex items-center justify-center gap-2.5 shadow-lg shadow-amber-950/60 cursor-pointer transition-all"
                   >
                     <Navigation className="w-5 h-5 animate-pulse" />
                     <span>1. VOY EN CAMINO (Acudiendo)</span>
@@ -658,7 +681,7 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
                   {/* 2. En el sitio */}
                   <button
                     onClick={() => handleArrivedOnSite(currentEmergency)}
-                    className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 active:scale-95 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-blue-950/60 cursor-pointer"
+                    className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 active:scale-95 text-white font-black text-sm flex items-center justify-center gap-2.5 shadow-lg shadow-blue-950/60 cursor-pointer transition-all"
                   >
                     <MapPin className="w-4 h-4" />
                     <span>2. EN EL SITIO (Verificando)</span>
@@ -667,23 +690,23 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
                   {/* 3. Asegurado */}
                   <button
                     onClick={() => handlePerimeterSecured(currentEmergency)}
-                    className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-700 active:scale-95 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/60 cursor-pointer"
+                    className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-700 active:scale-95 text-white font-black text-sm flex items-center justify-center gap-2.5 shadow-lg shadow-emerald-950/60 cursor-pointer transition-all"
                   >
-                    <ShieldCheck className="w-4 h-4" />
+                    <ShieldCheck className="w-5 h-5" />
                     <span>3. PERÍMETRO ASEGURADO</span>
                   </button>
                 </div>
               </div>
 
               {/* QUICK CHIPS FOR LOGS */}
-              <div className="space-y-1.5 pt-1">
-                <span className="text-[9px] font-mono text-slate-400 font-bold uppercase block">
+              <div className="space-y-2 pt-1">
+                <span className="text-[9px] font-mono text-slate-400 font-bold uppercase block tracking-wider">
                   📝 REPORTE RÁPIDO A CENTRAL:
                 </span>
                 <div className="flex items-center gap-1.5 flex-wrap">
                   {[
                     "Perímetro despejado",
-                    "Sujeto huyó hacia la calle",
+                    "Sujeto huyó",
                     "Policía en sitio",
                     "Cajero a salvo",
                     "Falsa alarma",
@@ -691,7 +714,7 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
                     <button
                       key={idx}
                       onClick={() => handleSendQuickNote(currentEmergency, chip)}
-                      className="px-2.5 py-1 rounded-lg bg-slate-950 hover:bg-slate-850 border border-slate-800 text-[10px] text-slate-300 cursor-pointer active:scale-95"
+                      className="px-2.5 py-1.5 rounded-lg bg-slate-950 hover:bg-slate-850 active:scale-95 border border-slate-800 text-[11px] text-slate-300 cursor-pointer shadow-sm"
                     >
                       + {chip}
                     </button>
@@ -702,59 +725,61 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
           </div>
         ) : (
           /* STANDBY STATE (NO ACTIVE EMERGENCY) */
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 text-center space-y-4 my-auto">
-            <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mx-auto">
+          <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 text-center space-y-4 shadow-xl my-auto">
+            <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mx-auto shadow-inner">
               <ShieldCheck className="w-8 h-8" />
             </div>
-            <div>
-              <h3 className="text-lg font-black text-white">
+            
+            <div className="space-y-1">
+              <h3 className="text-xl font-black text-white">
                 Perímetro en Calma
               </h3>
-              <p className="text-xs text-slate-400 mt-1">
-                {assignedStoreId
-                  ? `Monitoreando exclusivamente el local: ${assignedStoreName || assignedStoreId}`
-                  : "Monitoreando todos los locales de la plaza comercial."}
+              <p className="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">
+                {assignedStoreId && assignedStoreId !== "ALL"
+                  ? `Monitoreando exclusivamente el canal de alarma de ${assignedStoreName || assignedStoreId}.`
+                  : "Monitoreando todos los locales comerciales de la plaza."}
               </p>
             </div>
 
-            <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-400 font-mono flex items-center justify-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-              <span>Sirena y vibración táctica activas</span>
+            <div className="p-3 rounded-xl bg-slate-950 border border-slate-800/80 text-xs text-slate-300 font-mono flex items-center justify-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
+              <span>Sirena y vibración táctica activas en celular</span>
             </div>
 
             <div className="pt-2">
               <button
                 onClick={handleTestSiren}
-                className="w-full py-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-amber-300 font-bold text-xs flex items-center justify-center gap-2 cursor-pointer shadow"
+                disabled={isAudioTestActive}
+                className="w-full py-3 rounded-xl bg-slate-800 hover:bg-slate-750 active:scale-95 border border-slate-700 text-amber-300 font-bold text-xs flex items-center justify-center gap-2 cursor-pointer shadow-md transition-all"
               >
                 <Volume2 className="w-4 h-4" />
-                <span>Hacer Prueba de Sirena</span>
+                <span>{isAudioTestActive ? "Sirena Sonando..." : "Realizar Prueba de Sirena"}</span>
               </button>
             </div>
           </div>
         )}
-      </div>
+      </main>
 
-      {/* FULLSCREEN IMAGE MODAL */}
+      {/* FULLSCREEN IMAGE MODAL (FOR MOBILE ZOOM) */}
       {isZoomImageOpen && currentEmergency && currentEmergency.images && (
         <div
-          className="fixed inset-0 z-50 bg-black/95 flex flex-col items-center justify-center p-3"
+          className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex flex-col items-center justify-center p-3"
           onClick={() => setIsZoomImageOpen(false)}
         >
-          <div className="relative w-full max-h-[85vh] flex flex-col items-center">
+          <div className="relative w-full max-w-lg flex flex-col items-center">
             <button
               onClick={() => setIsZoomImageOpen(false)}
-              className="absolute -top-10 right-0 p-1.5 rounded-xl bg-slate-800 text-white"
+              className="absolute -top-12 right-0 p-2 rounded-xl bg-slate-800 text-white hover:bg-slate-700 cursor-pointer shadow-lg"
             >
               <X className="w-5 h-5" />
             </button>
             <img
               src={currentEmergency.images[selectedFrameIndex] || currentEmergency.images[0]}
               alt="Evidencia Zoom"
-              className="w-full max-h-[75vh] object-contain rounded-xl border border-slate-800"
+              className="w-full max-h-[75vh] object-contain rounded-xl border border-slate-800 shadow-2xl"
             />
-            <div className="mt-2 text-center text-xs font-mono text-slate-400">
-              {currentEmergency.store.storeName} • Cuadro #{selectedFrameIndex + 1}
+            <div className="mt-3 text-center text-xs font-mono text-slate-300">
+              {currentEmergency.store.storeName} • Cuadro #{selectedFrameIndex + 1} de {currentEmergency.images.length}
             </div>
           </div>
         </div>

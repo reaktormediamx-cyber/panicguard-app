@@ -27,6 +27,21 @@ import { AuthModal } from "./components/auth/AuthModal.js";
 import { useSocketAlerts } from "./hooks/useSocketAlerts.js";
 import { useAuth } from "./context/AuthContext.js";
 
+// Helper to detect if current URL is for the Guard mobile view via QR or direct link
+const isGuardUrl = () => {
+  if (typeof window === "undefined") return false;
+  const hash = (window.location.hash || "").toLowerCase();
+  const search = (window.location.search || "").toLowerCase();
+  const pathname = (window.location.pathname || "").toLowerCase();
+  return (
+    hash.includes("guard") ||
+    search.includes("guard") ||
+    pathname.includes("guard") ||
+    hash.includes("storeid=") ||
+    search.includes("storeid=")
+  );
+};
+
 export default function App() {
   const { appUser, isLoading, logout, terminals, centrales } = useAuth();
   const [store, setStore] = useState<StoreMetadata>(DEFAULT_STORE);
@@ -35,13 +50,26 @@ export default function App() {
 
   // Active View mode: MASTER_ADMIN, CENTRAL, TERMINAL, GUARD
   const [currentView, setCurrentView] = useState<"MASTER_ADMIN" | "CENTRAL" | "TERMINAL" | "GUARD">(() => {
-    if (typeof window !== "undefined") {
-      if (window.location.hash.includes("guard") || window.location.search.includes("guard")) {
-        return "GUARD";
-      }
+    if (isGuardUrl()) {
+      return "GUARD";
     }
     return "CENTRAL";
   });
+
+  // Listen for hash/URL changes so scanning QR code immediately opens the guard view
+  useEffect(() => {
+    const handleUrlChange = () => {
+      if (isGuardUrl()) {
+        setCurrentView("GUARD");
+      }
+    };
+    window.addEventListener("hashchange", handleUrlChange);
+    window.addEventListener("popstate", handleUrlChange);
+    return () => {
+      window.removeEventListener("hashchange", handleUrlChange);
+      window.removeEventListener("popstate", handleUrlChange);
+    };
+  }, []);
 
   const {
     alerts,
@@ -172,8 +200,20 @@ export default function App() {
     );
   }
 
-  // If no user is logged in, present role-aware AuthModal (Master PIN, Google OAuth, Email/Pass)
+  // If no user is logged in, allow instant direct access for Security Guards accessing via Terminal QR code / Guard URL
   if (!appUser) {
+    if (isGuardUrl() || currentView === "GUARD") {
+      return (
+        <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-red-500 selection:text-white">
+          <GuardPortal
+            alerts={alerts}
+            isConnected={isConnected}
+            updateAlertStatus={updateAlertStatus}
+            onOpenStoreConfig={() => setIsStoreConfigOpen(true)}
+          />
+        </div>
+      );
+    }
     return <AuthModal />;
   }
 
