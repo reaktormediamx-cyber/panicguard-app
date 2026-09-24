@@ -213,13 +213,11 @@ export function usePanicCapture({ store, onAlertSent }: UsePanicCaptureOptions) 
         // 1. Capture 3-frame burst
         const frames = await executeBurstCapture();
 
-        // 2. Determine real coordinates (Device Live GPS > Valid Non-Default Store Coords)
-        const hasLiveDeviceGps = currentCoords && currentCoords.latitude !== 0;
-        const validCoords = hasLiveDeviceGps
-          ? currentCoords
-          : (store.coordinates && store.coordinates.latitude !== 0)
+        // 2. Determine real coordinates: Prioritize configured/calibrated Store & Terminal Tactical Coordinates
+        const hasStoreCoords = store.coordinates && typeof store.coordinates.latitude === "number" && store.coordinates.latitude !== 0;
+        const validCoords = hasStoreCoords
           ? store.coordinates
-          : currentCoords;
+          : (currentCoords && currentCoords.latitude !== 0 ? currentCoords : store.coordinates);
 
         // 3. Prepare payload
         const payload: Partial<PanicAlert> = {

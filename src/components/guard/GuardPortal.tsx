@@ -28,6 +28,7 @@ import {
 import { PanicAlert, AlertStatus } from "../../types.js";
 import { alarmSound } from "../../utils/audio.js";
 import { useAuth } from "../../context/AuthContext.js";
+import { TacticalMap } from "../dashboard/TacticalMap.js";
 
 interface GuardPortalProps {
   alerts: PanicAlert[];
@@ -143,6 +144,53 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
     }
     return activeAlerts[0] || relevantAlerts[0] || null;
   }, [relevantAlerts, activeAlerts, selectedAlertId]);
+
+  // Resolve matching terminal from database to ensure calibrated tactical coordinates & address
+  const matchedTerminal = useMemo(() => {
+    if (!currentEmergency) return null;
+    return terminals.find(
+      (t) => t.storeId === currentEmergency.store?.storeId || t.id === currentEmergency.store?.storeId
+    );
+  }, [currentEmergency, terminals]);
+
+  // Effective store with tactical metadata
+  const effectiveStore = useMemo(() => {
+    if (!currentEmergency) return null;
+    return {
+      ...currentEmergency.store,
+      ...(matchedTerminal ? {
+        storeName: matchedTerminal.storeName || currentEmergency.store.storeName,
+        address: matchedTerminal.address || currentEmergency.store.address,
+        city: matchedTerminal.city || currentEmergency.store.city,
+        phone: matchedTerminal.phone || currentEmergency.store.phone,
+        category: matchedTerminal.category || currentEmergency.store.category,
+        coordinates: (matchedTerminal.coordinates && matchedTerminal.coordinates.latitude !== 0)
+          ? matchedTerminal.coordinates
+          : currentEmergency.store.coordinates,
+      } : {}),
+    };
+  }, [currentEmergency, matchedTerminal]);
+
+  // Precise Google Maps destination URL matching the tactical map
+  const gpsDirectionsUrl = useMemo(() => {
+    if (!effectiveStore) return "#";
+    const cleanAddress = effectiveStore.address ? effectiveStore.address.replace(/^.*?—\s*/, "").trim() : "";
+    const queryParts = [
+      cleanAddress || "",
+      effectiveStore.city ? effectiveStore.city.trim() : "",
+      cleanAddress.toLowerCase().includes("méxico") || cleanAddress.toLowerCase().includes("mexico") ? "" : "México",
+    ].filter(Boolean);
+
+    const fullSearchQuery = queryParts.join(", ") || (
+      effectiveStore.coordinates && effectiveStore.coordinates.latitude !== 0
+        ? `${effectiveStore.coordinates.latitude},${effectiveStore.coordinates.longitude}`
+        : "México"
+    );
+
+    return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(fullSearchQuery)}`;
+  }, [effectiveStore]);
+
+  const [showTacticalMap, setShowTacticalMap] = useState<boolean>(true);
 
   // Persist Profile
   useEffect(() => {
@@ -479,23 +527,23 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
                 <div>
                   <span className="text-[9px] font-mono text-red-400 font-bold uppercase">COMERCIO AFECTADO</span>
                   <h3 className="text-lg font-black text-white leading-tight">
-                    {currentEmergency.store.storeName}
+                    {effectiveStore?.storeName || currentEmergency.store.storeName}
                   </h3>
                   <p className="text-[11px] text-slate-400">
-                    {currentEmergency.store.category} • {currentEmergency.store.storeId}
+                    {effectiveStore?.category || currentEmergency.store.category} • {effectiveStore?.storeId || currentEmergency.store.storeId}
                   </p>
                 </div>
 
                 {/* Address */}
                 <div className="text-xs text-slate-300 flex items-start gap-1.5 pt-1 border-t border-slate-900">
                   <MapPin className="w-3.5 h-3.5 text-red-400 flex-shrink-0 mt-0.5" />
-                  <span className="leading-snug">{currentEmergency.store.address}</span>
+                  <span className="leading-snug">{effectiveStore?.address || currentEmergency.store.address}</span>
                 </div>
 
                 {/* Contact and GPS Buttons */}
                 <div className="grid grid-cols-2 gap-2 pt-1">
                   <a
-                    href={`tel:${currentEmergency.store.phone}`}
+                    href={`tel:${effectiveStore?.phone || currentEmergency.store.phone}`}
                     className="py-2.5 px-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow transition-all cursor-pointer"
                   >
                     <Phone className="w-3.5 h-3.5" />
@@ -503,15 +551,44 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
                   </a>
 
                   <a
-                    href={`https://www.google.com/maps/dir/?api=1&destination=${currentEmergency.store.coordinates.latitude},${currentEmergency.store.coordinates.longitude}`}
+                    href={gpsDirectionsUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="py-2.5 px-2 rounded-xl bg-blue-600/30 hover:bg-blue-600/40 border border-blue-500/40 text-blue-300 font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                    className="py-2.5 px-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow transition-all cursor-pointer"
                   >
-                    <Navigation className="w-3.5 h-3.5 text-blue-400" />
+                    <Navigation className="w-3.5 h-3.5 text-white" />
                     <span>Ruta GPS</span>
                   </a>
                 </div>
+              </div>
+
+              {/* TACTICAL MAP EMBEDDED PREVIEW (CORRESPONDS 100% WITH CENTRAL TACTICAL LOCATION) */}
+              <div className="bg-slate-950 border border-slate-800 rounded-xl overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setShowTacticalMap(!showTacticalMap)}
+                  className="w-full p-2.5 bg-slate-900/90 border-b border-slate-800 flex items-center justify-between text-xs font-bold text-slate-200 hover:bg-slate-850 cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    <MapPin className="w-3.5 h-3.5 text-red-400" />
+                    <span>Mapa Táctico del Establecimiento</span>
+                  </div>
+                  <span className="text-[10px] text-blue-400 font-mono">
+                    {showTacticalMap ? "Ocultar ▲" : "Ver Mapa ▼"}
+                  </span>
+                </button>
+
+                {showTacticalMap && (
+                  <div className="h-[220px] w-full">
+                    <TacticalMap
+                      storeName={effectiveStore?.storeName || currentEmergency.store.storeName}
+                      address={effectiveStore?.address || currentEmergency.store.address}
+                      city={effectiveStore?.city || currentEmergency.store.city}
+                      coordinates={effectiveStore?.coordinates || currentEmergency.store.coordinates}
+                      className="h-full rounded-none border-0"
+                    />
+                  </div>
+                )}
               </div>
 
               {/* EVIDENCE PHOTO VIEWER (MOBILE ADAPTED) */}
