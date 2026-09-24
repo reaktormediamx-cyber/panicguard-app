@@ -23,7 +23,12 @@ import {
   BadgeCheck,
   UserCheck,
   Edit3,
+  Smartphone,
+  QrCode,
+  Copy,
+  X,
 } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { StoreMetadata } from "../../types.js";
 import { usePanicCapture } from "../../hooks/usePanicCapture.js";
 import { alarmSound } from "../../utils/audio.js";
@@ -69,6 +74,9 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
   const [isMuted, setIsMuted] = useState<boolean>(alarmSound.isMuted());
   const [isStreamingActive, setIsStreamingActive] = useState<boolean>(false);
   const streamingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const [isStoreQrModalOpen, setIsStoreQrModalOpen] = useState<boolean>(false);
+  const [copiedStoreQrUrl, setCopiedStoreQrUrl] = useState<boolean>(false);
 
   const toggleSound = () => {
     const next = !isMuted;
@@ -292,6 +300,16 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
               <span className="font-bold text-white max-w-[130px] truncate">{guardName || "Sin Asignar"}</span>
             </div>
             <Edit3 className="w-3 h-3 text-blue-400 opacity-60 group-hover:opacity-100 ml-0.5" />
+          </button>
+
+          {/* Botón para abrir QR exclusivo de esta tienda para los guardias */}
+          <button
+            onClick={() => setIsStoreQrModalOpen(true)}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-950/80 border border-emerald-500/40 hover:border-emerald-400 text-emerald-300 text-xs font-bold shadow-inner transition-all cursor-pointer group"
+            title="Mostrar código QR exclusivo para los guardias asignados a esta tienda"
+          >
+            <Smartphone className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform" />
+            <span>QR Guardia de Esta Tienda</span>
           </button>
 
           <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-emerald-950/80 border border-emerald-500/30 text-emerald-400 text-sm font-medium shadow-inner">
@@ -790,6 +808,78 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: QR CODE EXCLUSIVO PARA GUARDIAS DE ESTE COMERCIO */}
+      {isStoreQrModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 max-w-md w-full space-y-5 text-center shadow-2xl relative">
+            <button
+              onClick={() => setIsStoreQrModalOpen(false)}
+              className="absolute top-4 right-4 p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mx-auto shadow-lg">
+              <Store className="w-7 h-7" />
+            </div>
+
+            <div className="space-y-1.5">
+              <h3 className="text-xl font-black text-white tracking-tight">
+                QR Exclusivo para Guardias de:
+              </h3>
+              <div className="text-sm font-bold text-amber-300">
+                {activeStore.storeName} ({activeStore.storeId})
+              </div>
+              <p className="text-xs text-slate-400 leading-relaxed max-w-xs mx-auto">
+                Los guardias que escaneen este código QR únicamente recibirán la sirena y fotos cuando este local específico active su alerta de pánico.
+              </p>
+            </div>
+
+            {/* QR Code with storeId and storeName binding */}
+            <div className="p-4 bg-white rounded-2xl inline-block shadow-xl mx-auto">
+              <QRCodeSVG
+                value={`${window.location.origin}/#guard?storeId=${encodeURIComponent(activeStore.storeId)}&storeName=${encodeURIComponent(activeStore.storeName)}`}
+                size={200}
+                level="H"
+                includeMargin={false}
+              />
+            </div>
+
+            <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-[11px] text-slate-300 font-mono text-left space-y-1">
+              <div className="flex items-center gap-1.5 text-emerald-400 font-bold">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Vinculación Directa a esta Terminal</span>
+              </div>
+              <p className="text-slate-400 text-[10px]">
+                No le sonará a otros guardias que pertenezcan a otras tiendas. 0 Créditos consumidos.
+              </p>
+            </div>
+
+            <button
+              onClick={() => {
+                const targetUrl = `${window.location.origin}/#guard?storeId=${encodeURIComponent(activeStore.storeId)}&storeName=${encodeURIComponent(activeStore.storeName)}`;
+                navigator.clipboard.writeText(targetUrl);
+                setCopiedStoreQrUrl(true);
+                setTimeout(() => setCopiedStoreQrUrl(false), 2500);
+              }}
+              className="w-full py-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow"
+            >
+              {copiedStoreQrUrl ? (
+                <>
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  <span className="text-emerald-300">¡Enlace de Tienda Copiado!</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-4 h-4 text-emerald-400" />
+                  <span>Copiar Enlace Exclusivo de Esta Tienda</span>
+                </>
+              )}
+            </button>
           </div>
         </div>
       )}

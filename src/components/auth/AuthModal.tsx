@@ -21,6 +21,7 @@ export const AuthModal: React.FC = () => {
     loginWithMasterPassword, 
     loginWithCentralPassword,
     loginWithEmail, 
+    loginAsGuard,
     centrales
   } = useAuth();
 
@@ -28,9 +29,12 @@ export const AuthModal: React.FC = () => {
     return window.location.pathname.includes("/admin") || window.location.search.includes("admin") || window.location.hash.includes("admin");
   });
 
-  const [activeTab, setActiveTab] = useState<"MASTER" | "CENTRAL" | "EMAIL">(() => {
+  const [activeTab, setActiveTab] = useState<"MASTER" | "CENTRAL" | "EMAIL" | "GUARD">(() => {
     const isAd = window.location.pathname.includes("/admin") || window.location.search.includes("admin") || window.location.hash.includes("admin");
-    return isAd ? "MASTER" : "CENTRAL";
+    const isGd = window.location.pathname.includes("/guard") || window.location.search.includes("guard") || window.location.hash.includes("guard");
+    if (isAd) return "MASTER";
+    if (isGd) return "GUARD";
+    return "CENTRAL";
   });
   
   // Super Admin state
@@ -49,8 +53,27 @@ export const AuthModal: React.FC = () => {
   const [passwordInput, setPasswordInput] = useState<string>("");
   const [showTerminalPassword, setShowTerminalPassword] = useState<boolean>(false);
 
+  // Guard state
+  const [guardOfficerName, setGuardOfficerName] = useState<string>("Oficial de Seguridad 01");
+  const [guardBadge, setGuardBadge] = useState<string>("SEC-01");
+  const [guardSector, setGuardSector] = useState<string>("Perímetro Comercial / Planta Baja");
+
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+
+  // Guard Login execution
+  const handleGuardLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg(null);
+    setIsSubmitting(true);
+    try {
+      await loginAsGuard(guardOfficerName, guardBadge, guardSector);
+    } catch (err: any) {
+      setErrorMsg(err.message || "Error al iniciar sesión de guardia.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   // Master Login execution
   const handleMasterLogin = async (e: React.FormEvent) => {
@@ -127,9 +150,9 @@ export const AuthModal: React.FC = () => {
 
 
 
-        {/* Tab Selection: Central & Terminal for standard access; hidden on Super Admin panel */}
+        {/* Tab Selection: Central, Terminal & Guard for standard access; hidden on Super Admin panel */}
         {!isAdminRoute && (
-          <div className="grid grid-cols-2 gap-1.5 bg-slate-950 p-1.5 rounded-2xl border border-slate-800 text-xs">
+          <div className="grid grid-cols-3 gap-1.5 bg-slate-950 p-1.5 rounded-2xl border border-slate-800 text-xs">
             <button
               type="button"
               onClick={() => { setActiveTab("CENTRAL"); setErrorMsg(null); }}
@@ -154,6 +177,19 @@ export const AuthModal: React.FC = () => {
             >
               <Store className="w-3.5 h-3.5 shrink-0" />
               <span className="truncate">Terminal</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => { setActiveTab("GUARD"); setErrorMsg(null); }}
+              className={`py-2 px-1.5 rounded-xl font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                activeTab === "GUARD"
+                  ? "bg-gradient-to-r from-emerald-600 to-emerald-700 text-white shadow"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              <Shield className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
+              <span className="truncate">Guardia</span>
             </button>
           </div>
         )}
@@ -359,6 +395,85 @@ export const AuthModal: React.FC = () => {
           </form>
         )}
 
+        {/* Tab 5: Guard Tactical Login */}
+        {activeTab === "GUARD" && (
+          <form onSubmit={handleGuardLogin} className="space-y-3.5 text-xs">
+            <div className="flex items-center justify-between px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800">
+              <span className="font-semibold text-slate-300 flex items-center gap-1.5">
+                <Shield className="w-3.5 h-3.5 text-emerald-400" />
+                Portal Móvil del Guardia en Sitio
+              </span>
+              <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-emerald-950/80 text-emerald-300 font-bold border border-emerald-900/50">
+                0 CRÉDITOS / GRATIS
+              </span>
+            </div>
+
+            <div>
+              <label className="block text-slate-300 font-semibold mb-1">
+                Nombre del Guardia / Oficial:
+              </label>
+              <input
+                type="text"
+                value={guardOfficerName}
+                onChange={(e) => setGuardOfficerName(e.target.value)}
+                placeholder="Ej. Oficial Juan Pérez"
+                required
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white text-xs focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">
+                  Indicativo / Placa:
+                </label>
+                <input
+                  type="text"
+                  value={guardBadge}
+                  onChange={(e) => setGuardBadge(e.target.value)}
+                  placeholder="SEC-01"
+                  required
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white font-mono text-xs focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">
+                  Sector Asignado:
+                </label>
+                <input
+                  type="text"
+                  value={guardSector}
+                  onChange={(e) => setGuardSector(e.target.value)}
+                  placeholder="Planta Baja / Pasillo"
+                  required
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white text-xs focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+            </div>
+
+            <p className="text-[11px] text-slate-400 leading-relaxed bg-slate-950/60 p-2.5 rounded-xl border border-slate-800">
+              📲 Recibirás las alertas de emergencia con sirena sonora y vibración instantánea directamente en el navegador de este teléfono móvil.
+            </p>
+
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white font-bold flex items-center justify-center gap-2 shadow-lg shadow-emerald-950 transition-all cursor-pointer disabled:opacity-50"
+            >
+              {isSubmitting ? (
+                <span>Iniciando Turno...</span>
+              ) : (
+                <>
+                  <Shield className="w-4 h-4" />
+                  <span>Iniciar Turno de Guardia en Celular</span>
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
+            </button>
+          </form>
+        )}
+
         {/* Footer Role Segregation Guarantee */}
         <div className="pt-2 border-t border-slate-800/80 flex items-center justify-center gap-3 text-[10px] text-slate-400 font-mono flex-wrap">
           {isAdminRoute ? (
@@ -370,12 +485,17 @@ export const AuthModal: React.FC = () => {
             <>
               <span className="flex items-center gap-1">
                 <Building2 className="w-3 h-3 text-red-400" />
-                Central: Monitoreo & Despacho
+                Central: C4/C5
               </span>
               <span>•</span>
               <span className="flex items-center gap-1">
                 <Store className="w-3 h-3 text-blue-400" />
-                Terminal: Botón de Pánico
+                Terminal: Pánico
+              </span>
+              <span>•</span>
+              <span className="flex items-center gap-1">
+                <Shield className="w-3 h-3 text-emerald-400" />
+                Guardia: Celular Táctico
               </span>
             </>
           )}

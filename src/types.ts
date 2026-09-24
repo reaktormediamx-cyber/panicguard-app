@@ -40,7 +40,7 @@ export interface StoreMetadata {
 
 export type ThreatLevel = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'FALSE_ALARM' | 'PENDING';
 
-export type UserRole = 'SUPER_ADMIN' | 'CENTRAL' | 'TERMINAL' | 'ADMIN';
+export type UserRole = 'SUPER_ADMIN' | 'CENTRAL' | 'TERMINAL' | 'ADMIN' | 'GUARD';
 
 export interface AppUser {
   uid: string;
@@ -51,6 +51,7 @@ export interface AppUser {
   storeName?: string;
   centralId?: string;
   centralName?: string;
+  guardSector?: string;
   createdAt: string;
   createdBy?: string;
   status: 'ACTIVE' | 'SUSPENDED';
@@ -68,7 +69,7 @@ export interface TerminalRegistration {
   address: string;
   city: string;
   category: string;
-  assignedRole: 'TERMINAL' | 'CENTRAL' | 'SUPER_ADMIN';
+  assignedRole: 'TERMINAL' | 'CENTRAL' | 'SUPER_ADMIN' | 'GUARD';
   registeredBy: string;
   createdAt: string;
   lastActive?: string;

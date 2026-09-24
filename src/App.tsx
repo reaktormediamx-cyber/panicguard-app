@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import {
   ShieldAlert,
+  Shield,
   Store,
   Monitor,
   Settings,
@@ -12,12 +13,14 @@ import {
   KeyRound,
   LayoutDashboard,
   Building2,
-  ChevronDown
+  ChevronDown,
+  Smartphone
 } from "lucide-react";
 import { StoreMetadata, DEFAULT_STORE } from "./types.js";
 import { MerchantTerminal } from "./components/merchant/MerchantTerminal.js";
 import { MonitoringDashboard } from "./components/dashboard/MonitoringDashboard.js";
 import { MasterAdminDashboard } from "./components/superadmin/MasterAdminDashboard.js";
+import { GuardPortal } from "./components/guard/GuardPortal.js";
 import { StoreConfigModal } from "./components/store/StoreConfigModal.js";
 import { TerminalManagerModal } from "./components/admin/TerminalManagerModal.js";
 import { AuthModal } from "./components/auth/AuthModal.js";
@@ -30,8 +33,15 @@ export default function App() {
   const [isStoreConfigOpen, setIsStoreConfigOpen] = useState<boolean>(false);
   const [isTerminalManagerOpen, setIsTerminalManagerOpen] = useState<boolean>(false);
 
-  // Active View mode: MASTER_ADMIN, CENTRAL, TERMINAL
-  const [currentView, setCurrentView] = useState<"MASTER_ADMIN" | "CENTRAL" | "TERMINAL">("CENTRAL");
+  // Active View mode: MASTER_ADMIN, CENTRAL, TERMINAL, GUARD
+  const [currentView, setCurrentView] = useState<"MASTER_ADMIN" | "CENTRAL" | "TERMINAL" | "GUARD">(() => {
+    if (typeof window !== "undefined") {
+      if (window.location.hash.includes("guard") || window.location.search.includes("guard")) {
+        return "GUARD";
+      }
+    }
+    return "CENTRAL";
+  });
 
   const {
     alerts,
@@ -61,17 +71,22 @@ export default function App() {
       }
     }
   }, [currentView, isAudioAlarmActive, activeEmergencyModalAlert, acknowledgeAlarmSound, setActiveEmergencyModalAlert]);
+
   useEffect(() => {
     if (appUser) {
       if (appUser.role === "SUPER_ADMIN") {
-        // Super admin can be anywhere
+        // Super admin can inspect any view
+      } else if (appUser.role === "GUARD") {
+        if (currentView !== "GUARD") {
+          setCurrentView("GUARD");
+        }
       } else if (appUser.role === "CENTRAL" || appUser.role === "ADMIN") {
-        // Central cannot access MASTER_ADMIN or TERMINAL view under any circumstances
-        if (currentView === "MASTER_ADMIN" || currentView === "TERMINAL") {
+        // Central operator is locked strictly to CENTRAL view
+        if (currentView !== "CENTRAL") {
           setCurrentView("CENTRAL");
         }
-      } else {
-        // Terminal role can ONLY access TERMINAL view under any circumstances
+      } else if (appUser.role === "TERMINAL") {
+        // Terminal merchant is locked strictly to TERMINAL view
         if (currentView !== "TERMINAL") {
           setCurrentView("TERMINAL");
         }
@@ -84,6 +99,8 @@ export default function App() {
     if (appUser) {
       if (appUser.role === "SUPER_ADMIN") {
         setCurrentView("MASTER_ADMIN");
+      } else if (appUser.role === "GUARD") {
+        setCurrentView("GUARD");
       } else if (appUser.role === "CENTRAL" || appUser.role === "ADMIN") {
         setCurrentView("CENTRAL");
       } else {
@@ -127,6 +144,9 @@ export default function App() {
     if (appUser.role === "SUPER_ADMIN" || currentView === "MASTER_ADMIN") {
       return "Super Admin Matriz";
     }
+    if (currentView === "GUARD" || appUser.role === "GUARD") {
+      return appUser.displayName || localStorage.getItem("pg_guard_name") || "Oficial en Turno (Guardia)";
+    }
     if (currentView === "CENTRAL" || appUser.role === "CENTRAL") {
       const centralMatch = centrales.find(c => (c.email || "").toLowerCase() === (appUser.email || "").toLowerCase() || c.id === appUser.centralId);
       return centralMatch?.name || appUser.centralName || appUser.displayName || appUser.storeName || "Central de Monitoreo";
@@ -157,6 +177,20 @@ export default function App() {
     return <AuthModal />;
   }
 
+  // Pure mobile full-viewport experience for Security Guards on mobile devices
+  if (appUser.role === "GUARD") {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-red-500 selection:text-white">
+        <GuardPortal
+          alerts={alerts}
+          isConnected={isConnected}
+          updateAlertStatus={updateAlertStatus}
+          onOpenStoreConfig={() => setIsStoreConfigOpen(true)}
+        />
+      </div>
+    );
+  }
+
   const isSuperAdmin = appUser.role === "SUPER_ADMIN";
   const isPrivileged = appUser.role === "SUPER_ADMIN" || appUser.role === "CENTRAL" || appUser.role === "ADMIN";
 
@@ -170,12 +204,16 @@ export default function App() {
             <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg ${
               currentView === "MASTER_ADMIN"
                 ? "bg-gradient-to-br from-red-600 via-red-700 to-slate-950 shadow-red-950"
+                : currentView === "GUARD"
+                ? "bg-gradient-to-br from-emerald-600 to-emerald-800 shadow-emerald-950"
                 : currentView === "CENTRAL" 
                 ? "bg-gradient-to-br from-red-600 to-red-800 shadow-red-950"
                 : "bg-gradient-to-br from-blue-600 to-blue-800 shadow-blue-950"
             }`}>
               {currentView === "MASTER_ADMIN" ? (
                 <ShieldAlert className="w-5 h-5" />
+              ) : currentView === "GUARD" ? (
+                <Shield className="w-5 h-5" />
               ) : currentView === "CENTRAL" ? (
                 <Building2 className="w-5 h-5" />
               ) : (
@@ -190,12 +228,16 @@ export default function App() {
                 <span className={`text-[10px] uppercase font-mono px-2 py-0.5 rounded border font-bold ${
                   currentView === "MASTER_ADMIN"
                     ? "bg-red-950/90 border-red-700 text-red-300"
+                    : currentView === "GUARD"
+                    ? "bg-emerald-950/90 border-emerald-700 text-emerald-300"
                     : currentView === "CENTRAL"
                     ? "bg-red-950/80 border-red-800/50 text-red-300"
                     : "bg-blue-950/80 border-blue-800/50 text-blue-300"
                 }`}>
                   {currentView === "MASTER_ADMIN"
                     ? "SUPER ADMIN"
+                    : currentView === "GUARD"
+                    ? "GUARDIA MÓVIL"
                     : currentView === "CENTRAL"
                     ? "CENTRAL C4/C5"
                     : "TERMINAL"}
@@ -213,6 +255,8 @@ export default function App() {
               <p className="text-[11px] text-slate-400 font-medium hidden md:block">
                 {currentView === "MASTER_ADMIN"
                   ? "Panel General de Centrales, Terminales en Tiempo Real y Estadísticas"
+                  : currentView === "GUARD"
+                  ? "Portal Táctico del Guardia: Alarma Sonora, Fotos y Despacho Rápido (0 Créditos)"
                   : currentView === "CENTRAL"
                   ? `Consola Operativa Asignada: ${activeAccountName}`
                   : `Terminal Comercial Asignada: ${activeAccountName} (${store.storeId})`}
@@ -220,10 +264,47 @@ export default function App() {
             </div>
           </div>
 
+            {/* Right Action Tools */}
+          <div className="flex items-center gap-2">
+            {/* Super Admin Full View Switcher */}
+            {isSuperAdmin && (
+              <div className="hidden xl:flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
+                <button
+                  onClick={() => setCurrentView("MASTER_ADMIN")}
+                  className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                    currentView === "MASTER_ADMIN" ? "bg-red-700 text-white" : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  Matriz
+                </button>
+                <button
+                  onClick={() => setCurrentView("CENTRAL")}
+                  className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                    currentView === "CENTRAL" ? "bg-red-700 text-white" : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  Central C4
+                </button>
+                <button
+                  onClick={() => setCurrentView("TERMINAL")}
+                  className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                    currentView === "TERMINAL" ? "bg-blue-600 text-white" : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  Terminal
+                </button>
+                <button
+                  onClick={() => setCurrentView("GUARD")}
+                  className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                    currentView === "GUARD" ? "bg-emerald-600 text-white" : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  <Shield className="w-3 h-3" />
+                  Guardia
+                </button>
+              </div>
+            )}
 
-
-          {/* Right Action Tools */}
-          <div className="flex items-center gap-2.5">
             {isPrivileged && (
               <button
                 id="btn-admin-terminals"
@@ -308,6 +389,15 @@ export default function App() {
         {currentView === "TERMINAL" && (
           <MerchantTerminal
             store={store}
+            onOpenStoreConfig={() => setIsStoreConfigOpen(true)}
+          />
+        )}
+
+        {currentView === "GUARD" && (
+          <GuardPortal
+            alerts={alerts}
+            isConnected={isConnected}
+            updateAlertStatus={updateAlertStatus}
             onOpenStoreConfig={() => setIsStoreConfigOpen(true)}
           />
         )}

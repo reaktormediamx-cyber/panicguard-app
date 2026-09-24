@@ -42,6 +42,7 @@ interface AuthContextType {
   loginWithMasterPassword: (password: string, inputEmail?: string) => Promise<void>;
   loginWithCentralPassword: (password: string, inputEmail?: string, centralId?: string) => Promise<void>;
   loginWithEmail: (email: string, password: string) => Promise<void>;
+  loginAsGuard: (guardOfficerName?: string, badge?: string, sector?: string) => Promise<void>;
   registerTerminalUser: (email: string, password: string, storeData: Partial<TerminalRegistration>) => Promise<void>;
   logout: () => Promise<void>;
   terminals: TerminalRegistration[];
@@ -635,6 +636,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Direct login / shift activation for Security Guards on mobile
+  const loginAsGuard = async (guardOfficerName = "Oficial de Seguridad 01", badge = "SEC-01", sector = "Perímetro Comercial") => {
+    const cleanName = (guardOfficerName || "").trim() || "Oficial de Seguridad 01";
+    const cleanBadge = (badge || "").trim() || "SEC-01";
+    const cleanSector = (sector || "").trim() || "Perímetro Comercial";
+
+    const guardUser: AppUser = {
+      uid: "guard-" + Math.floor(1000 + Math.random() * 9000),
+      email: `guardia.${cleanBadge.toLowerCase().replace(/[^a-z0-9]/g, "") || "01"}@panicguard.local`,
+      displayName: cleanName,
+      role: "GUARD",
+      guardSector: cleanSector,
+      storeId: "SECTOR-GUARD",
+      storeName: cleanSector,
+      centralId: "CEN-CDMX-01",
+      centralName: "C4 Centro de Comando Poniente - CDMX",
+      createdAt: new Date().toISOString(),
+      status: "ACTIVE"
+    };
+
+    try {
+      localStorage.setItem("pg_guard_name", cleanName);
+      localStorage.setItem("pg_guard_badge", cleanBadge);
+      localStorage.setItem("pg_guard_sector", cleanSector);
+      localStorage.setItem("pg_guard_duty", "true");
+    } catch {}
+
+    setAppUser(guardUser);
+  };
+
   // Register a new terminal account from Central Console
   const registerTerminalUser = async (email: string, pass: string, storeData: Partial<TerminalRegistration>) => {
     const cleanEmail = (email || "").toLowerCase().trim();
@@ -1050,6 +1081,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         loginWithMasterPassword,
         loginWithCentralPassword,
         loginWithEmail,
+        loginAsGuard,
         registerTerminalUser,
         logout,
         terminals,

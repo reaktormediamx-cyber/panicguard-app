@@ -121,6 +121,44 @@ class AlarmSoundEngine {
       console.warn("Audio error:", e);
     }
   }
+
+  /**
+   * High-urgency tactical siren specifically tuned for guards on mobile
+   */
+  public playGuardTacticalSiren() {
+    if (this.muted) return;
+    try {
+      const ctx = this.initContext();
+      const now = ctx.currentTime;
+
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = "sawtooth";
+      // Aggressive wail from 700Hz to 1400Hz and back
+      osc.frequency.setValueAtTime(700, now);
+      osc.frequency.linearRampToValueAtTime(1400, now + 0.35);
+      osc.frequency.linearRampToValueAtTime(700, now + 0.7);
+
+      gain.gain.setValueAtTime(0.4, now);
+      gain.gain.exponentialRampToValueAtTime(0.05, now + 0.7);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.7);
+
+      // Trigger hardware phone vibration if available
+      if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+        try {
+          navigator.vibrate([400, 150, 400, 150, 600]);
+        } catch {}
+      }
+    } catch (e) {
+      console.warn("Guard audio error:", e);
+    }
+  }
 }
 
 export const alarmSound = new AlarmSoundEngine();
