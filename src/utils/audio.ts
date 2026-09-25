@@ -25,13 +25,13 @@ function generateWavDataUri(
 
   // Format Chunk
   writeString(view, 12, "fmt ");
-  view.setUint32(16, 16, true); // SubChunk1Size (16 for PCM)
-  view.setUint16(20, 1, true); // AudioFormat (1 = PCM)
-  view.setUint16(22, 1, true); // NumChannels (1 = Mono)
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true); // PCM
+  view.setUint16(22, 1, true); // Mono
   view.setUint32(24, sampleRate, true);
-  view.setUint32(28, sampleRate * 2, true); // ByteRate (SampleRate * NumChannels * BitsPerSample/8)
-  view.setUint16(32, 2, true); // BlockAlign (NumChannels * BitsPerSample/8)
-  view.setUint16(34, 16, true); // BitsPerSample (16-bit)
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
 
   // Data Chunk
   writeString(view, 36, "data");
@@ -63,7 +63,7 @@ class AlarmSoundEngine {
   private isAlarmPlaying = false;
   private alarmInterval: number | null = null;
   private isGuardSirenPlaying = false;
-  private guardSirenInterval: number | null = null;
+  private guardVibrationInterval: number | null = null;
   private muted = false;
 
   // Dedicated HTML5 Audio elements for mobile lock-screen & background playback
@@ -88,10 +88,8 @@ class AlarmSoundEngine {
       const duration = 2.0;
       let phase = 0;
       this.sirenWavUri = generateWavDataUri(sampleRate, duration, (t) => {
-        // Fast dual wail frequency modulation
         const freq = 800 + 750 * Math.sin(2 * Math.PI * 1.5 * t);
         phase += (2 * Math.PI * freq) / sampleRate;
-        // Harmonic blend of Sine + Sawtooth for penetrating alarm tone
         const sine = Math.sin(phase);
         const saw = 2 * ((phase / (2 * Math.PI)) % 1) - 1;
         const envelope = 0.85;
@@ -132,9 +130,6 @@ class AlarmSoundEngine {
 
   /**
    * Enables the Mobile Background Keep-Alive Audio Engine.
-   * Call this on any user interaction (e.g. entering "EN TURNO" or touching screen).
-   * This registers the tab with mobile OS media session (iOS/Android) preventing
-   * the browser from sleeping, killing WebSockets, or silencing sirens when the screen locks.
    */
   public enableBackgroundGuardMode() {
     this.isBackgroundGuardModeActive = true;
@@ -270,11 +265,12 @@ class AlarmSoundEngine {
   }
 
   /**
-   * High-urgency tactical siren & vibration specifically for Security Guards on mobile.
-   * Plays BOTH via Web Audio API AND via dedicated HTML5 Audio element to ensure
-   * it sounds even when the phone screen is locked or turned off.
+   * Single-source High-urgency tactical siren & vibration for Security Guards on mobile.
+   * Plays cleanly through ONE audio channel with zero duplication or echo.
    */
   public playGuardTacticalSiren() {
+    let playedHtml5 = false;
+
     // 1. Play through HTML5 Audio element (works on mobile lockscreen & background)
     if (this.bgAudioElement && this.sirenWavUri) {
       try {
@@ -284,32 +280,35 @@ class AlarmSoundEngine {
         this.bgAudioElement.volume = 1.0;
         this.bgAudioElement.loop = true;
         this.bgAudioElement.play().catch(() => {});
+        playedHtml5 = true;
       } catch {}
     }
 
-    // 2. Play through Web Audio API oscillator (works when screen is active)
-    try {
-      const ctx = this.initContext();
-      const now = ctx.currentTime;
+    // 2. Only use Web Audio API if HTML5 audio is unavailable
+    if (!playedHtml5) {
+      try {
+        const ctx = this.initContext();
+        const now = ctx.currentTime;
 
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
 
-      osc.type = "sawtooth";
-      osc.frequency.setValueAtTime(750, now);
-      osc.frequency.linearRampToValueAtTime(1500, now + 0.35);
-      osc.frequency.linearRampToValueAtTime(750, now + 0.7);
+        osc.type = "sawtooth";
+        osc.frequency.setValueAtTime(750, now);
+        osc.frequency.linearRampToValueAtTime(1500, now + 0.35);
+        osc.frequency.linearRampToValueAtTime(750, now + 0.7);
 
-      gain.gain.setValueAtTime(0.6, now);
-      gain.gain.exponentialRampToValueAtTime(0.05, now + 0.7);
+        gain.gain.setValueAtTime(0.6, now);
+        gain.gain.exponentialRampToValueAtTime(0.05, now + 0.7);
 
-      osc.connect(gain);
-      gain.connect(ctx.destination);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
 
-      osc.start(now);
-      osc.stop(now + 0.7);
-    } catch (e) {
-      console.warn("Guard audio error:", e);
+        osc.start(now);
+        osc.stop(now + 0.7);
+      } catch (e) {
+        console.warn("Guard audio error:", e);
+      }
     }
 
     // 3. Trigger phone tactile vibration pattern
@@ -327,17 +326,22 @@ class AlarmSoundEngine {
   public startGuardTacticalLoop() {
     if (this.isGuardSirenPlaying) return;
     this.isGuardSirenPlaying = true;
+    
+    // Start the single continuous siren
     this.playGuardTacticalSiren();
 
-    if (this.guardSirenInterval) {
-      clearInterval(this.guardSirenInterval);
+    // Re-trigger vibration pulse periodically without re-creating audio streams
+    if (this.guardVibrationInterval) {
+      clearInterval(this.guardVibrationInterval);
     }
 
-    this.guardSirenInterval = window.setInterval(() => {
-      if (this.isGuardSirenPlaying) {
-        this.playGuardTacticalSiren();
+    this.guardVibrationInterval = window.setInterval(() => {
+      if (this.isGuardSirenPlaying && typeof navigator !== "undefined" && "vibrate" in navigator) {
+        try {
+          navigator.vibrate([500, 200, 500, 200, 800]);
+        } catch {}
       }
-    }, 2000);
+    }, 2500);
   }
 
   /**
@@ -345,9 +349,9 @@ class AlarmSoundEngine {
    */
   public stopGuardTacticalLoop() {
     this.isGuardSirenPlaying = false;
-    if (this.guardSirenInterval) {
-      clearInterval(this.guardSirenInterval);
-      this.guardSirenInterval = null;
+    if (this.guardVibrationInterval) {
+      clearInterval(this.guardVibrationInterval);
+      this.guardVibrationInterval = null;
     }
 
     // Return HTML5 audio element to silent carrier loop to keep background thread awake

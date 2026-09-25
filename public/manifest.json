@@ -1,0 +1,33 @@
+{
+  "id": "/",
+  "name": "PanicGuard Táctico - Guardia",
+  "short_name": "PanicGuard",
+  "description": "Sistema táctico de botón de pánico y videoverificación para guardias de seguridad",
+  "start_url": "/#guard",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#020617",
+  "theme_color": "#dc2626",
+  "categories": ["security", "utilities", "productivity"],
+  "icons": [
+    {
+      "src": "/pwa-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

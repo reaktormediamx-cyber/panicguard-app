@@ -21,6 +21,10 @@ import {
   Sparkles,
   Smartphone,
   Check,
+  Download,
+  Info,
+  BatteryCharging,
+  BellRing,
 } from "lucide-react";
 import { PanicAlert, AlertStatus } from "../../types.js";
 import { alarmSound } from "../../utils/audio.js";
@@ -104,6 +108,39 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
   const [hasNotificationPermission, setHasNotificationPermission] = useState<boolean>(() => {
     return typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted";
   });
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isApkInfoModalOpen, setIsApkInfoModalOpen] = useState<boolean>(false);
+  const [isStandaloneApp, setIsStandaloneApp] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia("(display-mode: standalone)").matches || (window.navigator as any).standalone === true;
+  });
+
+  // Listen for PWA Install Prompt (Add to Home Screen / WebAPK)
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    return () => window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+  }, []);
+
+  const handleInstallPwa = async () => {
+    if (deferredPrompt) {
+      try {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === "accepted") {
+          setDeferredPrompt(null);
+          setIsStandaloneApp(true);
+        }
+      } catch {
+        setIsApkInfoModalOpen(true);
+      }
+    } else {
+      setIsApkInfoModalOpen(true);
+    }
+  };
 
   // Screen WakeLock ref
   const wakeLockRef = useRef<any>(null);
@@ -302,10 +339,11 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
           try {
             new Notification("🚨 ¡EMERGENCIA EN CURSO!", {
               body: `${activeAlerts[0].store.storeName} (${activeAlerts[0].store.address})`,
-              icon: "/favicon.ico",
+              icon: "/pwa-icon.svg",
               tag: "panic-alert",
               renotify: true,
               requireInteraction: true,
+              silent: true,
               vibrate: [500, 200, 500, 200, 800],
             } as any);
           } catch {}
@@ -812,11 +850,23 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
                 onClick={requestNotificationPermission}
                 className="w-full p-2.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 active:scale-95 border border-amber-500/40 text-amber-300 text-xs font-bold font-mono flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm"
               >
+                <BellRing className="w-4 h-4 text-amber-400 animate-bounce" />
                 <span>🔔 Permitir Alertas con Pantalla Bloqueada</span>
               </button>
             )}
 
-            <div className="pt-2">
+            {/* PWA / APK Mobile App Installation Button */}
+            {!isStandaloneApp && (
+              <button
+                onClick={handleInstallPwa}
+                className="w-full p-2.5 rounded-xl bg-gradient-to-r from-blue-600/30 to-indigo-600/30 hover:from-blue-600/40 hover:to-indigo-600/40 active:scale-95 border border-blue-500/50 text-blue-200 text-xs font-bold font-mono flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md"
+              >
+                <Download className="w-4 h-4 text-blue-400" />
+                <span>📲 Instalar App en Celular (PWA / APK)</span>
+              </button>
+            )}
+
+            <div className="pt-2 flex flex-col gap-2">
               <button
                 onClick={handleTestSiren}
                 disabled={isAudioTestActive}
@@ -825,10 +875,112 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
                 <Volume2 className="w-4 h-4" />
                 <span>{isAudioTestActive ? "Sirena Sonando..." : "Realizar Prueba de Sirena"}</span>
               </button>
+
+              <button
+                onClick={() => setIsApkInfoModalOpen(true)}
+                className="w-full py-2 rounded-xl bg-slate-950/80 hover:bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-200 text-[11px] font-mono flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+              >
+                <Info className="w-3.5 h-3.5 text-slate-400" />
+                <span>¿Cómo activar sonido con pantalla apagada / APK?</span>
+              </button>
             </div>
           </div>
         )}
       </main>
+
+      {/* MODAL DE GUÍA: INSTALACIÓN DE APP MÓVIL (OPCIÓN 1 - PWA / WEBAPK) */}
+      {isApkInfoModalOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-3"
+          onClick={() => setIsApkInfoModalOpen(false)}
+        >
+          <div
+            className="bg-slate-900 border border-slate-700 rounded-3xl p-5 max-w-md w-full shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-red-600/20 border border-red-500/40 flex items-center justify-center text-red-400">
+                  <Download className="w-5 h-5 animate-pulse" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Instalar App en Celular (PWA)</h3>
+                  <span className="text-[10px] font-mono text-emerald-400">Para alertas con pantalla apagada</span>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsApkInfoModalOpen(false)}
+                className="p-1.5 rounded-xl bg-slate-800 text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs text-slate-300">
+              {/* Paso 1: Instalar en pantalla de inicio */}
+              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-3.5 space-y-2">
+                <div className="flex items-center gap-2 text-emerald-400 font-bold font-mono text-xs">
+                  <span className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center text-[11px] text-emerald-400">1</span>
+                  <span>Instalar la Aplicación en la Pantalla:</span>
+                </div>
+                
+                {deferredPrompt ? (
+                  <button
+                    onClick={handleInstallPwa}
+                    className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-700 active:scale-95 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md cursor-pointer"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>Tocar aquí para Instalar Directamente</span>
+                  </button>
+                ) : (
+                  <div className="bg-slate-900/90 rounded-xl p-3 text-[11px] font-mono text-slate-300 space-y-2 border border-slate-800">
+                    <div>
+                      <b className="text-amber-300 block mb-0.5">📱 En Android (Google Chrome):</b>
+                      Toca los <b>tres puntos (⋮)</b> arriba a la derecha en Chrome y presiona <b>"Instalar aplicación"</b> o <b>"Añadir a la pantalla de inicio"</b>.
+                    </div>
+                    <div className="pt-1.5 border-t border-slate-800">
+                      <b className="text-cyan-300 block mb-0.5">🍏 En iPhone (Safari):</b>
+                      Toca el botón <b>Compartir (icono del cuadro con flecha ⎋)</b> y selecciona <b>"Añadir a la pantalla de inicio"</b>.
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Paso 2: Permitir notificaciones */}
+              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-3.5 space-y-2">
+                <div className="flex items-center gap-2 text-amber-400 font-bold font-mono text-xs">
+                  <span className="w-5 h-5 rounded-full bg-amber-500/20 flex items-center justify-center text-[11px] text-amber-400">2</span>
+                  <span>Permitir Notificaciones con Sonido:</span>
+                </div>
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  Al abrir la app instalada, presiona el botón <b>"🔔 Permitir Alertas con Pantalla Bloqueada"</b> y pulsa <b>"Permitir"</b> en el aviso del celular.
+                </p>
+              </div>
+
+              {/* Paso 3: Quitar restricción de batería en Android */}
+              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-3.5 space-y-2">
+                <div className="flex items-center gap-2 text-blue-400 font-bold font-mono text-xs">
+                  <span className="w-5 h-5 rounded-full bg-blue-500/20 flex items-center justify-center text-[11px] text-blue-400">3</span>
+                  <span>Batería Sin Restricciones (Crucial en Android):</span>
+                </div>
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  Para que Android no ponga la aplicación a dormir cuando bloquees el celular:
+                </p>
+                <div className="bg-slate-900/90 rounded-xl p-2.5 text-[11px] font-mono text-slate-300 border border-slate-800">
+                  Ve a <b>Ajustes de tu celular</b> ➔ <b>Aplicaciones</b> ➔ <b>PanicGuard</b> ➔ <b>Batería</b> ➔ Elige <b>"Sin restricciones"</b>.
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setIsApkInfoModalOpen(false)}
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-700 text-white font-bold text-xs shadow-lg shadow-emerald-950/60 cursor-pointer"
+            >
+              Listo, Entendido
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* FULLSCREEN IMAGE MODAL (FOR MOBILE ZOOM) */}
       {isZoomImageOpen && currentEmergency && currentEmergency.images && (
