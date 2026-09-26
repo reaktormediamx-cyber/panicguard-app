@@ -51,9 +51,11 @@ export function useSocketAlerts() {
 
       setAlerts((prev) => [newAlert, ...prev.filter((a) => a.id !== newAlert.id)]);
 
-      const isMasterAdminView = (window as any).__panicGuardView === "MASTER_ADMIN";
+      const currentView = (window as any).__panicGuardView;
+      // ONLY trigger Central desktop pop-up modal and emergency wail siren for Central monitoring operators
+      const isCentralView = currentView === "CENTRAL" || (!currentView && typeof window !== "undefined" && !window.location.hash.includes("guard"));
 
-      if (!isMasterAdminView) {
+      if (isCentralView) {
         setActiveEmergencyModalAlert(newAlert);
         // Trigger siren sound automatically for Central operators
         alarmSound.startEmergencySiren();
@@ -75,14 +77,16 @@ export function useSocketAlerts() {
     });
 
     // Dynamic Analysis Verdict update
-    socket.on("alert:ai_update", ({ alertId, aiVerdict, aiStatus, updatedLogs, aiError }: { alertId: string; aiVerdict?: AiVerdict; aiStatus: string; updatedLogs?: any[]; aiError?: string }) => {
-      console.log("[Socket] 🧠 DICTAMEN RECIBIDO PARA:", alertId, aiVerdict);
+    socket.on("alert:ai_update", ({ alertId, aiVerdict, aiStatus, updatedLogs, aiError, status }: { alertId: string; aiVerdict?: AiVerdict; aiStatus: string; updatedLogs?: any[]; aiError?: string; status?: AlertStatus }) => {
+      console.log("[Socket] 🧠 DICTAMEN RECIBIDO PARA:", alertId, aiVerdict, status);
 
       setAlerts((prev) =>
         prev.map((a) => {
           if (a.id === alertId) {
+            const nextStatus = status || a.status;
             return {
               ...a,
+              status: nextStatus,
               aiVerdict: aiVerdict || a.aiVerdict,
               aiStatus: (aiStatus as any) || "completed",
               logs: updatedLogs || a.logs,
@@ -93,10 +97,17 @@ export function useSocketAlerts() {
         })
       );
 
+      // If status is non-active, ensure all sound engines stay silenced
+      if (status && status !== "ACTIVE") {
+        alarmSound.silenceAll();
+        setIsAudioAlarmActive(false);
+      }
+
       setActiveEmergencyModalAlert((current) => {
         if (current && current.id === alertId) {
           return {
             ...current,
+            status: status || current.status,
             aiVerdict: aiVerdict || current.aiVerdict,
             aiStatus: (aiStatus as any) || "completed",
             logs: updatedLogs || current.logs,
@@ -107,7 +118,7 @@ export function useSocketAlerts() {
       });
     });
 
-    // Alert status changed by operator
+    // Alert status changed by operator (Dispatched, Resolved, False Alarm)
     socket.on("alert:status_changed", (updatedAlert: PanicAlert) => {
       setAlerts((prev) =>
         prev.map((a) => (a.id === updatedAlert.id ? updatedAlert : a))
@@ -118,6 +129,12 @@ export function useSocketAlerts() {
         }
         return current;
       });
+
+      // If the alert is no longer ACTIVE (dispatched, resolved, false alarm), immediately silence all audio engines
+      if (updatedAlert.status !== "ACTIVE") {
+        alarmSound.silenceAll();
+        setIsAudioAlarmActive(false);
+      }
     });
 
     // Fetch initial list via REST as backup
@@ -137,12 +154,44 @@ export function useSocketAlerts() {
   }, []);
 
   const acknowledgeAlarmSound = useCallback(() => {
-    alarmSound.stopAlarm();
+    alarmSound.silenceAll();
     setIsAudioAlarmActive(false);
   }, []);
 
   const updateAlertStatus = useCallback(
     (alertId: string, status: AlertStatus, operatorName = "Operador de Central", notes?: string, unit?: string) => {
+      // 1. Optimistic local update with zero latency
+      setAlerts((prev) =>
+        prev.map((a) => {
+          if (a.id === alertId) {
+            const nextLogs = [
+              ...a.logs,
+              {
+                timestamp: new Date().toISOString(),
+                action: `Estado actualizado a ${status}`,
+                operator: operatorName,
+                details: notes,
+              },
+            ];
+            return {
+              ...a,
+              status,
+              dispatchedUnit: unit || a.dispatchedUnit,
+              operatorNotes: notes ? [...(a.operatorNotes || []), notes] : a.operatorNotes,
+              logs: nextLogs,
+            };
+          }
+          return a;
+        })
+      );
+
+      // Immediately silence alarms if status is changing away from ACTIVE
+      if (status !== "ACTIVE") {
+        alarmSound.silenceAll();
+        setIsAudioAlarmActive(false);
+      }
+
+      // 2. Realtime socket emission
       if (socketRef.current) {
         socketRef.current.emit("alert:update_status", {
           alertId,
@@ -152,6 +201,15 @@ export function useSocketAlerts() {
           unit,
         });
       }
+
+      // 3. Redundant HTTP PATCH guarantee (ensures database/server memory is updated even if mobile WebSocket was suspended)
+      fetch(`/api/alerts/${alertId}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status, operator: operatorName, notes, unit }),
+      }).catch((err) => {
+        console.warn("[REST Status Update Notice]:", err);
+      });
     },
     []
   );

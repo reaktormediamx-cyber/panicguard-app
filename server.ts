@@ -151,33 +151,38 @@ async function processPanicAlert(alert: PanicAlert) {
         category: alert.store.category,
       });
 
-      alert.aiVerdict = verdict;
-      alert.aiStatus = "completed";
-      alert.logs.push({
+      // Retrieve the freshest alert state from alertStore so status updates (e.g. DISPATCHED, FALSE_ALARM) made while AI was analyzing are preserved
+      const latestAlert = alertStore.get(alert.id) || alert;
+      latestAlert.aiVerdict = verdict;
+      latestAlert.aiStatus = "completed";
+      latestAlert.logs.push({
         timestamp: new Date().toISOString(),
         action: `Análisis Automatizado: Nivel ${verdict.threatLevel} (${verdict.confidenceScore}% certeza)`,
         details: verdict.summary,
       });
 
-      alertStore.set(alert.id, alert);
-      console.log(`[GEMINI DONE] Finished analysis for ${alert.id}. Threat Level: ${verdict.threatLevel}`);
+      alertStore.set(latestAlert.id, latestAlert);
+      console.log(`[GEMINI DONE] Finished analysis for ${latestAlert.id}. Threat: ${verdict.threatLevel}. Status preserved: ${latestAlert.status}`);
 
       // Step C: Dispatch AI update to all connected Monitoring Dashboards
       io.emit("alert:ai_update", {
-        alertId: alert.id,
+        alertId: latestAlert.id,
         aiVerdict: verdict,
         aiStatus: "completed",
-        updatedLogs: alert.logs,
+        status: latestAlert.status,
+        updatedLogs: latestAlert.logs,
       });
     } catch (err: any) {
       console.error(`[GEMINI FAILED] Error analyzing ${alert.id}:`, err);
-      alert.aiStatus = "failed";
-      alert.aiError = err?.message || "Error al procesar el análisis de inteligencia";
-      alertStore.set(alert.id, alert);
+      const latestAlert = alertStore.get(alert.id) || alert;
+      latestAlert.aiStatus = "failed";
+      latestAlert.aiError = err?.message || "Error al procesar el análisis de inteligencia";
+      alertStore.set(latestAlert.id, latestAlert);
       io.emit("alert:ai_update", {
-        alertId: alert.id,
+        alertId: latestAlert.id,
         aiStatus: "failed",
-        aiError: alert.aiError,
+        status: latestAlert.status,
+        aiError: latestAlert.aiError,
       });
     }
   })();

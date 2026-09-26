@@ -25,6 +25,7 @@ import {
   Info,
   BatteryCharging,
   BellRing,
+  BellOff,
   CameraOff,
 } from "lucide-react";
 import { PanicAlert, AlertStatus } from "../../types.js";
@@ -254,9 +255,63 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
     return alerts;
   }, [alerts, assignedStoreId, assignedStoreName]);
 
+  // Set of alert IDs that have been responded to, silenced, or resolved on this guard device
+  const [silencedAlertIds, setSilencedAlertIds] = useState<Set<string>>(() => {
+    try {
+      const saved = sessionStorage.getItem("pg_silenced_alerts");
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+
+  // Permanently silence alarm sound on this guard mobile device for a specific alert
+  const silenceAlert = (alertId: string) => {
+    alarmSound.stopGuardTacticalLoop();
+    setSilencedAlertIds((prev) => {
+      const next = new Set(prev);
+      next.add(alertId);
+      try {
+        sessionStorage.setItem("pg_silenced_alerts", JSON.stringify(Array.from(next)));
+      } catch {}
+      return next;
+    });
+  };
+
   const activeAlerts = useMemo(() => {
     return relevantAlerts.filter((a) => a.status === "ACTIVE");
   }, [relevantAlerts]);
+
+  // Once an alert is no longer ACTIVE (e.g. Central dispatched, resolved or marked as false alarm),
+  // automatically add it to silencedAlertIds and kill the local siren so it never rings again
+  useEffect(() => {
+    const nonActiveAlerts = relevantAlerts.filter((a) => a.status !== "ACTIVE");
+    if (nonActiveAlerts.length > 0) {
+      setSilencedAlertIds((prev) => {
+        let changed = false;
+        const next = new Set(prev);
+        nonActiveAlerts.forEach((a) => {
+          if (!next.has(a.id)) {
+            next.add(a.id);
+            changed = true;
+          }
+        });
+        if (changed) {
+          try {
+            sessionStorage.setItem("pg_silenced_alerts", JSON.stringify(Array.from(next)));
+          } catch {}
+          return next;
+        }
+        return prev;
+      });
+      alarmSound.stopGuardTacticalLoop();
+    }
+  }, [relevantAlerts]);
+
+  // Alerts that are currently ACTIVE and have NOT yet been silenced or responded to by this guard
+  const pendingAlarmAlerts = useMemo(() => {
+    return activeAlerts.filter((a) => !silencedAlertIds.has(a.id));
+  }, [activeAlerts, silencedAlertIds]);
 
   // Current emergency requiring attention (only ACTIVE alerts - deactivates when central dispatches or resolves)
   const currentEmergency: PanicAlert | null = useMemo(() => {
@@ -329,17 +384,18 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
   }, [guardName, isOnDuty, assignedStoreId, assignedStoreName]);
 
   // Auto-siren & vibration loop when active emergency matches this guard
-  // Plays siren and vibrates phone continuously until guard responds (Voy en camino)
-  // or Central operator dispatches/resolves the alert (even if terminal operator muted local sound)
+  // Plays siren and vibrates phone continuously until guard responds (Voy en camino / En el sitio / Silenciar)
+  // or Central operator dispatches/resolves/marks as false alarm.
+  // CRITICAL: Once responded or silenced, it NEVER triggers again even upon socket reconnect or screen wake.
   useEffect(() => {
-    if (isOnDuty && activeAlerts.length > 0) {
+    if (isOnDuty && pendingAlarmAlerts.length > 0) {
       alarmSound.startGuardTacticalLoop();
 
       if (typeof window !== "undefined" && "Notification" in window) {
         if (Notification.permission === "granted") {
           try {
             new Notification("🚨 ¡EMERGENCIA EN CURSO!", {
-              body: `${activeAlerts[0].store.storeName} (${activeAlerts[0].store.address})`,
+              body: `${pendingAlarmAlerts[0].store.storeName} (${pendingAlarmAlerts[0].store.address})`,
               icon: "/pwa-icon.svg",
               tag: "panic-alert",
               renotify: true,
@@ -351,14 +407,14 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
         }
       }
     } else {
-      // Dispatched or resolved -> Stop alarm loop immediately and return to quiet standby
+      // Dispatched, resolved or already acknowledged/silenced -> Stop alarm loop immediately and stay quiet
       alarmSound.stopGuardTacticalLoop();
     }
 
     return () => {
       alarmSound.stopGuardTacticalLoop();
     };
-  }, [activeAlerts.length, isOnDuty]);
+  }, [pendingAlarmAlerts.length, isOnDuty]);
 
   // Test sound & vibration
   const handleTestSiren = () => {
@@ -371,7 +427,7 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
 
   // Guard Actions (1-Tap Response Protocol)
   const handleDispatchEnCamino = (alert: PanicAlert) => {
-    alarmSound.stopGuardTacticalLoop();
+    silenceAlert(alert.id);
     alarmSound.playSuccessTone();
     const officerLabel = guardName.trim() || "Guardia en Turno";
     updateAlertStatus(
@@ -393,9 +449,21 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
   };
 
   const handleArrivedOnSite = (alert: PanicAlert) => {
-    alarmSound.stopGuardTacticalLoop();
+    silenceAlert(alert.id);
     alarmSound.playSuccessTone();
     const officerLabel = guardName.trim() || "Guardia en Turno";
+    
+    // Also transition status to DISPATCHED if still active so central and server reflect the action
+    if (alert.status === "ACTIVE") {
+      updateAlertStatus(
+        alert.id,
+        "DISPATCHED",
+        officerLabel,
+        `Guardia ${officerLabel} EN EL SITIO. Perímetro en verificación.`,
+        `Guardia: ${officerLabel}`
+      );
+    }
+
     const socket = (window as any).__panicSocket;
     if (socket) {
       socket.emit("alert:add_note", {
@@ -407,7 +475,7 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
   };
 
   const handlePerimeterSecured = (alert: PanicAlert) => {
-    alarmSound.stopGuardTacticalLoop();
+    silenceAlert(alert.id);
     alarmSound.playSuccessTone();
     const officerLabel = guardName.trim() || "Guardia en Turno";
     updateAlertStatus(
@@ -431,7 +499,19 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
     const textToSend = noteText || quickNoteText;
     if (!textToSend.trim()) return;
 
+    // Responding to the alert permanently silences the alarm on this phone
+    silenceAlert(alert.id);
+
     const officerLabel = guardName.trim() || "Guardia en Turno";
+    if (textToSend.toLowerCase().includes("falsa alarma")) {
+      updateAlertStatus(
+        alert.id,
+        "FALSE_ALARM",
+        officerLabel,
+        `Reportado como Falsa Alarma por guardia en sitio: ${textToSend.trim()}`
+      );
+    }
+
     const socket = (window as any).__panicSocket;
     if (socket) {
       socket.emit("alert:add_note", {
@@ -640,9 +720,21 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
                 </div>
               </div>
 
-              <span className="text-[10px] font-mono font-black bg-black/50 px-2.5 py-1 rounded-lg border border-white/20 uppercase">
-                {currentEmergency.status}
-              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => silenceAlert(currentEmergency.id)}
+                  className="px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold bg-white/20 hover:bg-white/30 text-white flex items-center gap-1 active:scale-95 transition-all cursor-pointer border border-white/30 shadow-sm"
+                  title="Silenciar sonido y vibración en este celular"
+                >
+                  <BellOff className="w-3 h-3 text-amber-300" />
+                  <span>Silenciar</span>
+                </button>
+
+                <span className="text-[10px] font-mono font-black bg-black/50 px-2.5 py-1 rounded-lg border border-white/20 uppercase">
+                  {currentEmergency.status}
+                </span>
+              </div>
             </div>
 
             <div className="p-3.5 space-y-3">
@@ -805,6 +897,15 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
                   >
                     <ShieldCheck className="w-5 h-5" />
                     <span>3. PERÍMETRO ASEGURADO</span>
+                  </button>
+
+                  {/* 4. Silenciar sonido de alerta */}
+                  <button
+                    onClick={() => silenceAlert(currentEmergency.id)}
+                    className="w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-750 active:scale-95 border border-slate-700 text-slate-300 font-bold text-xs flex items-center justify-center gap-2 cursor-pointer transition-all shadow-sm"
+                  >
+                    <BellOff className="w-4 h-4 text-amber-400" />
+                    <span>🔕 Silenciar Alarma en Celular</span>
                   </button>
                 </div>
               </div>

@@ -103,6 +103,8 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
     if (isAudioAlarmActive) {
       onAcknowledgeAlarm();
     }
+    // Close modal automatically upon dispatch, false alarm or resolution
+    onClose();
   };
 
   const handleAddLiveNote = async () => {

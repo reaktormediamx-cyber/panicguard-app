@@ -36,8 +36,8 @@ export async function analyzePanicBurst(
   }
 
   // Candidate models in order of priority if high demand (503) occurs
-  const candidateModels = ["gemini-3.7-flash", "gemini-2.5-flash", "gemini-flash-latest"];
-  const maxRetriesPerModel = 2;
+  const candidateModels = ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-2.0-flash"];
+  const maxRetriesPerModel = 1;
 
   // Prepare image inlineData parts
   const imageParts = images.slice(0, 3).map((imgBase64, index) => {

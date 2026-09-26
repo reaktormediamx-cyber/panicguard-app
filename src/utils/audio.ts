@@ -349,9 +349,17 @@ class AlarmSoundEngine {
    */
   public stopGuardTacticalLoop() {
     this.isGuardSirenPlaying = false;
+    this.stopAlarm(); // Always ensure any emergency alarm intervals or Web Audio oscillators are cleared
     if (this.guardVibrationInterval) {
       clearInterval(this.guardVibrationInterval);
       this.guardVibrationInterval = null;
+    }
+
+    // Cancel any ongoing device vibration
+    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+      try {
+        navigator.vibrate(0);
+      } catch {}
     }
 
     // Return HTML5 audio element to silent carrier loop to keep background thread awake
@@ -367,6 +375,14 @@ class AlarmSoundEngine {
         }
       } catch {}
     }
+  }
+
+  /**
+   * Completely silences all active sound engines (Central alarm and Guard siren)
+   */
+  public silenceAll() {
+    this.stopAlarm();
+    this.stopGuardTacticalLoop();
   }
 }
 
