@@ -56,21 +56,26 @@ export async function downloadAlertPdfReport(alert: PanicAlert) {
 
   // 2. Incident Summary Info Box
   const { label: triggerLabel } = formatTriggerType(alert.triggerType);
+  const isCameraActive = alert.cameraEnabled !== false && Array.isArray(alert.images) && alert.images.length > 0;
+
   doc.setFillColor(241, 245, 249); // slate-100
   doc.rect(margin, currentY, pageWidth - margin * 2, 14, "F");
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(9);
+  doc.setFontSize(8.5);
   doc.setTextColor(15, 23, 42);
   doc.text("TIPO DE DETONACIÓN:", margin + 4, currentY + 6);
-  doc.text("FECHA Y HORA:", margin + 65, currentY + 6);
-  doc.text("CENTRAL ASIGNADA:", margin + 120, currentY + 6);
+  doc.text("FECHA Y HORA:", margin + 62, currentY + 6);
+  doc.text("MODALIDAD:", margin + 115, currentY + 6);
+  doc.text("CENTRAL ASIGNADA:", margin + 145, currentY + 6);
 
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(8.5);
+  doc.setFontSize(8);
   doc.setTextColor(51, 65, 85);
   doc.text(triggerLabel, margin + 4, currentY + 11);
-  doc.text(new Date(alert.timestamp).toLocaleString("es-MX"), margin + 65, currentY + 11);
-  doc.text(alert.centralName || alert.store?.centralName || "Central C4/C5", margin + 120, currentY + 11);
+  doc.text(new Date(alert.timestamp).toLocaleString("es-MX"), margin + 62, currentY + 11);
+  doc.text(isCameraActive ? "CON CÁMARA (HD)" : "SOLO BOTÓN", margin + 115, currentY + 11);
+  const centralText = alert.centralName || alert.store?.centralName || "Central C4/C5";
+  doc.text(centralText.length > 18 ? centralText.substring(0, 16) + "..." : centralText, margin + 145, currentY + 11);
 
   currentY += 18;
 
@@ -147,22 +152,22 @@ export async function downloadAlertPdfReport(alert: PanicAlert) {
     currentY += 18;
   }
 
-  // 5. Photographic Burst Evidence (3 Frames)
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(11);
-  doc.setTextColor(15, 23, 42);
-  doc.text("2. EVIDENCIA FOTOGRÁFICA (RÁFAGA DE 3 CUADROS DE SEGURIDAD)", margin, currentY);
-  currentY += 3;
-  doc.setDrawColor(203, 213, 225);
-  doc.line(margin, currentY, pageWidth - margin, currentY);
-  currentY += 4;
+  // 5. Photographic Burst Evidence (Only if camera was active)
+  if (isCameraActive) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(15, 23, 42);
+    doc.text("2. EVIDENCIA FOTOGRÁFICA (RÁFAGA DE 3 CUADROS DE SEGURIDAD)", margin, currentY);
+    currentY += 3;
+    doc.setDrawColor(203, 213, 225);
+    doc.line(margin, currentY, pageWidth - margin, currentY);
+    currentY += 4;
 
-  const burstImages = alert.images && alert.images.length > 0 ? alert.images.slice(0, 3) : [];
-  const imgWidth = 56;
-  const imgHeight = 42;
-  const imgGap = 7;
+    const burstImages = alert.images && alert.images.length > 0 ? alert.images.slice(0, 3) : [];
+    const imgWidth = 56;
+    const imgHeight = 42;
+    const imgGap = 7;
 
-  if (burstImages.length > 0) {
     for (let i = 0; i < burstImages.length; i++) {
       const imgX = margin + i * (imgWidth + imgGap);
       const imgData = burstImages[i];
@@ -199,21 +204,16 @@ export async function downloadAlertPdfReport(alert: PanicAlert) {
       doc.text(`FOTOGRAMA #${i + 1} (${i * 200}ms)`, imgX + 8, currentY + imgHeight - 2);
     }
     currentY += imgHeight + 6;
-  } else {
-    doc.setFillColor(248, 250, 252);
-    doc.rect(margin, currentY, pageWidth - margin * 2, 14, "F");
-    doc.setFont("helvetica", "italic");
-    doc.setFontSize(8);
-    doc.setTextColor(100, 116, 139);
-    doc.text("Sin fotogramas adjuntos en la alerta.", margin + 4, currentY + 8);
-    currentY += 18;
   }
 
   // 6. Tactical Audit Logs & Incident Timeline
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
   doc.setTextColor(15, 23, 42);
-  doc.text("3. BITÁCORA DETALLADA DE EVENTOS Y PROCESOS DE RESPUESTA", margin, currentY);
+  const logSectionTitle = isCameraActive
+    ? "3. BITÁCORA DETALLADA DE EVENTOS Y PROCESOS DE RESPUESTA"
+    : "2. BITÁCORA DETALLADA DE EVENTOS Y PROCESOS DE RESPUESTA";
+  doc.text(logSectionTitle, margin, currentY);
   currentY += 3;
   doc.setDrawColor(203, 213, 225);
   doc.line(margin, currentY, pageWidth - margin, currentY);

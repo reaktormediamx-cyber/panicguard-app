@@ -25,6 +25,7 @@ import {
   Info,
   BatteryCharging,
   BellRing,
+  CameraOff,
 } from "lucide-react";
 import { PanicAlert, AlertStatus } from "../../types.js";
 import { alarmSound } from "../../utils/audio.js";
@@ -716,8 +717,8 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
                 )}
               </div>
 
-              {/* EVIDENCE PHOTO VIEWER */}
-              {currentEmergency.images && currentEmergency.images.length > 0 && (
+              {/* EVIDENCE PHOTO VIEWER (Only if terminal had camera enabled) */}
+              {currentEmergency.cameraEnabled !== false && Array.isArray(currentEmergency.images) && currentEmergency.images.length > 0 ? (
                 <div className="bg-slate-950 border border-slate-800 rounded-xl p-3 space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-mono text-slate-400 font-bold uppercase">
@@ -757,6 +758,17 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
                         </button>
                       ))}
                     </div>
+                  </div>
+                </div>
+              ) : (
+                /* Terminal en Modo Solo Botón (Sin cámara) */
+                <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-3 flex items-center gap-3 text-xs">
+                  <div className="w-8 h-8 rounded-lg bg-slate-800/90 border border-slate-700 flex items-center justify-center text-slate-400 shrink-0">
+                    <CameraOff className="w-4 h-4 text-slate-400" />
+                  </div>
+                  <div className="flex-1 text-[11px] leading-tight">
+                    <span className="text-slate-200 font-bold block">Terminal en Modo Solo Botón de Emergencia</span>
+                    <span className="text-slate-400">Esta terminal no cuenta con cámara. Dirígete a la ubicación indicada en el mapa.</span>
                   </div>
                 </div>
               )}
@@ -983,7 +995,7 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
       )}
 
       {/* FULLSCREEN IMAGE MODAL (FOR MOBILE ZOOM) */}
-      {isZoomImageOpen && currentEmergency && currentEmergency.images && (
+      {isZoomImageOpen && currentEmergency && currentEmergency.cameraEnabled !== false && currentEmergency.images && currentEmergency.images.length > 0 && (
         <div
           className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex flex-col items-center justify-center p-3"
           onClick={() => setIsZoomImageOpen(false)}

@@ -110,6 +110,20 @@ async function processPanicAlert(alert: PanicAlert) {
   console.log(`[ALERT BROADCAST] Emitting raw alert ${alert.id} to monitoring dashboards...`);
   io.emit("alert:broadcast", alert);
 
+  // Check if camera was disabled for this alert
+  const hasCamera = alert.cameraEnabled !== false && Array.isArray(alert.images) && alert.images.length > 0;
+  if (!hasCamera) {
+    console.log(`[CAMERA DISABLED] Terminal sent alert in Button-Only Mode (no camera frames) for ${alert.id}. Skipping AI video analysis.`);
+    alert.aiStatus = "disabled";
+    alertStore.set(alert.id, alert);
+    io.emit("alert:ai_update", {
+      alertId: alert.id,
+      aiStatus: "disabled",
+      updatedLogs: alert.logs,
+    });
+    return;
+  }
+
   // Check if AI analysis is globally enabled by the Super Administrator
   if (!currentSystemSettings.aiEnabled) {
     console.log(`[AI TOGGLE OFF] AI Gemini analysis is DISABLED by Super Admin. Skipping analysis for ${alert.id}.`);
@@ -200,10 +214,15 @@ io.on("connection", (socket) => {
       const assignedStore = data.store || DEFAULT_STORE;
       const guardDesc = data.guardDescription?.trim() || "";
       const guardOfficer = data.guardName?.trim() || "";
+      const isCameraActive = data.cameraEnabled !== false && Array.isArray(data.images) && data.images.length > 0;
+      const finalImages = isCameraActive ? (data.images || []) : [];
+
       const initialLogs: AlertLogItem[] = [
         {
           timestamp: new Date().toISOString(),
-          action: `Alerta recibida en Central [${data.centralName || assignedStore.centralName || "C4 Poniente"}] (${data.images?.length || 0} fotogramas)`,
+          action: isCameraActive
+            ? `Alerta recibida en Central [${data.centralName || assignedStore.centralName || "C4 Poniente"}] (${finalImages.length} fotogramas)`
+            : `Alerta recibida en Central [${data.centralName || assignedStore.centralName || "C4 Poniente"}] vía Botón de Emergencia (Modo Solo Botón - Sin cámara)`,
         },
       ];
       if (guardOfficer) {
@@ -229,7 +248,8 @@ io.on("connection", (socket) => {
         centralId: data.centralId || assignedStore.centralId || "CEN-CDMX-01",
         centralName: data.centralName || assignedStore.centralName || "C4 Centro de Comando Poniente - CDMX",
         timestamp: data.timestamp || new Date().toISOString(),
-        images: Array.isArray(data.images) && data.images.length > 0 ? data.images : [],
+        images: finalImages,
+        cameraEnabled: isCameraActive,
         triggerType: data.triggerType || "MANUAL_BUTTON",
         status: "ACTIVE",
         aiStatus: "pending",
@@ -368,11 +388,10 @@ app.get("/api/alerts/:id", (req, res) => {
 // Submit panic alert via HTTP POST
 app.post("/api/alerts", async (req, res) => {
   try {
-    const { store, images, triggerType, timestamp, centralId, centralName, guardDescription, guardName } = req.body;
+    const { store, images, triggerType, timestamp, centralId, centralName, guardDescription, guardName, cameraEnabled } = req.body;
 
-    if (!images || !Array.isArray(images) || images.length === 0) {
-      return res.status(400).json({ error: "Se requiere al menos 1 fotograma en la ráfaga de imágenes" });
-    }
+    const isCameraActive = cameraEnabled !== false && Array.isArray(images) && images.length > 0;
+    const finalImages = isCameraActive ? images : [];
 
     const alertId = `ALT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
     const assignedStore = store || DEFAULT_STORE;
@@ -382,7 +401,9 @@ app.post("/api/alerts", async (req, res) => {
     const initialLogs: AlertLogItem[] = [
       {
         timestamp: new Date().toISOString(),
-        action: `Alerta recibida vía REST API (${images.length} fotogramas capturados)`,
+        action: isCameraActive
+          ? `Alerta recibida vía REST API (${finalImages.length} fotogramas capturados)`
+          : `Alerta recibida vía Botón de Emergencia REST API (Modo Solo Botón - Sin cámara)`,
       },
     ];
 
@@ -410,7 +431,8 @@ app.post("/api/alerts", async (req, res) => {
       centralId: centralId || assignedStore.centralId || "CEN-CDMX-01",
       centralName: centralName || assignedStore.centralName || "C4 Centro de Comando Poniente - CDMX",
       timestamp: timestamp || new Date().toISOString(),
-      images,
+      images: finalImages,
+      cameraEnabled: isCameraActive,
       triggerType: triggerType || "MANUAL_BUTTON",
       status: "ACTIVE",
       aiStatus: "pending",

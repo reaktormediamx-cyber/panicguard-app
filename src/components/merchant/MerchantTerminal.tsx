@@ -3,6 +3,7 @@ import {
   ShieldCheck,
   AlertTriangle,
   Camera,
+  CameraOff,
   MapPin,
   Wifi,
   Radio,
@@ -84,6 +85,13 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
     alarmSound.setMuted(next);
   };
 
+  // Camera activation state: allows activating/deactivating camera on terminals where it's not needed
+  const [isCameraEnabled, setIsCameraEnabled] = useState<boolean>(() => {
+    const saved = localStorage.getItem(`panicguard_cam_${activeStore.storeId}`);
+    if (saved !== null) return saved === "true";
+    return activeStore.cameraEnabled !== false;
+  });
+
   const {
     videoRef,
     canvasRef,
@@ -94,6 +102,7 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
     lastSentAlertId,
     statusMessage,
     startCamera,
+    stopCamera,
     triggerPanic,
     resetAlert,
     sendGuardUpdate,
@@ -101,20 +110,35 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
     selectedDeviceId,
   } = usePanicCapture({
     store: activeStore,
+    isCameraEnabled,
     onAlertSent: (id, time) => {
       setLastSentTime(time);
-      setIsStreamingActive(true);
+      if (isCameraEnabled) {
+        setIsStreamingActive(true);
 
-      if (streamingTimeoutRef.current) {
-        clearTimeout(streamingTimeoutRef.current);
+        if (streamingTimeoutRef.current) {
+          clearTimeout(streamingTimeoutRef.current);
+        }
+
+        // Detener la transmisión de video después de 5 minutos (300,000 milisegundos)
+        streamingTimeoutRef.current = setTimeout(() => {
+          setIsStreamingActive(false);
+        }, 300000);
       }
-
-      // Detener la transmisión de video después de 5 minutos (300,000 milisegundos)
-      streamingTimeoutRef.current = setTimeout(() => {
-        setIsStreamingActive(false);
-      }, 300000);
     },
   });
+
+  const toggleCamera = () => {
+    const nextState = !isCameraEnabled;
+    setIsCameraEnabled(nextState);
+    localStorage.setItem(`panicguard_cam_${activeStore.storeId}`, String(nextState));
+    if (!nextState) {
+      setIsStreamingActive(false);
+      stopCamera();
+    } else {
+      setTimeout(() => startCamera(), 100);
+    }
+  };
 
   const [guardDescription, setGuardDescription] = useState<string>("");
   const [isSendingGuardNote, setIsSendingGuardNote] = useState<boolean>(false);
@@ -170,6 +194,8 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
     if (!socket) return;
 
     const handleStartStream = (payload: { terminalId?: string; storeId?: string }) => {
+      if (!isCameraEnabled) return;
+
       const isTarget =
         payload.terminalId === firestoreId ||
         payload.storeId === activeStore.storeId ||
@@ -198,6 +224,7 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
 
   useEffect(() => {
     if (!firestoreId && !activeStore.storeId) return;
+    if (!isCameraEnabled) return;
     const interval = setInterval(() => {
       try {
         if (isStreamingActive && canvasRef.current && videoRef.current && videoRef.current.videoWidth > 0) {
@@ -332,7 +359,29 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
             }
           >
             {isMuted ? <VolumeX className="w-4 h-4 text-amber-400" /> : <Volume2 className="w-4 h-4" />}
-            <span>{isMuted ? "Terminal Silenciosa (Suena en Guardia)" : "Sonido Activo"}</span>
+            <span>{isMuted ? "Terminal Silenciosa" : "Sonido Activo"}</span>
+          </button>
+
+          {/* Botón Activar / Desactivar Cámara */}
+          <button
+            onClick={toggleCamera}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl border text-sm font-medium transition-colors cursor-pointer ${
+              !isCameraEnabled
+                ? "bg-slate-800/90 border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white"
+                : "bg-indigo-950/80 border-indigo-500/40 text-indigo-300 hover:bg-indigo-900/60"
+            }`}
+            title={
+              isCameraEnabled
+                ? "Cámara Activada: Videoverificación y ráfaga de fotos habilitadas para central y guardias"
+                : "Cámara Desactivada: Modo Solo Botón de Emergencia (no usa cámara ni muestra fotos en central/guardia)"
+            }
+          >
+            {isCameraEnabled ? (
+              <Camera className="w-4 h-4 text-indigo-400" />
+            ) : (
+              <CameraOff className="w-4 h-4 text-slate-400" />
+            )}
+            <span>{isCameraEnabled ? "Cámara: ACTIVADA" : "Cámara: DESACTIVADA (Solo Botón)"}</span>
           </button>
         </div>
       </div>
@@ -356,8 +405,9 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
               Botón de Pánico Comercial
             </h2>
             <p className="text-sm text-slate-400 max-w-md mb-8">
-              Al presionar, capturará instantáneamente 3 fotos de seguridad,
-              geolocalización y transmitirá la alerta en &lt; 1 seg a la Central de Monitoreo.
+              {isCameraEnabled
+                ? "Al presionar, capturará instantáneamente 3 fotos de seguridad, geolocalización y transmitirá la alerta en < 1 seg a la Central de Monitoreo y Guardias."
+                : "Modo Solo Botón: Al presionar, transmitirá la alerta crítica y geolocalización en < 1 seg a Central y Guardias (sin cámara)."}
             </p>
 
             {/* Giant Tactile Button */}
@@ -566,33 +616,37 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
                 <div className="flex items-center gap-3">
                   <div
                     className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                      hasCameraPermission
+                      !isCameraEnabled
+                        ? "bg-slate-800/80 text-slate-400 border border-slate-700"
+                        : hasCameraPermission
                         ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"
                         : "bg-amber-500/10 text-amber-400 border border-amber-500/30"
                     }`}
                   >
-                    <Camera className="w-5 h-5" />
+                    {!isCameraEnabled ? <CameraOff className="w-5 h-5" /> : <Camera className="w-5 h-5" />}
                   </div>
                   <div>
                     <h4 className="text-sm font-semibold text-white">Sensor Cámara</h4>
                     <p className="text-xs text-slate-400">
-                      {hasCameraPermission
+                      {!isCameraEnabled
+                        ? "Desactivada (Solo Botón de Pánico)"
+                        : hasCameraPermission
                         ? "Webcam HD Lista (3 frames burst)"
                         : cameraError || "Solicitando acceso..."}
                     </p>
                   </div>
                 </div>
                 <button
-                  onClick={() => startCamera()}
-                  className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300"
-                  title="Reiniciar Cámara"
+                  onClick={toggleCamera}
+                  className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 transition-colors cursor-pointer"
+                  title={isCameraEnabled ? "Desactivar cámara" : "Activar cámara"}
                 >
-                  <RefreshCw className="w-3.5 h-3.5" />
+                  {isCameraEnabled ? "Desactivar" : "Activar"}
                 </button>
               </div>
 
-              {/* USB / System Webcam Selector */}
-              {videoDevices && videoDevices.length > 0 && (
+              {/* USB / System Webcam Selector (solo si la cámara está activa) */}
+              {isCameraEnabled && videoDevices && videoDevices.length > 0 && (
                 <div className="pt-2 border-t border-slate-800/80 flex items-center gap-2">
                   <span className="text-[11px] text-slate-400 shrink-0 font-medium">Dispositivo:</span>
                   <select
@@ -613,99 +667,159 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
           </div>
         </div>
 
-        {/* Right Column: Live Camera HUD & Burst Gallery (5 cols) */}
+        {/* Right Column: Live Camera HUD & Burst Gallery OR Button-Only Tactical Panel (5 cols) */}
         <div className="lg:col-span-5 space-y-6">
-          {/* Live Camera Feed Card */}
-          <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 shadow-xl space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider">
-                  Videoverificación en Vivo
-                </h3>
+          {isCameraEnabled ? (
+            /* Live Camera Feed Card */
+            <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 shadow-xl space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
+                  <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                    Videoverificación en Vivo
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setShowLiveFeed(!showLiveFeed)}
+                  className="text-xs text-slate-400 hover:text-slate-200 flex items-center gap-1 cursor-pointer"
+                >
+                  {showLiveFeed ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  {showLiveFeed ? "Ocultar" : "Mostrar"}
+                </button>
               </div>
-              <button
-                onClick={() => setShowLiveFeed(!showLiveFeed)}
-                className="text-xs text-slate-400 hover:text-slate-200 flex items-center gap-1 cursor-pointer"
-              >
-                {showLiveFeed ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                {showLiveFeed ? "Ocultar" : "Mostrar"}
-              </button>
-            </div>
 
-            {/* Video Container with Tactical HUD */}
-            <div className="relative aspect-video rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 shadow-inner flex items-center justify-center">
-              {showLiveFeed ? (
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="text-center p-6 text-slate-500 text-xs">
-                  <Camera className="w-8 h-8 mx-auto mb-2 opacity-40" />
-                  Cámara activa en segundo plano para captura inmediata
-                </div>
-              )}
+              {/* Video Container with Tactical HUD */}
+              <div className="relative aspect-video rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 shadow-inner flex items-center justify-center">
+                {showLiveFeed ? (
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="text-center p-6 text-slate-500 text-xs">
+                    <Camera className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                    Cámara activa en segundo plano para captura inmediata
+                  </div>
+                )}
 
-              {/* Tactical Crosshair Overlay */}
-              <div className="absolute inset-0 pointer-events-none p-3 flex flex-col justify-between">
-                <div className="flex justify-between items-start text-[10px] font-mono text-emerald-400/90 bg-slate-950/60 px-2 py-0.5 rounded backdrop-blur w-fit">
-                  <span>1080p | 30 FPS</span>
-                </div>
+                {/* Tactical Crosshair Overlay */}
+                <div className="absolute inset-0 pointer-events-none p-3 flex flex-col justify-between">
+                  <div className="flex justify-between items-start text-[10px] font-mono text-emerald-400/90 bg-slate-950/60 px-2 py-0.5 rounded backdrop-blur w-fit">
+                    <span>1080p | 30 FPS</span>
+                  </div>
 
-                {/* Target box */}
-                <div className="self-center w-24 h-24 border border-dashed border-red-500/40 rounded-lg flex items-center justify-center">
-                  <span className="w-1.5 h-1.5 rounded-full bg-red-500/60" />
-                </div>
+                  {/* Target box */}
+                  <div className="self-center w-24 h-24 border border-dashed border-red-500/40 rounded-lg flex items-center justify-center">
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-500/60" />
+                  </div>
 
-                <div className="flex justify-between items-end text-[10px] font-mono text-slate-400 bg-slate-950/60 px-2 py-0.5 rounded backdrop-blur">
-                  <span>STORE: {store.storeId}</span>
-                  <span>TIME: {new Date().toLocaleTimeString()}</span>
+                  <div className="flex justify-between items-end text-[10px] font-mono text-slate-400 bg-slate-950/60 px-2 py-0.5 rounded backdrop-blur">
+                    <span>STORE: {store.storeId}</span>
+                    <span>TIME: {new Date().toLocaleTimeString()}</span>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Last Captured 3-Frame Burst Preview */}
-            <div className="space-y-2 pt-2 border-t border-slate-800/80">
-              <div className="flex items-center justify-between text-xs text-slate-400">
-                <span className="font-semibold text-slate-300">
-                  Última Ráfaga de Seguridad ({capturedFrames.length > 0 ? "3 Fotogramas" : "Sin capturas recientes"})
-                </span>
-                {lastSentTime && (
-                  <span className="font-mono text-[10px] text-emerald-400">
-                    {new Date(lastSentTime).toLocaleTimeString()}
+              {/* Last Captured 3-Frame Burst Preview */}
+              <div className="space-y-2 pt-2 border-t border-slate-800/80">
+                <div className="flex items-center justify-between text-xs text-slate-400">
+                  <span className="font-semibold text-slate-300">
+                    Última Ráfaga de Seguridad ({capturedFrames.length > 0 ? "3 Fotogramas" : "Sin capturas recientes"})
                   </span>
+                  {lastSentTime && (
+                    <span className="font-mono text-[10px] text-emerald-400">
+                      {new Date(lastSentTime).toLocaleTimeString()}
+                    </span>
+                  )}
+                </div>
+
+                {capturedFrames.length > 0 ? (
+                  <div className="grid grid-cols-3 gap-2">
+                    {capturedFrames.map((frame, index) => (
+                      <div
+                        key={index}
+                        className="group relative aspect-video rounded-xl overflow-hidden bg-slate-950 border border-slate-700 shadow"
+                      >
+                        <img
+                          src={frame}
+                          alt={`Fotograma ${index + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute bottom-1 left-1 bg-slate-950/80 px-1.5 py-0.5 rounded text-[9px] font-mono text-white">
+                          F#{index + 1}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-4 rounded-xl bg-slate-950/50 border border-dashed border-slate-800 text-center text-xs text-slate-500">
+                    Al activar el botón de pánico, aquí se desplegará la ráfaga de 3 fotogramas capturada y enviada al servidor.
+                  </div>
                 )}
               </div>
-
-              {capturedFrames.length > 0 ? (
-                <div className="grid grid-cols-3 gap-2">
-                  {capturedFrames.map((frame, index) => (
-                    <div
-                      key={index}
-                      className="group relative aspect-video rounded-xl overflow-hidden bg-slate-950 border border-slate-700 shadow"
-                    >
-                      <img
-                        src={frame}
-                        alt={`Fotograma ${index + 1}`}
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute bottom-1 left-1 bg-slate-950/80 px-1.5 py-0.5 rounded text-[9px] font-mono text-white">
-                        F#{index + 1}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="p-4 rounded-xl bg-slate-950/50 border border-dashed border-slate-800 text-center text-xs text-slate-500">
-                  Al activar el botón de pánico, aquí se desplegará la ráfaga de 3 fotogramas capturada y enviada al servidor.
-                </div>
-              )}
             </div>
-          </div>
+          ) : (
+            /* Button-Only Tactical Mode Info Card */
+            <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+                  <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                    Modo Solo Botón de Emergencia
+                  </h3>
+                </div>
+                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
+                  CÁMARA INACTIVA
+                </span>
+              </div>
+
+              <div className="p-5 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-4">
+                <div className="flex items-start gap-3.5">
+                  <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/30 flex items-center justify-center shrink-0">
+                    <CameraOff className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-white">
+                      Terminal sin Uso de Videocámara
+                    </h4>
+                    <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                      En este establecimiento la terminal no requiere cámara. La activación opera exclusivamente mediante el <strong className="text-red-400">Botón de Pánico</strong> y el atajo configurado.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-2 pt-3 border-t border-slate-800 text-xs">
+                  <div className="flex items-center gap-2 text-slate-300">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>Transmisión instantánea de alerta a Central C4/C5 (&lt; 1s)</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-slate-300">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>Activación de sirena y vibración en el celular del guardia</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-slate-300">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>Geolocalización GPS exacta y trazabilidad en bitácora</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-slate-400">
+                    <CheckCircle2 className="w-4 h-4 text-blue-400 shrink-0" />
+                    <span>No se envían fotogramas ni aparece visor de cámara en Central ni Guardia</span>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={toggleCamera}
+                className="w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold text-slate-200 flex items-center justify-center gap-2 transition-colors cursor-pointer"
+              >
+                <Camera className="w-4 h-4 text-indigo-400" />
+                <span>¿Deseas activar la cámara en esta terminal? Haz clic aquí</span>
+              </button>
+            </div>
+          )}
 
           {/* Store Quick Reference Card */}
           <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 space-y-3">

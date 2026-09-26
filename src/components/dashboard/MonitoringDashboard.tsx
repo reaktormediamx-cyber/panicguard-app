@@ -27,6 +27,7 @@ import {
   Lock,
   Trash2,
   Camera,
+  CameraOff,
   Pencil,
   Download,
   Send,
@@ -684,56 +685,138 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
                 </div>
               )}
 
-              {/* Grid: 3-Frame Burst Viewer & GPS Map */}
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-stretch">
-                <div className="md:col-span-6 space-y-2 flex flex-col">
-                  <h4 className="text-xs uppercase tracking-wider font-bold text-slate-400">
-                    Ráfaga Fotográfica de Videoverificación:
-                  </h4>
-                  <div className="flex-1">
-                    <BurstViewer
-                      images={selectedAlert.images}
-                      evidenceTimeline={selectedAlert.aiVerdict?.evidenceTimeline}
-                    />
+              {/* Grid: 3-Frame Burst Viewer & GPS Map (Solo si la cámara estuvo activa en la terminal) */}
+              {selectedAlert.cameraEnabled !== false && Array.isArray(selectedAlert.images) && selectedAlert.images.length > 0 ? (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-stretch">
+                    <div className="md:col-span-6 space-y-2 flex flex-col">
+                      <h4 className="text-xs uppercase tracking-wider font-bold text-slate-400">
+                        Ráfaga Fotográfica de Videoverificación:
+                      </h4>
+                      <div className="flex-1">
+                        <BurstViewer
+                          images={selectedAlert.images}
+                          evidenceTimeline={selectedAlert.aiVerdict?.evidenceTimeline}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="md:col-span-6 space-y-3 flex flex-col justify-between">
+                      <h4 className="text-xs uppercase tracking-wider font-bold text-slate-400">
+                        Ubicación GPS & Mapa Táctico Oficial:
+                      </h4>
+                      <div className="flex-1 flex flex-col min-h-[320px]">
+                        <TacticalMap
+                          coordinates={selectedAlert.store.coordinates}
+                          storeName={selectedAlert.store.storeName}
+                          address={selectedAlert.store.address}
+                          city={selectedAlert.store.city}
+                          className="w-full h-full flex-1 min-h-[320px]"
+                        />
+                      </div>
+
+                      {/* Store Contact card */}
+                      <div className="p-3 rounded-2xl bg-slate-950/80 border border-slate-800 text-xs space-y-2 shrink-0">
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Contacto Directo:</span>
+                          <span className="font-semibold text-white">{selectedAlert.store.ownerName}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Teléfono:</span>
+                          <a href={`tel:${selectedAlert.store.phone}`} className="font-mono text-emerald-400 font-bold hover:underline">
+                            {selectedAlert.store.phone}
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Dynamic Verification Verdict */}
+                  <AiVerdictPanel
+                    verdict={selectedAlert.aiVerdict}
+                    aiStatus={selectedAlert.aiStatus}
+                    aiError={selectedAlert.aiError}
+                  />
+                </>
+              ) : (
+                /* Modo Solo Botón de Pánico: Sin visor de cámara, mapa táctico amplio y detalles directos */
+                <div className="space-y-4">
+                  <div className="p-3.5 rounded-2xl bg-slate-950/90 border border-slate-800 flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-slate-400 shrink-0">
+                        <CameraOff className="w-5 h-5 text-slate-400" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                          <span>Alerta en Modo Solo Botón de Emergencia</span>
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
+                            CÁMARA DESACTIVADA
+                          </span>
+                        </h4>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          Esta terminal está configurada sin uso de cámara. La alerta se emitió mediante botón de pánico físico / atajo con geolocalización confirmada.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-stretch">
+                    <div className="md:col-span-8 rounded-2xl overflow-hidden border border-slate-800 bg-slate-950 flex flex-col min-h-[360px]">
+                      <div className="p-3 bg-slate-900 border-b border-slate-800 text-xs font-bold text-slate-200 flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-blue-400" />
+                        <span>Despliegue Táctico Oficial y Ubicación Satelital GPS</span>
+                      </div>
+                      <div className="flex-1 min-h-[320px]">
+                        <TacticalMap
+                          coordinates={selectedAlert.store.coordinates}
+                          storeName={selectedAlert.store.storeName}
+                          address={selectedAlert.store.address}
+                          city={selectedAlert.store.city}
+                          className="w-full h-full min-h-[320px]"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="md:col-span-4 flex flex-col justify-between gap-3">
+                      <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 text-xs space-y-3">
+                        <h5 className="font-bold text-slate-300 uppercase tracking-wider text-[11px] pb-1 border-b border-slate-800">
+                          Ficha del Establecimiento
+                        </h5>
+                        <div className="space-y-2">
+                          <div>
+                            <span className="text-slate-500 block text-[11px]">Comercio / Sucursal:</span>
+                            <span className="font-semibold text-white text-sm">{selectedAlert.store.storeName}</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-500 block text-[11px]">Titular:</span>
+                            <span className="text-slate-200 font-medium">{selectedAlert.store.ownerName}</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-500 block text-[11px]">Teléfono de Contacto:</span>
+                            <a href={`tel:${selectedAlert.store.phone}`} className="font-mono text-emerald-400 font-bold hover:underline">
+                              {selectedAlert.store.phone}
+                            </a>
+                          </div>
+                          <div>
+                            <span className="text-slate-500 block text-[11px]">Dirección:</span>
+                            <span className="text-slate-300">{selectedAlert.store.address}, {selectedAlert.store.city}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="p-3.5 rounded-2xl bg-emerald-950/40 border border-emerald-500/30 text-xs space-y-1">
+                        <span className="text-emerald-400 font-bold flex items-center gap-1.5 text-[11px]">
+                          <CheckCircle2 className="w-4 h-4" />
+                          Protocolo de Respuesta Inmediata
+                        </span>
+                        <p className="text-[11px] text-emerald-200/80 leading-relaxed">
+                          La señal ha sido despachada a la red de guardias y cuadrante policial correspondiente.
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
-
-                <div className="md:col-span-6 space-y-3 flex flex-col justify-between">
-                  <h4 className="text-xs uppercase tracking-wider font-bold text-slate-400">
-                    Ubicación GPS & Mapa Táctico Oficial:
-                  </h4>
-                  <div className="flex-1 flex flex-col min-h-[320px]">
-                    <TacticalMap
-                      coordinates={selectedAlert.store.coordinates}
-                      storeName={selectedAlert.store.storeName}
-                      address={selectedAlert.store.address}
-                      city={selectedAlert.store.city}
-                      className="w-full h-full flex-1 min-h-[320px]"
-                    />
-                  </div>
-
-                  {/* Store Contact card */}
-                  <div className="p-3 rounded-2xl bg-slate-950/80 border border-slate-800 text-xs space-y-2 shrink-0">
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">Contacto Directo:</span>
-                      <span className="font-semibold text-white">{selectedAlert.store.ownerName}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">Teléfono:</span>
-                      <a href={`tel:${selectedAlert.store.phone}`} className="font-mono text-emerald-400 font-bold hover:underline">
-                        {selectedAlert.store.phone}
-                      </a>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Dynamic Verification Verdict */}
-              <AiVerdictPanel
-                verdict={selectedAlert.aiVerdict}
-                aiStatus={selectedAlert.aiStatus}
-                aiError={selectedAlert.aiError}
-              />
+              )}
 
               {/* Event Logs Timeline & Real-Time Note Input */}
               <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-3">

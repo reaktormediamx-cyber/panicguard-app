@@ -36,6 +36,7 @@ export interface StoreMetadata {
   centralName?: string;
   panicHotkey?: string; // e.g. "p"
   panicHotkeyMode?: 'DIRECT' | 'ALT_COMBINATION';
+  cameraEnabled?: boolean;
 }
 
 export type ThreatLevel = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'FALSE_ALARM' | 'PENDING';
@@ -79,6 +80,7 @@ export interface TerminalRegistration {
   centralName?: string;
   panicHotkey?: string; // e.g. "p"
   panicHotkeyMode?: 'DIRECT' | 'ALT_COMBINATION';
+  cameraEnabled?: boolean;
 }
 
 export interface ThreatDetails {
@@ -137,6 +139,7 @@ export interface PanicAlert {
   store: StoreMetadata;
   timestamp: string;
   images: string[]; // Base64 data URLs (3 frames)
+  cameraEnabled?: boolean;
   triggerType: TriggerMode;
   status: AlertStatus;
   aiVerdict?: AiVerdict | null;

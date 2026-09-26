@@ -14,6 +14,7 @@ import {
   Send,
   FileText,
   Camera,
+  CameraOff,
   Layers,
 } from "lucide-react";
 import { PanicAlert, AlertStatus, formatTriggerType } from "../../types.js";
@@ -89,6 +90,7 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
   }, [alert.store?.storeId, mediaMode]);
 
   const { label: triggerLabel, isDrill } = formatTriggerType(alert.triggerType);
+  const isCameraActive = alert.cameraEnabled !== false && Array.isArray(alert.images) && alert.images.length > 0;
 
   const handleAction = (status: AlertStatus) => {
     onUpdateStatus(
@@ -230,122 +232,167 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
             </div>
           )}
 
-          {/* Core Content: Split Burst Photo Viewer & Map */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-stretch">
-            {/* Left: 3-Frame Burst Photo Section or Live Stream (6 cols) */}
-            <div className="lg:col-span-6 space-y-1.5 flex flex-col">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
-                  <button
-                    type="button"
-                    onClick={() => setMediaMode("BURST")}
-                    className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                      mediaMode === "BURST"
-                        ? "bg-slate-800 text-white shadow-sm border border-slate-700"
-                        : "text-slate-400 hover:text-slate-200"
-                    }`}
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
-                    <span>Ráfaga (3 Cuadros HD)</span>
-                  </button>
+          {/* Core Content: Burst Photo Viewer & Map (Camera Mode) OR Full Tactical Map (Button-Only Mode) */}
+          {isCameraActive ? (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-stretch">
+              {/* Left: 3-Frame Burst Photo Section or Live Stream (6 cols) */}
+              <div className="lg:col-span-6 space-y-1.5 flex flex-col">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
+                    <button
+                      type="button"
+                      onClick={() => setMediaMode("BURST")}
+                      className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                        mediaMode === "BURST"
+                          ? "bg-slate-800 text-white shadow-sm border border-slate-700"
+                          : "text-slate-400 hover:text-slate-200"
+                      }`}
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                      <span>Ráfaga (3 Cuadros HD)</span>
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={() => setMediaMode("LIVE")}
-                    className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                      mediaMode === "LIVE"
-                        ? "bg-red-600 text-white shadow-sm shadow-red-950"
-                        : "text-red-400 hover:text-red-300 hover:bg-red-950/40"
-                    }`}
-                  >
-                    <Radio className="w-3 h-3 animate-pulse text-white" />
-                    <span>Cámara en Vivo (5 min)</span>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => setMediaMode("LIVE")}
+                      className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                        mediaMode === "LIVE"
+                          ? "bg-red-600 text-white shadow-sm shadow-red-950"
+                          : "text-red-400 hover:text-red-300 hover:bg-red-950/40"
+                      }`}
+                    >
+                      <Radio className="w-3 h-3 animate-pulse text-white" />
+                      <span>Cámara en Vivo (5 min)</span>
+                    </button>
+                  </div>
+
+                  {mediaMode === "LIVE" && (
+                    <span className="text-[10px] font-mono font-bold text-red-400 bg-red-950/80 border border-red-500/40 px-2 py-0.5 rounded-full animate-pulse flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                      8 FPS
+                    </span>
+                  )}
                 </div>
 
-                {mediaMode === "LIVE" && (
-                  <span className="text-[10px] font-mono font-bold text-red-400 bg-red-950/80 border border-red-500/40 px-2 py-0.5 rounded-full animate-pulse flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
-                    8 FPS
-                  </span>
-                )}
+                <div className="flex-1 min-h-[300px] flex flex-col">
+                  {mediaMode === "BURST" ? (
+                    <BurstViewer
+                      images={alert.images}
+                      evidenceTimeline={alert.aiVerdict?.evidenceTimeline}
+                    />
+                  ) : (
+                    <div className="relative flex-1 w-full rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 flex items-center justify-center min-h-[300px]">
+                      {liveFrame ? (
+                        <>
+                          <img
+                            src={liveFrame}
+                            alt="Transmisión en vivo"
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute top-2.5 left-2.5 bg-red-950/90 backdrop-blur px-2.5 py-1 rounded-lg border border-red-500/40 flex items-center gap-1.5 text-[10px] font-mono text-red-300 font-bold shadow-lg">
+                            <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
+                            <span>TRANSMISIÓN EN VIVO ACTIVA (8 FPS)</span>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="relative w-full h-full min-h-[300px] flex flex-col items-center justify-center p-6 bg-slate-950">
+                          {alert.images && alert.images.length > 0 && (
+                            <img
+                              src={alert.images[alert.images.length - 1]}
+                              alt="Fotograma de videoverificación"
+                              className="absolute inset-0 w-full h-full object-cover opacity-30 filter blur-xs"
+                            />
+                          )}
+                          <div className="relative z-10 text-center space-y-3 max-w-sm bg-slate-900/90 p-5 rounded-2xl border border-slate-800 backdrop-blur shadow-2xl">
+                            <Camera className="w-8 h-8 text-red-500 animate-pulse mx-auto" />
+                            <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                              Videoverificación de Terminal
+                            </h4>
+                            <p className="text-[11px] text-slate-300 leading-relaxed">
+                              La transmisión de video en vivo se activa en tiempo real cuando la terminal del comercio pulsa el botón de pánico.
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => setMediaMode("BURST")}
+                              className="w-full mt-2 py-2 px-3 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold shadow-md shadow-red-950/60 flex items-center justify-center gap-2 cursor-pointer transition-all"
+                            >
+                              <span className="w-2 h-2 rounded-full bg-white" />
+                              <span>Ver Ráfaga de Evidencia (3 Fotos HD)</span>
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
 
-              <div className="flex-1 min-h-[300px] flex flex-col">
-                {mediaMode === "BURST" ? (
-                  <BurstViewer
-                    images={alert.images}
-                    evidenceTimeline={alert.aiVerdict?.evidenceTimeline}
+              {/* Right: GPS Location Map & Quick Stats (6 cols) */}
+              <div className="lg:col-span-6 space-y-2 flex flex-col justify-between">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-[11px] uppercase tracking-wider font-bold text-slate-400 flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-blue-400" />
+                    Geolocalización & Mapa Táctico Oficial
+                  </h3>
+                </div>
+                <div className="flex-1 flex flex-col min-h-[340px] sm:min-h-[380px]">
+                  <TacticalMap
+                    coordinates={alert.store.coordinates}
+                    storeName={alert.store.storeName}
+                    address={alert.store.address}
+                    city={alert.store.city}
+                    className="w-full h-full flex-1 min-h-[320px] sm:min-h-[360px]"
                   />
-                ) : (
-                  <div className="relative flex-1 w-full rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 flex items-center justify-center min-h-[300px]">
-                    {liveFrame ? (
-                      <>
-                        <img
-                          src={liveFrame}
-                          alt="Transmisión en vivo"
-                          className="w-full h-full object-cover"
-                        />
-                        <div className="absolute top-2.5 left-2.5 bg-red-950/90 backdrop-blur px-2.5 py-1 rounded-lg border border-red-500/40 flex items-center gap-1.5 text-[10px] font-mono text-red-300 font-bold shadow-lg">
-                          <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
-                          <span>TRANSMISIÓN EN VIVO ACTIVA (8 FPS)</span>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="relative w-full h-full min-h-[300px] flex flex-col items-center justify-center p-6 bg-slate-950">
-                        {alert.images && alert.images.length > 0 && (
-                          <img
-                            src={alert.images[alert.images.length - 1]}
-                            alt="Fotograma de videoverificación"
-                            className="absolute inset-0 w-full h-full object-cover opacity-30 filter blur-xs"
-                          />
-                        )}
-                        <div className="relative z-10 text-center space-y-3 max-w-sm bg-slate-900/90 p-5 rounded-2xl border border-slate-800 backdrop-blur shadow-2xl">
-                          <Camera className="w-8 h-8 text-red-500 animate-pulse mx-auto" />
-                          <h4 className="text-xs font-bold text-white uppercase tracking-wider">
-                            Videoverificación de Terminal
-                          </h4>
-                          <p className="text-[11px] text-slate-300 leading-relaxed">
-                            La transmisión de video en vivo se activa en tiempo real cuando la terminal del comercio pulsa el botón de pánico.
-                          </p>
-                          <button
-                            type="button"
-                            onClick={() => setMediaMode("BURST")}
-                            className="w-full mt-2 py-2 px-3 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold shadow-md shadow-red-950/60 flex items-center justify-center gap-2 cursor-pointer transition-all"
-                          >
-                            <span className="w-2 h-2 rounded-full bg-white" />
-                            <span>Ver Ráfaga de Evidencia (3 Fotos HD)</span>
-                          </button>
-                        </div>
-                      </div>
-                    )}
+                </div>
+
+                {/* Status and Dispatched Unit pill */}
+                <div className="p-2.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1 text-xs shrink-0">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">Estado del Incidente:</span>
+                    <span
+                      className={`px-2.5 py-0.5 rounded-full font-bold uppercase text-[10px] ${
+                        alert.status === "ACTIVE"
+                          ? "bg-red-500/20 text-red-300 border border-red-500/40 animate-pulse"
+                          : alert.status === "DISPATCHED"
+                          ? "bg-blue-500/20 text-blue-300 border border-blue-500/40"
+                          : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
+                      }`}
+                    >
+                      {alert.status}
+                    </span>
                   </div>
-                )}
+                  {alert.dispatchedUnit && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Patrulla Asignada:</span>
+                      <span className="font-mono text-blue-400 font-semibold">{alert.dispatchedUnit}</span>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
+          ) : (
+            /* Button-Only Mode View: No camera view, full-width Tactical Map & details */
+            <div className="space-y-3">
+              <div className="p-3 rounded-2xl bg-slate-950/90 border border-slate-800 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-slate-800/80 border border-slate-700 flex items-center justify-center text-slate-400 shrink-0">
+                    <CameraOff className="w-5 h-5 text-slate-400" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                      <span>Alerta en Modo Solo Botón de Emergencia</span>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
+                        CÁMARA INACTIVA EN ESTABLECIMIENTO
+                      </span>
+                    </h4>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      Esta terminal emitió la alarma exclusivamente mediante botón de pánico / atajo. No incluye fotogramas ni visor de cámara.
+                    </p>
+                  </div>
+                </div>
 
-            {/* Right: GPS Location Map & Quick Stats (6 cols) */}
-            <div className="lg:col-span-6 space-y-2 flex flex-col justify-between">
-              <div className="flex items-center justify-between">
-                <h3 className="text-[11px] uppercase tracking-wider font-bold text-slate-400 flex items-center gap-1.5">
-                  <MapPin className="w-3.5 h-3.5 text-blue-400" />
-                  Geolocalización & Mapa Táctico Oficial
-                </h3>
-              </div>
-              <div className="flex-1 flex flex-col min-h-[340px] sm:min-h-[380px]">
-                <TacticalMap
-                  coordinates={alert.store.coordinates}
-                  storeName={alert.store.storeName}
-                  address={alert.store.address}
-                  city={alert.store.city}
-                  className="w-full h-full flex-1 min-h-[320px] sm:min-h-[360px]"
-                />
-              </div>
-
-              {/* Status and Dispatched Unit pill */}
-              <div className="p-2.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1 text-xs shrink-0">
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-400">Estado del Incidente:</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-400 text-xs">Estado:</span>
                   <span
                     className={`px-2.5 py-0.5 rounded-full font-bold uppercase text-[10px] ${
                       alert.status === "ACTIVE"
@@ -358,22 +405,42 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
                     {alert.status}
                   </span>
                 </div>
-                {alert.dispatchedUnit && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Patrulla Asignada:</span>
-                    <span className="font-mono text-blue-400 font-semibold">{alert.dispatchedUnit}</span>
-                  </div>
-                )}
+              </div>
+
+              {/* Full Width Tactical Map */}
+              <div className="rounded-2xl overflow-hidden border border-slate-800 bg-slate-950 min-h-[360px] sm:min-h-[420px] flex flex-col">
+                <div className="p-2.5 bg-slate-900 border-b border-slate-800 flex items-center justify-between text-xs">
+                  <span className="font-bold text-slate-200 flex items-center gap-1.5">
+                    <MapPin className="w-4 h-4 text-blue-400" />
+                    Ubicación y Despliegue Táctico Oficial (GPS Alta Precisión)
+                  </span>
+                  {alert.dispatchedUnit && (
+                    <span className="font-mono text-xs text-blue-400 font-bold">
+                      Unidad Asignada: {alert.dispatchedUnit}
+                    </span>
+                  )}
+                </div>
+                <div className="flex-1 min-h-[340px]">
+                  <TacticalMap
+                    coordinates={alert.store.coordinates}
+                    storeName={alert.store.storeName}
+                    address={alert.store.address}
+                    city={alert.store.city}
+                    className="w-full h-full min-h-[340px]"
+                  />
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
-          {/* Dynamic Verification Verdict Section */}
-          <AiVerdictPanel
-            verdict={alert.aiVerdict}
-            aiStatus={alert.aiStatus}
-            aiError={alert.aiError}
-          />
+          {/* Dynamic Verification Verdict Section (solo si la cámara estuvo activa) */}
+          {isCameraActive && (
+            <AiVerdictPanel
+              verdict={alert.aiVerdict}
+              aiStatus={alert.aiStatus}
+              aiError={alert.aiError}
+            />
+          )}
 
           {/* Bitácora Unificada de Eventos & Procesos en Tiempo Real */}
           <div className="p-3 rounded-2xl bg-slate-950/90 border border-slate-800 space-y-2">

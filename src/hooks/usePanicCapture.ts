@@ -4,9 +4,10 @@ import { GeoCoordinates, StoreMetadata, PanicAlert, TriggerMode } from "../types
 interface UsePanicCaptureOptions {
   store: StoreMetadata;
   onAlertSent?: (alertId: string, timestamp: string) => void;
+  isCameraEnabled?: boolean;
 }
 
-export function usePanicCapture({ store, onAlertSent }: UsePanicCaptureOptions) {
+export function usePanicCapture({ store, onAlertSent, isCameraEnabled = true }: UsePanicCaptureOptions) {
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const [hasGeoPermission, setHasGeoPermission] = useState<boolean | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
@@ -24,8 +25,26 @@ export function usePanicCapture({ store, onAlertSent }: UsePanicCaptureOptions) 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
+  // Stop camera tracks cleanly
+  const stopCamera = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+  }, []);
+
   // Initialize camera stream with optional deviceId
   const startCamera = useCallback(async (deviceId?: string) => {
+    if (!isCameraEnabled) {
+      stopCamera();
+      setHasCameraPermission(false);
+      setCameraError(null);
+      return;
+    }
+
     try {
       setCameraError(null);
       if (streamRef.current) {
@@ -69,7 +88,7 @@ export function usePanicCapture({ store, onAlertSent }: UsePanicCaptureOptions) 
       setHasCameraPermission(false);
       setCameraError(err.message || "Permiso de cámara no concedido");
     }
-  }, [selectedDeviceId]);
+  }, [isCameraEnabled, selectedDeviceId, stopCamera]);
 
   // Request GPS coordinates
   const refreshLocation = useCallback(() => {
@@ -163,6 +182,12 @@ export function usePanicCapture({ store, onAlertSent }: UsePanicCaptureOptions) 
 
   // Execute immediate burst capture of 3 frames with micro-delays
   const executeBurstCapture = useCallback(async (): Promise<string[]> => {
+    if (!isCameraEnabled) {
+      setCapturedFrames([]);
+      setIsCapturing(false);
+      return [];
+    }
+
     setIsCapturing(true);
     setStatusMessage("Capturando ráfaga de 3 fotogramas de videoverificación...");
 
@@ -185,7 +210,7 @@ export function usePanicCapture({ store, onAlertSent }: UsePanicCaptureOptions) 
     setCapturedFrames(frames);
     setIsCapturing(false);
     return frames;
-  }, [captureFrame]);
+  }, [captureFrame, isCameraEnabled]);
 
   const resetAlert = useCallback(async () => {
     if (lastSentAlertId) {
@@ -208,10 +233,14 @@ export function usePanicCapture({ store, onAlertSent }: UsePanicCaptureOptions) 
   const triggerPanic = useCallback(
     async (triggerType: TriggerMode = "MANUAL_BUTTON", guardDescription?: string, guardName?: string) => {
       try {
-        setStatusMessage("🚨 TRANSMITIENDO ALERTA CRÍTICA A CENTRAL DE SEGURIDAD...");
+        setStatusMessage(
+          isCameraEnabled
+            ? "🚨 TRANSMITIENDO ALERTA CRÍTICA Y VIDEOVERIFICACIÓN A CENTRAL..."
+            : "🚨 TRANSMITIENDO ALERTA DE PÁNICO A CENTRAL DE SEGURIDAD..."
+        );
 
-        // 1. Capture 3-frame burst
-        const frames = await executeBurstCapture();
+        // 1. Capture 3-frame burst only if camera is enabled
+        const frames = isCameraEnabled ? await executeBurstCapture() : [];
 
         // 2. Determine real coordinates: Prioritize configured/calibrated Store & Terminal Tactical Coordinates
         const hasStoreCoords = store.coordinates && typeof store.coordinates.latitude === "number" && store.coordinates.latitude !== 0;
@@ -226,6 +255,7 @@ export function usePanicCapture({ store, onAlertSent }: UsePanicCaptureOptions) 
             coordinates: validCoords,
           },
           images: frames,
+          cameraEnabled: isCameraEnabled,
           timestamp: new Date().toISOString(),
           triggerType,
           guardDescription: guardDescription?.trim() || undefined,
@@ -262,7 +292,7 @@ export function usePanicCapture({ store, onAlertSent }: UsePanicCaptureOptions) 
         setStatusMessage(`⚠️ Error de transmisión: ${err.message}. Reintentando enlace.`);
       }
     },
-    [store, currentCoords, executeBurstCapture, onAlertSent, resetAlert]
+    [store, currentCoords, executeBurstCapture, onAlertSent, resetAlert, isCameraEnabled]
   );
 
   const sendGuardUpdate = useCallback(async (alertId: string, noteText: string, authorName?: string) => {
@@ -300,6 +330,8 @@ export function usePanicCapture({ store, onAlertSent }: UsePanicCaptureOptions) 
     lastSentAlertId,
     statusMessage,
     startCamera,
+    stopCamera,
+    isCameraEnabled,
     refreshLocation,
     triggerPanic,
     resetAlert,
