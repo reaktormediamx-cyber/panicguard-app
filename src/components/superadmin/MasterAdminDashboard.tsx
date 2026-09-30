@@ -506,15 +506,15 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
             <button
               onClick={() => handleTriggerSimulation()}
               disabled={isSimulating}
-              className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white text-xs font-bold flex items-center gap-1.5 shadow transition-all cursor-pointer disabled:opacity-50"
+              className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white text-xs font-bold flex items-center gap-1.5 shadow transition-all cursor-pointer disabled:opacity-50"
             >
               <AlertTriangle className="w-3.5 h-3.5" />
-              <span>{isSimulating ? "Emitiendo..." : "Simular Pánico Multi-Central"}</span>
+              <span>{isSimulating ? "Emitiendo..." : "Simular Pánico"}</span>
             </button>
 
             <button
               onClick={() => setShowAddCentralModal(true)}
-              className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+              className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
             >
               <Building2 className="w-3.5 h-3.5 text-red-400" />
               <span>+ Alta Central</span>
@@ -522,10 +522,20 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
 
             <button
               onClick={() => setShowAddTerminalModal(true)}
-              className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+              className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
             >
               <Store className="w-3.5 h-3.5 text-blue-400" />
               <span>+ Alta Terminal</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsAudioSettingsModalOpen(true)}
+              className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer group"
+              title="Configurar tonos de alerta, sirenas y volumen del sistema"
+            >
+              <Sliders className="w-3.5 h-3.5 text-amber-400 group-hover:rotate-45 transition-transform" />
+              <span>Tonos de Alerta</span>
             </button>
 
             <button
@@ -535,23 +545,23 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                   alert("Sistema restablecido con éxito. El análisis global ha sido desactivado.");
                 }
               }}
-              className="px-3.5 py-2 rounded-xl bg-slate-800/80 hover:bg-red-950/80 hover:text-red-400 border border-slate-700 hover:border-red-900 text-slate-400 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+              className="px-2.5 py-1.5 rounded-xl bg-slate-800/80 hover:bg-red-950/80 hover:text-red-400 border border-slate-700 hover:border-red-900 text-slate-400 text-xs font-bold flex items-center gap-1 transition-all cursor-pointer"
               title="Restablecer Datos / Limpiar Centrales y Terminales de Muestra"
             >
               <RefreshCw className="w-3.5 h-3.5" />
-              <span>Restablecer Datos</span>
+              <span>Restablecer</span>
             </button>
           </div>
         </div>
 
         {/* Global KPI Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 pt-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
           {/* KPI 1: Centrales */}
           <div className="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800 flex items-center justify-between">
-            <div>
-              <span className="text-[11px] text-slate-400 font-medium">Centrales de Monitoreo</span>
-              <div className="flex items-baseline gap-2 mt-0.5">
-                <span className="text-2xl font-black text-white">{centrales.length}</span>
+            <div className="min-w-0">
+              <span className="text-[11px] text-slate-400 font-medium block">Centrales de Monitoreo</span>
+              <div className="flex items-baseline gap-1.5 mt-0.5 flex-wrap">
+                <span className="text-xl sm:text-2xl font-black text-white">{centrales.length}</span>
                 <span className="text-[10px] text-emerald-400 font-mono font-bold">
                   {activeCentralesCount} Activas
                 </span>
@@ -562,17 +572,17 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                 )}
               </div>
             </div>
-            <div className="w-9 h-9 rounded-xl bg-red-600/10 border border-red-500/30 flex items-center justify-center text-red-400">
+            <div className="w-9 h-9 rounded-xl bg-red-600/10 border border-red-500/30 flex items-center justify-center text-red-400 shrink-0">
               <Building2 className="w-4 h-4" />
             </div>
           </div>
 
           {/* KPI 2: Terminals */}
           <div className="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800 flex items-center justify-between">
-            <div>
-              <span className="text-[11px] text-slate-400 font-medium">Terminales / Comercios</span>
-              <div className="flex items-baseline gap-2 mt-0.5">
-                <span className="text-2xl font-black text-white">{terminals.length}</span>
+            <div className="min-w-0">
+              <span className="text-[11px] text-slate-400 font-medium block">Terminales / Comercios</span>
+              <div className="flex items-baseline gap-1.5 mt-0.5 flex-wrap">
+                <span className="text-xl sm:text-2xl font-black text-white">{terminals.length}</span>
                 <span className="text-[10px] text-blue-400 font-mono font-bold">
                   {activeTerminalsCount} Operativas
                 </span>
@@ -583,30 +593,30 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                 )}
               </div>
             </div>
-            <div className="w-9 h-9 rounded-xl bg-blue-600/10 border border-blue-500/30 flex items-center justify-center text-blue-400">
+            <div className="w-9 h-9 rounded-xl bg-blue-600/10 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0">
               <Store className="w-4 h-4" />
             </div>
           </div>
 
           {/* KPI 3: Panic Alerts */}
           <div className="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800 flex items-center justify-between">
-            <div>
-              <span className="text-[11px] text-slate-400 font-medium">Alertas Totales</span>
-              <div className="flex items-baseline gap-2 mt-0.5">
-                <span className="text-2xl font-black text-red-400">{alerts.length}</span>
+            <div className="min-w-0">
+              <span className="text-[11px] text-slate-400 font-medium block">Alertas Totales</span>
+              <div className="flex items-baseline gap-1.5 mt-0.5 flex-wrap">
+                <span className="text-xl sm:text-2xl font-black text-red-400">{alerts.length}</span>
                 <span className="text-[10px] text-red-400 font-mono font-bold animate-pulse">
                   {activeAlertsCount} En Curso
                 </span>
               </div>
             </div>
-            <div className="w-9 h-9 rounded-xl bg-red-600/15 border border-red-500/40 flex items-center justify-center text-red-400">
+            <div className="w-9 h-9 rounded-xl bg-red-600/15 border border-red-500/40 flex items-center justify-center text-red-400 shrink-0">
               <AlertTriangle className="w-4 h-4" />
             </div>
           </div>
 
           {/* KPI 4: Forensics Engine with Toggle */}
-          <div className="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800 flex flex-col justify-between gap-2 md:flex-row md:items-center">
-            <div className="flex items-center gap-2.5">
+          <div className="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800 flex items-center justify-between">
+            <div className="flex items-center gap-2.5 min-w-0">
               <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-all ${
                 systemSettings?.aiEnabled 
                   ? "bg-purple-600/15 border border-purple-500/40 text-purple-400" 
@@ -614,8 +624,8 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
               }`}>
                 <Brain className="w-4 h-4" />
               </div>
-              <div>
-                <span className="text-[11px] text-slate-400 font-medium">Análisis de Video Automatizado</span>
+              <div className="min-w-0">
+                <span className="text-[11px] text-slate-400 font-medium block truncate">Análisis IA</span>
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <span className={`text-xs font-bold font-mono transition-all ${
                     systemSettings?.aiEnabled ? "text-purple-300" : "text-slate-500"
@@ -631,36 +641,24 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
               </div>
             </div>
             
-            <div className="flex items-center justify-between md:justify-end gap-3 mt-1 md:mt-0 pt-2 md:pt-0 border-t border-slate-800/40 md:border-t-0">
-              <span className="text-[10px] text-slate-400 font-medium md:hidden">Estado Global del Análisis:</span>
-              <button
-                type="button"
-                onClick={() => setIsAudioSettingsModalOpen(true)}
-                className="px-3 py-1.5 rounded-lg text-[11px] font-bold tracking-wide transition-all bg-slate-850 hover:bg-slate-800 text-slate-200 border border-slate-700 flex items-center gap-1.5 cursor-pointer shadow-sm group"
-                title="Configurar tonos de alerta, sirenas y volumen del sistema"
-              >
-                <Sliders className="w-3.5 h-3.5 text-amber-400 group-hover:rotate-45 transition-transform" />
-                <span>Tonos de Alerta</span>
-              </button>
-
-              <button
-                onClick={async () => {
-                  try {
-                    await updateAiSetting(!systemSettings?.aiEnabled);
-                  } catch (err: any) {
-                    alert(err.message || "Error al actualizar configuración de análisis");
-                  }
-                }}
-                className={`px-3 py-1.5 rounded-lg text-[11px] font-bold tracking-wide transition-all duration-200 cursor-pointer flex items-center gap-1.5 ${
-                  systemSettings?.aiEnabled
-                    ? "bg-purple-900/40 hover:bg-purple-900/60 text-purple-300 border border-purple-500/30"
-                    : "bg-slate-800 hover:bg-slate-750 text-slate-300 border border-slate-700"
-                }`}
-              >
-                <Power className="w-3.5 h-3.5" />
-                <span>{systemSettings?.aiEnabled ? "Pausar Análisis" : "Activar Análisis"}</span>
-              </button>
-            </div>
+            <button
+              onClick={async () => {
+                try {
+                  await updateAiSetting(!systemSettings?.aiEnabled);
+                } catch (err: any) {
+                  alert(err.message || "Error al actualizar configuración de análisis");
+                }
+              }}
+              className={`px-2.5 py-1.5 rounded-xl text-[11px] font-bold tracking-wide transition-all duration-200 cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                systemSettings?.aiEnabled
+                  ? "bg-purple-900/40 hover:bg-purple-900/60 text-purple-300 border border-purple-500/30"
+                  : "bg-slate-800 hover:bg-slate-750 text-slate-300 border border-slate-700"
+              }`}
+              title={systemSettings?.aiEnabled ? "Pausar análisis automatizado" : "Activar análisis automatizado"}
+            >
+              <Power className="w-3.5 h-3.5" />
+              <span>{systemSettings?.aiEnabled ? "Pausar" : "Activar"}</span>
+            </button>
           </div>
         </div>
 
