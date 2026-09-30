@@ -28,11 +28,13 @@ import {
   QrCode,
   Copy,
   X,
+  Sliders,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { StoreMetadata } from "../../types.js";
 import { usePanicCapture } from "../../hooks/usePanicCapture.js";
 import { alarmSound } from "../../utils/audio.js";
+import { AudioSettingsModal } from "../audio/AudioSettingsModal.js";
 import { db, doc, setDoc } from "../../lib/firebase.js";
 import { useAuth } from "../../context/AuthContext.js";
 
@@ -87,6 +89,7 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
   const [lastSentTime, setLastSentTime] = useState<string | null>(null);
   const [testDrillMode, setTestDrillMode] = useState<boolean>(false);
   const [isMuted, setIsMuted] = useState<boolean>(alarmSound.isMuted());
+  const [isAudioSettingsModalOpen, setIsAudioSettingsModalOpen] = useState<boolean>(false);
   const [isStreamingActive, setIsStreamingActive] = useState<boolean>(false);
   const streamingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -390,6 +393,15 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
           >
             {isMuted ? <VolumeX className="w-4 h-4 text-amber-400" /> : <Volume2 className="w-4 h-4" />}
             <span>{isMuted ? "Terminal Silenciosa" : "Sonido Activo"}</span>
+          </button>
+
+          <button
+            onClick={() => setIsAudioSettingsModalOpen(true)}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-750 bg-slate-800/90 hover:bg-slate-750 text-slate-200 text-sm font-medium transition-colors cursor-pointer group"
+            title="Elegir y personalizar tono de alerta y volumen"
+          >
+            <Sliders className="w-4 h-4 text-amber-400 group-hover:rotate-45 transition-transform" />
+            <span>Tonos</span>
           </button>
 
           {/* Botón Activar / Desactivar Cámara */}
@@ -1031,6 +1043,12 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
           </div>
         </div>
       )}
+
+      {/* Modal de Personalización de Tonos de Alerta */}
+      <AudioSettingsModal
+        isOpen={isAudioSettingsModalOpen}
+        onClose={() => setIsAudioSettingsModalOpen(false)}
+      />
     </div>
   );
 };

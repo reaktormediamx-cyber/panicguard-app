@@ -32,6 +32,7 @@ import {
   SlidersHorizontal,
   ExternalLink,
   Edit2,
+  Sliders,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext.js";
 import { CentralStation, TerminalRegistration, PanicAlert, AlertStatus, formatTriggerType } from "../../types.js";
@@ -39,6 +40,7 @@ import { BurstViewer } from "../dashboard/BurstViewer.js";
 import { TacticalMap } from "../dashboard/TacticalMap.js";
 import { AiVerdictPanel } from "../dashboard/AiVerdictPanel.js";
 import { EmergencyModal } from "../dashboard/EmergencyModal.js";
+import { AudioSettingsModal } from "../audio/AudioSettingsModal.js";
 import { geocodeAddress } from "../../utils/geocoding.js";
 
 interface MasterAdminDashboardProps {
@@ -85,6 +87,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
 
   // Tab navigation
   const [activeTab, setActiveTab] = useState<"CENTRALES" | "TERMINALS" | "ALERTS" | "STATS">("CENTRALES");
+  const [isAudioSettingsModalOpen, setIsAudioSettingsModalOpen] = useState(false);
 
   // Filter states
   const [centralSearch, setCentralSearch] = useState("");
@@ -630,6 +633,16 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
             
             <div className="flex items-center justify-between md:justify-end gap-3 mt-1 md:mt-0 pt-2 md:pt-0 border-t border-slate-800/40 md:border-t-0">
               <span className="text-[10px] text-slate-400 font-medium md:hidden">Estado Global del Análisis:</span>
+              <button
+                type="button"
+                onClick={() => setIsAudioSettingsModalOpen(true)}
+                className="px-3 py-1.5 rounded-lg text-[11px] font-bold tracking-wide transition-all bg-slate-850 hover:bg-slate-800 text-slate-200 border border-slate-700 flex items-center gap-1.5 cursor-pointer shadow-sm group"
+                title="Configurar tonos de alerta, sirenas y volumen del sistema"
+              >
+                <Sliders className="w-3.5 h-3.5 text-amber-400 group-hover:rotate-45 transition-transform" />
+                <span>Tonos de Alerta</span>
+              </button>
+
               <button
                 onClick={async () => {
                   try {
@@ -2443,6 +2456,12 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
           </div>
         </div>
       )}
+
+      {/* Modal de Configuración y Personalización de Tonos de Alerta */}
+      <AudioSettingsModal
+        isOpen={isAudioSettingsModalOpen}
+        onClose={() => setIsAudioSettingsModalOpen(false)}
+      />
     </div>
   );
 };

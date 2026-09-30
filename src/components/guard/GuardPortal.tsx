@@ -27,11 +27,13 @@ import {
   BellRing,
   BellOff,
   CameraOff,
+  Sliders,
 } from "lucide-react";
 import { PanicAlert, AlertStatus } from "../../types.js";
 import { alarmSound } from "../../utils/audio.js";
 import { useAuth } from "../../context/AuthContext.js";
 import { TacticalMap } from "../dashboard/TacticalMap.js";
+import { AudioSettingsModal } from "../audio/AudioSettingsModal.js";
 
 interface GuardPortalProps {
   alerts: PanicAlert[];
@@ -54,6 +56,7 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
   const [isOnDuty, setIsOnDuty] = useState<boolean>(() => {
     return localStorage.getItem("pg_guard_duty") !== "false";
   });
+  const [isAudioSettingsModalOpen, setIsAudioSettingsModalOpen] = useState(false);
 
   // Function to extract store binding from window URL (search or hash)
   const extractStoreParamsFromUrl = () => {
@@ -568,8 +571,16 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
             </div>
           </div>
 
-          {/* Quick duty toggle & Exit button (No Gear Icon!) */}
-          <div className="flex items-center gap-2 flex-shrink-0">
+          {/* Quick duty toggle, Sound Settings & Exit button */}
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <button
+              onClick={() => setIsAudioSettingsModalOpen(true)}
+              className="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 border border-slate-700/80 text-amber-400 hover:text-amber-300 transition-all cursor-pointer active:scale-95 shadow-sm"
+              title="Ajustes de Tonos y Sonido de Alerta"
+            >
+              <Sliders className="w-4 h-4" />
+            </button>
+
             <button
               onClick={() => setIsOnDuty(!isOnDuty)}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold font-mono transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 shadow-sm ${
@@ -1119,6 +1130,12 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
           </div>
         </div>
       )}
+
+      {/* MODAL DE PERSONALIZACIÓN DE AUDIO Y TONOS */}
+      <AudioSettingsModal
+        isOpen={isAudioSettingsModalOpen}
+        onClose={() => setIsAudioSettingsModalOpen(false)}
+      />
     </div>
   );
 };

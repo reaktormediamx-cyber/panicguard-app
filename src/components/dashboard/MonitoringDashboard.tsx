@@ -37,6 +37,7 @@ import {
   QrCode,
   Copy,
   X,
+  Sliders,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { PanicAlert, AlertStatus } from "../../types.js";
@@ -44,7 +45,8 @@ import { BurstViewer } from "./BurstViewer.js";
 import { TacticalMap } from "./TacticalMap.js";
 import { AiVerdictPanel } from "./AiVerdictPanel.js";
 import { EmergencyModal } from "./EmergencyModal.js";
-import { alarmSound } from "../../utils/audio.js";
+import { alarmSound, ALERT_TONE_OPTIONS } from "../../utils/audio.js";
+import { AudioSettingsModal } from "../audio/AudioSettingsModal.js";
 import { useAuth } from "../../context/AuthContext.js";
 import { downloadAlertPdfReport } from "../../utils/pdfGenerator.js";
 
@@ -179,6 +181,7 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
     alerts.length > 0 ? alerts[0].id : null
   );
   const [isMuted, setIsMuted] = useState<boolean>(false);
+  const [isAudioSettingsModalOpen, setIsAudioSettingsModalOpen] = useState<boolean>(false);
 
   // Filter terminals for the current Central (or all if Super Admin on this view)
   const myTerminals = terminals.filter((t) => {
@@ -338,9 +341,18 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
           <button
             onClick={handleTestSound}
             className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-medium transition-colors cursor-pointer"
-            title="Probar sonido de notificación"
+            title="Probar sonido de notificación activo"
           >
             Probar Tono
+          </button>
+
+          <button
+            onClick={() => setIsAudioSettingsModalOpen(true)}
+            className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm group"
+            title="Personalizar tonos de alerta, sirenas y volumen del sistema"
+          >
+            <Sliders className="w-4 h-4 text-amber-400 group-hover:rotate-45 transition-transform" />
+            <span>Tonos de Alerta</span>
           </button>
         </div>
       </div>
@@ -1415,6 +1427,12 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
           </div>
         </div>
       )}
+
+      {/* Modal de Configuración y Personalización de Tonos de Alerta */}
+      <AudioSettingsModal
+        isOpen={isAudioSettingsModalOpen}
+        onClose={() => setIsAudioSettingsModalOpen(false)}
+      />
     </div>
   );
 };
