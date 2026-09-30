@@ -104,11 +104,21 @@ async function queryOSMNominatim(query: string): Promise<GeoCoordinates | null> 
   return null;
 }
 
-export async function geocodeAddress(address: string, city?: string): Promise<GeoCoordinates | null> {
+export async function geocodeAddress(
+  address: string,
+  city?: string,
+  storeName?: string
+): Promise<GeoCoordinates | null> {
   if (!address || address.trim().length < 3) return null;
 
-  const cleanAddr = address.replace(/^.*?—\s*/, "").trim();
-  const cacheKey = `${cleanAddr}|${city || ""}`.toLowerCase();
+  const cleanAddr = address
+    .replace(/^.*?—\s*/, "")
+    .replace(/\bnum\.?\s*/gi, "")
+    .replace(/\bno\.?\s*/gi, "")
+    .replace(/#\s*/g, "")
+    .trim();
+
+  const cacheKey = `${cleanAddr}|${city || ""}|${storeName || ""}`.toLowerCase();
 
   if (geocodeCache.has(cacheKey)) {
     return geocodeCache.get(cacheKey)!;
@@ -131,20 +141,44 @@ export async function geocodeAddress(address: string, city?: string): Promise<Ge
     .replace(/\bAv\.?\b/gi, "Avenida")
     .replace(/\bCalz\.?\b/gi, "Calzada")
     .replace(/\bBlvd\.?\b/gi, "Boulevard")
-    .replace(/\bCol\.?\b/gi, "Colonia");
+    .replace(/\bCol\.?\b/gi, "Colonia")
+    .replace(/\bC\.\s+/gi, "Calle ")
+    .replace(/\bMor\.?\b/gi, "Morelos")
+    .replace(/\bCDMX\b/gi, "Ciudad de México");
 
+  // Clean street name without unit/number details
   const withoutNumber = expandedAddr
-    .replace(/\s+\d+[-A-Za-z0-9]*,?/g, "")
-    .replace(/\b(Colonia|Col\.?)\s+[A-Za-z0-9]+/gi, "")
+    .replace(/[-A-Za-z0-9]*\d+[-A-Za-z0-9]*,?/g, "")
+    .replace(/\b(Colonia|Col\.?)\s+[A-Za-z0-9\s]+/gi, "")
+    .replace(/\b(Centro|Sección|Secc\.?)\b/gi, "")
+    .replace(/\s{2,}/g, " ")
     .trim();
 
   // Multi-stage prioritized queries
   const searchQueries: string[] = [];
 
+  // Stage 0: Direct full address
+  if (city) {
+    searchQueries.push(`${expandedAddr}, ${city}, México`);
+  }
+  searchQueries.push(`${expandedAddr}, México`);
+
+  // Stage 1: Specific venue name if provided
+  if (storeName && storeName.trim().length > 3) {
+    const cleanStore = storeName.replace(/\b(Sucursal|Comercio|Terminal)\b/gi, "").trim();
+    if (cleanStore) {
+      if (inferredCity || city) {
+        searchQueries.push(`${cleanStore}, ${inferredCity || city}, ${inferredState || ""}, México`);
+      }
+      searchQueries.push(`${cleanStore}, ${inferredState || city || "México"}`);
+    }
+  }
+
+  // Stage 2: Prioritize precise state and municipality
   if (inferredState) {
-    // Prioritize precise state and municipality
-    if (withoutNumber) {
+    if (withoutNumber && withoutNumber.length > 3) {
       searchQueries.push(`${withoutNumber}, ${inferredCity}, ${inferredState}, México`);
+      searchQueries.push(`${withoutNumber}, ${inferredState}, México`);
     }
     searchQueries.push(`${expandedAddr}, ${inferredCity}, ${inferredState}, México`);
     searchQueries.push(`${expandedAddr}, ${inferredState}, México`);
@@ -152,17 +186,15 @@ export async function geocodeAddress(address: string, city?: string): Promise<Ge
       searchQueries.push(`${inferredCity}, ${inferredState}, México`);
     }
   } else if (city) {
-    if (withoutNumber) {
+    if (withoutNumber && withoutNumber.length > 3) {
       searchQueries.push(`${withoutNumber}, ${city}, México`);
     }
-    searchQueries.push(`${expandedAddr}, ${city}, México`);
   }
 
-  // General fallbacks
-  if (withoutNumber) {
+  // Stage 3: General fallbacks
+  if (withoutNumber && withoutNumber.length > 3) {
     searchQueries.push(`${withoutNumber}, México`);
   }
-  searchQueries.push(`${expandedAddr}, México`);
 
   // Execute progressive queries
   for (const q of searchQueries) {

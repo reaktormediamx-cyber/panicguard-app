@@ -20,6 +20,8 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext.js";
 import { TerminalRegistration } from "../../types.js";
+import { geocodeAddress } from "../../utils/geocoding.js";
+import { TacticalMap } from "../dashboard/TacticalMap.js";
 
 export const TerminalManagerModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
   isOpen,
@@ -44,6 +46,7 @@ export const TerminalManagerModal: React.FC<{ isOpen: boolean; onClose: () => vo
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
   const [createdCredentials, setCreatedCredentials] = useState<{ email: string; pass: string } | null>(null);
+  const [previewTerminalMap, setPreviewTerminalMap] = useState<TerminalRegistration | null>(null);
 
   if (!isOpen) return null;
 
@@ -73,24 +76,26 @@ export const TerminalManagerModal: React.FC<{ isOpen: boolean; onClose: () => vo
       };
       const randomPassword = generateRandomPassword();
       const generatedStoreId = "STR-" + Math.floor(1000 + Math.random() * 9000);
+      const cleanAddr = (address || "").trim() || "Av. Insurgentes Sur #100";
+      const cleanCity = (city || "").trim() || "Ciudad de México, CDMX";
+      const cleanStoreName = (storeName || "").trim() || `Comercio ${cleanEmail.split("@")[0]}`;
+
+      // Geocodificación precisa de la dirección registrada real
+      const geocoded = await geocodeAddress(cleanAddr, cleanCity, cleanStoreName);
 
       await createTerminal({
         email: cleanEmail,
         password: randomPassword,
         storeId: generatedStoreId,
-        storeName: storeName || `Comercio ${cleanEmail.split("@")[0]}`,
+        storeName: cleanStoreName,
         ownerName: ownerName || "Titular de Sucursal",
         phone: phone || "+52 55 1234 5678",
-        address: address || "Av. Insurgentes Sur #100",
-        city: city || "CDMX",
+        address: cleanAddr,
+        city: cleanCity,
         category: category,
         assignedRole: assignedRole,
         status: "ACTIVE",
-        coordinates: {
-          latitude: 19.4326 + (Math.random() - 0.5) * 0.08,
-          longitude: -99.1332 + (Math.random() - 0.5) * 0.08,
-          accuracy: 5,
-        },
+        coordinates: geocoded || undefined,
         panicHotkey: panicHotkey || "p",
         panicHotkeyMode: panicHotkeyMode || "ALT_COMBINATION",
       });
@@ -343,6 +348,19 @@ export const TerminalManagerModal: React.FC<{ isOpen: boolean; onClose: () => vo
 
                 <div>
                   <label className="block text-slate-300 font-semibold mb-1">
+                    Ciudad / Municipio / Estado:
+                  </label>
+                  <input
+                    type="text"
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    placeholder="Ej: Naucalpan, Estado de México / Guadalajara, Jal."
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-red-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">
                     Modo de Tecla de Pánico:
                   </label>
                   <select
@@ -507,7 +525,17 @@ export const TerminalManagerModal: React.FC<{ isOpen: boolean; onClose: () => vo
                         Reg: {new Date(t.createdAt).toLocaleDateString()}
                       </span>
 
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setPreviewTerminalMap(t)}
+                          className="px-2 py-0.5 rounded text-[10px] bg-slate-900 hover:bg-slate-800 border border-slate-800 text-blue-400 hover:text-blue-300 font-mono flex items-center gap-1 cursor-pointer transition-colors"
+                          title="Ver ubicación en el Mapa Táctico según dirección registrada"
+                        >
+                          <MapPin className="w-3 h-3 text-red-500" />
+                          <span>Mapa Táctico</span>
+                        </button>
+
                         <button
                           onClick={() => updateTerminalStatus(t.id, t.status === "ACTIVE" ? "INACTIVE" : "ACTIVE")}
                           className={`px-2 py-0.5 rounded font-mono font-bold cursor-pointer ${
@@ -549,6 +577,43 @@ export const TerminalManagerModal: React.FC<{ isOpen: boolean; onClose: () => vo
           </button>
         </div>
       </div>
+
+      {/* Modal Emergente de Previsualización del Mapa Táctico de la Terminal */}
+      {previewTerminalMap && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+          <div className="relative w-full max-w-3xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="p-4 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <MapPin className="w-5 h-5 text-red-500 animate-bounce" />
+                <div>
+                  <h3 className="text-sm font-bold text-white">
+                    Mapa Táctico: {previewTerminalMap.storeName}
+                  </h3>
+                  <p className="text-[11px] text-slate-400 font-mono">
+                    {previewTerminalMap.address} {previewTerminalMap.city ? `— ${previewTerminalMap.city}` : ""}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewTerminalMap(null)}
+                className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center text-sm font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-4 flex-1 min-h-[380px]">
+              <TacticalMap
+                storeName={previewTerminalMap.storeName}
+                address={previewTerminalMap.address}
+                city={previewTerminalMap.city}
+                coordinates={previewTerminalMap.coordinates}
+                className="w-full h-full min-h-[360px]"
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

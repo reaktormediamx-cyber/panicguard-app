@@ -45,8 +45,22 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
   store,
   onOpenStoreConfig,
 }) => {
-  const { terminals } = useAuth();
-  const matchingTerminal = terminals.find(t => t.storeId === store.storeId);
+  const { terminals, appUser } = useAuth();
+
+  // Filtrar terminales disponibles para este usuario
+  const availableTerminals = terminals.filter((t) => {
+    if (appUser && appUser.role !== "SUPER_ADMIN" && t.centralId !== appUser.centralId) {
+      return false;
+    }
+    return true;
+  });
+
+  const [selectedTerminalId, setSelectedTerminalId] = useState<string>(() => {
+    const match = terminals.find(t => t.storeId === store.storeId);
+    return match ? match.id : (availableTerminals[0]?.id || "");
+  });
+
+  const matchingTerminal = terminals.find(t => t.id === selectedTerminalId) || terminals.find(t => t.storeId === store.storeId);
   const activeStore = matchingTerminal || store;
   const firestoreId = matchingTerminal ? matchingTerminal.id : store.storeId;
 
@@ -293,19 +307,35 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
             <div className="flex flex-col gap-1">
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
-                  {store.storeName}
+                  {activeStore.storeName}
                 </h1>
                 <span className="text-xs px-2.5 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-slate-300 font-mono">
-                  {store.storeId}
+                  {activeStore.storeId}
                 </span>
                 <span className="text-[11px] font-mono px-2.5 py-0.5 rounded bg-amber-950/80 border border-amber-500/40 text-amber-300 font-semibold">
-                  Central: {store.centralName || "Central de Monitoreo"}
+                  Central: {activeStore.centralName || "Central de Monitoreo"}
                 </span>
               </div>
               <p className="text-sm text-slate-400 flex items-center gap-1.5">
                 <Store className="w-3.5 h-3.5 text-slate-500" />
-                {store.address}, {store.city}
+                {activeStore.address}{activeStore.city ? `, ${activeStore.city}` : ""}
               </p>
+              {availableTerminals.length > 1 && (appUser?.role === "CENTRAL" || appUser?.role === "SUPER_ADMIN" || appUser?.role === "ADMIN") && (
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-[11px] text-slate-400 font-semibold">Terminal activa:</span>
+                  <select
+                    value={selectedTerminalId}
+                    onChange={(e) => setSelectedTerminalId(e.target.value)}
+                    className="bg-slate-950 border border-slate-700 text-amber-400 rounded-lg px-2 py-0.5 text-xs font-semibold focus:outline-none focus:border-red-500 cursor-pointer"
+                  >
+                    {availableTerminals.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.storeName} — {t.address || t.city}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
           </div>
         </div>

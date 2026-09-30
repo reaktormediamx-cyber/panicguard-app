@@ -39,6 +39,7 @@ import { BurstViewer } from "../dashboard/BurstViewer.js";
 import { TacticalMap } from "../dashboard/TacticalMap.js";
 import { AiVerdictPanel } from "../dashboard/AiVerdictPanel.js";
 import { EmergencyModal } from "../dashboard/EmergencyModal.js";
+import { geocodeAddress } from "../../utils/geocoding.js";
 
 interface MasterAdminDashboardProps {
   alerts: PanicAlert[];
@@ -196,6 +197,10 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
     setIsSubmittingCentral(true);
     try {
       const generatedCode = centralCode || `C4-${centralCity.substring(0, 3).toUpperCase()}-${Math.floor(10 + Math.random() * 90)}`;
+      const cleanAddr = centralAddress || "Sede Central";
+      const cleanCity = centralCity || "Ciudad de México";
+      const geocoded = await geocodeAddress(cleanAddr, cleanCity, centralName);
+
       await createCentral({
         name: centralName,
         code: generatedCode,
@@ -205,12 +210,12 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
         phone: centralPhone || "+52 55 0000 0000",
         city: centralCity,
         state: centralState,
-        address: centralAddress || "Sede Central",
+        address: cleanAddr,
         notes: centralNotes,
         status: "ACTIVE",
-        coordinates: {
-          latitude: 19.4326 + (Math.random() - 0.5) * 0.1,
-          longitude: -99.1332 + (Math.random() - 0.5) * 0.1,
+        coordinates: geocoded || {
+          latitude: 19.4326,
+          longitude: -99.1332,
           accuracy: 5,
         },
       });
@@ -242,26 +247,26 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
       const selectedCentral = centrales.find((c) => c.id === termCentralId) || centrales[0];
       const cleanEmail = termGoogleEmail.trim().toLowerCase();
       const generatedStoreId = "STR-" + Math.floor(1000 + Math.random() * 9000);
+      const cleanAddr = termAddress || "Av. Principal #100";
+      const cleanCity = termCity || "Ciudad de México";
+      const storeDisplayName = termStoreName || `Comercio ${cleanEmail.split("@")[0]}`;
+      const geocoded = await geocodeAddress(cleanAddr, cleanCity, storeDisplayName);
 
       await createTerminal({
         email: cleanEmail,
         password: termPassword || "rockomx83",
         storeId: generatedStoreId,
-        storeName: termStoreName || `Comercio ${cleanEmail.split("@")[0]}`,
+        storeName: storeDisplayName,
         ownerName: termOwnerName || "Titular de Sucursal",
         phone: termPhone || "+52 55 1234 5678",
-        address: termAddress || "Av. Principal #100",
-        city: termCity,
+        address: cleanAddr,
+        city: cleanCity,
         category: termCategory,
         assignedRole: "TERMINAL",
         status: "ACTIVE",
         centralId: selectedCentral?.id || "",
         centralName: selectedCentral?.name || "Sin Central Asignada",
-        coordinates: {
-          latitude: 19.4326 + (Math.random() - 0.5) * 0.08,
-          longitude: -99.1332 + (Math.random() - 0.5) * 0.08,
-          accuracy: 5,
-        },
+        coordinates: geocoded || undefined,
       });
 
       showNotification(`Terminal vinculada a ${cleanEmail} y asignada a ${selectedCentral?.name || "la Central"}.`);

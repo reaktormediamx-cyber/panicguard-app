@@ -93,6 +93,7 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
   const [editTermPanicHotkey, setEditTermPanicHotkey] = useState("P");
   const [editTermPanicHotkeyMode, setEditTermPanicHotkeyMode] = useState<"DIRECT" | "ALT_COMBINATION">("DIRECT");
   const [isSubmittingEditTerminal, setIsSubmittingEditTerminal] = useState(false);
+  const [previewTerminalMap, setPreviewTerminalMap] = useState<any | null>(null);
 
   // Real-time live log note for selected alert
   const [centralInspectionNote, setCentralInspectionNote] = useState("");
@@ -1014,6 +1015,16 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
 
                       <div className="flex items-center gap-1.5">
                         <button
+                          onClick={() => setPreviewTerminalMap(t)}
+                          className="px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-blue-400 font-bold text-[10px] cursor-pointer flex items-center gap-1 transition-colors"
+                          title="Ver mapa táctico de la terminal según dirección registrada"
+                          type="button"
+                        >
+                          <MapPin className="w-3 h-3 text-red-500" />
+                          <span>Mapa Táctico</span>
+                        </button>
+
+                        <button
                           onClick={() => startEditTerminal(t)}
                           className="px-2 py-1 rounded-lg bg-blue-950/80 hover:bg-blue-900 border border-blue-800/60 text-blue-300 font-bold text-[10px] cursor-pointer flex items-center gap-1 transition-colors"
                           title="Editar información de la terminal"
@@ -1364,6 +1375,43 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
                 </>
               )}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Emergente de Previsualización del Mapa Táctico de la Terminal */}
+      {previewTerminalMap && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+          <div className="relative w-full max-w-3xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="p-4 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <MapPin className="w-5 h-5 text-red-500 animate-bounce" />
+                <div>
+                  <h3 className="text-sm font-bold text-white">
+                    Mapa Táctico Oficial: {previewTerminalMap.storeName}
+                  </h3>
+                  <p className="text-[11px] text-slate-400 font-mono">
+                    {previewTerminalMap.address} {previewTerminalMap.city ? `— ${previewTerminalMap.city}` : ""}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewTerminalMap(null)}
+                className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center text-sm font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-4 flex-1 min-h-[380px]">
+              <TacticalMap
+                storeName={previewTerminalMap.storeName}
+                address={previewTerminalMap.address}
+                city={previewTerminalMap.city}
+                coordinates={previewTerminalMap.coordinates}
+                className="w-full h-full min-h-[360px]"
+              />
+            </div>
           </div>
         </div>
       )}

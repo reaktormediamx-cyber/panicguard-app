@@ -700,11 +700,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       centralName: appUser?.role !== "SUPER_ADMIN" ? (appUser?.centralName || storeData.centralName || "C4 Centro de Comando Poniente - CDMX") : (storeData.centralName || "C4 Centro de Comando Poniente - CDMX"),
       createdAt: new Date().toISOString(),
       status: "ACTIVE",
-      coordinates: storeData.coordinates || geocoded || {
-        latitude: 19.4326 + (Math.random() - 0.5) * 0.05,
-        longitude: -99.1332 + (Math.random() - 0.5) * 0.05,
-        accuracy: 5
-      }
+      coordinates: storeData.coordinates || geocoded || undefined
     };
 
     // Save to Firestore terminals collection and pre-register in users collection

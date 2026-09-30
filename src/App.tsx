@@ -14,7 +14,7 @@ import {
   LayoutDashboard,
   Building2,
   ChevronDown,
-  Smartphone
+  Smartphone,
 } from "lucide-react";
 import { StoreMetadata, DEFAULT_STORE } from "./types.js";
 import { MerchantTerminal } from "./components/merchant/MerchantTerminal.js";
@@ -140,7 +140,21 @@ export default function App() {
   // Sync store settings if current user has a customized store registered
   useEffect(() => {
     if (appUser && (appUser.role === "TERMINAL" || currentView === "TERMINAL")) {
-      const match = terminals.find(t => (t?.email || "").toLowerCase() === (appUser.email || "").toLowerCase());
+      // 1. Coincidencia directa por correo de terminal
+      let match = terminals.find(t => (t?.email || "").toLowerCase() === (appUser.email || "").toLowerCase());
+
+      // 2. Coincidencia por storeId del usuario
+      if (!match && appUser.storeId) {
+        match = terminals.find(t => t.storeId === appUser.storeId);
+      }
+
+      // 3. Si un operador de Central o Admin cambia a la vista Terminal, vincular a su terminal registrada
+      if (!match && (appUser.role === "CENTRAL" || appUser.role === "ADMIN")) {
+        match = terminals.find(t => t.centralId === appUser.centralId) || terminals[0];
+      } else if (!match && appUser.role === "SUPER_ADMIN" && terminals.length > 0) {
+        match = terminals[0];
+      }
+
       if (match) {
         setStore({
           storeId: match.storeId,
