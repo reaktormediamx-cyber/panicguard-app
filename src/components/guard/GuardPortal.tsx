@@ -22,11 +22,7 @@ import {
   Loader2,
   RefreshCw,
   Radio,
-  Moon,
-  Eye,
-  EyeOff,
-  Lock,
-  Unlock,
+  Bluetooth,
 } from "lucide-react";
 import { PanicAlert, AlertStatus, GeoCoordinates, TriggerMode, StoreMetadata } from "../../types.js";
 import { alarmSound } from "../../utils/audio.js";
@@ -57,33 +53,14 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
   });
   const [isAudioSettingsModalOpen, setIsAudioSettingsModalOpen] = useState(false);
 
-  // Guard SOS Panic Button & Volume 3x Trigger State
+  // Guard SOS Panic Button & Bluetooth / External Clicker Trigger State
   const [isEmittingSos, setIsEmittingSos] = useState<boolean>(false);
   const [lastSentSosAlertId, setLastSentSosAlertId] = useState<string | null>(() => {
     return typeof sessionStorage !== "undefined" ? sessionStorage.getItem("pg_guard_last_sos_id") : null;
   });
-  const [volumePressCount, setVolumePressCount] = useState<number>(0);
-  const [lastVolumePressTime, setLastVolumePressTime] = useState<number>(0);
-  const [tapCount, setTapCount] = useState<number>(0);
-  const [shakeCount, setShakeCount] = useState<number>(0);
+  const [bluetoothPressCount, setBluetoothPressCount] = useState<number>(0);
+  const [lastBluetoothPressTime, setLastBluetoothPressTime] = useState<number>(0);
   const [sosFeedbackMessage, setSosFeedbackMessage] = useState<string | null>(null);
-  const [isSentinelMode, setIsSentinelMode] = useState<boolean>(false);
-
-  const toggleSentinelMode = async () => {
-    // Request DeviceMotionEvent permission on iOS 13+ if applicable
-    if (typeof (DeviceMotionEvent as any)?.requestPermission === "function") {
-      try {
-        await (DeviceMotionEvent as any).requestPermission();
-      } catch {}
-    }
-    // Ensure screen WakeLock is triggered
-    if (!isSentinelMode && "wakeLock" in navigator) {
-      try {
-        wakeLockRef.current = await (navigator as any).wakeLock.request("screen");
-      } catch {}
-    }
-    setIsSentinelMode((prev) => !prev);
-  };
 
   // Guard Real-time GPS Location - Read cached real coordinates from localStorage if available
   const [guardLocation, setGuardLocation] = useState<GeoCoordinates | null>(() => {
@@ -676,17 +653,13 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
     setQuickNoteText("");
   };
 
-  // Trigger SOS Panic from Guard (via Tactile button, 3x Screen Tap, Shake or 3x Volume button)
+  // Trigger SOS Panic from Guard (via Tactile Red Button or Bluetooth / External Clicker)
   const triggerGuardSos = async (triggerType: TriggerMode = "MANUAL_BUTTON") => {
     if (isEmittingSos) return;
     setIsEmittingSos(true);
     setSosFeedbackMessage(
-      triggerType === "VOLUME_BUTTON"
-        ? "🚨 [3x BOTÓN VOLUMEN] TRANSMITIENDO PÁNICO SOS A CENTRAL..."
-        : triggerType === "TRIPLE_TAP"
-        ? "🚨 [TRIPLE TOQUE PANTALLA] TRANSMITIENDO PÁNICO SOS A CENTRAL..."
-        : triggerType === "SHAKE_GESTURE"
-        ? "🚨 [AGITAR CELULAR] TRANSMITIENDO PÁNICO SOS A CENTRAL..."
+      triggerType === "VOLUME_BUTTON" || triggerType === "KEYBOARD_HOTKEY"
+        ? "🚨 [BOTÓN BLUETOOTH / CLICKER] TRANSMITIENDO PÁNICO SOS A CENTRAL..."
         : "🚨 TRANSMITIENDO PÁNICO SOS A CENTRAL C4..."
     );
 
@@ -770,13 +743,9 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
     }
 
     const desc =
-      triggerType === "VOLUME_BUTTON"
-        ? `🚨 SOS GUARDIA (BOTÓN VOLUMEN 3X): Oficial ${effectiveGuardName} en situación de riesgo crítico. Requiere apoyo urgente en coordenadas exactas.`
-        : triggerType === "TRIPLE_TAP"
-        ? `🚨 SOS GUARDIA (TRIPLE TOQUE PANTALLA): Oficial ${effectiveGuardName} activó auxilio táctico sin mirar la pantalla.`
-        : triggerType === "SHAKE_GESTURE"
-        ? `🚨 SOS GUARDIA (AGITAR CELULAR): Oficial ${effectiveGuardName} activó auxilio inmediato por movimiento brusco/sacudida.`
-        : `🚨 SOS GUARDIA (BOTÓN TÁCTICO): Oficial ${effectiveGuardName} solicita apoyo y refuerzos urgentes de la Central C4.`;
+      triggerType === "VOLUME_BUTTON" || triggerType === "KEYBOARD_HOTKEY"
+        ? `🚨 SOS GUARDIA (BOTÓN BLUETOOTH / CLICKER): Oficial ${effectiveGuardName} activó auxilio mediante pulsador externo Bluetooth.`
+        : `🚨 SOS GUARDIA (BOTÓN TÁCTICO ROJO): Oficial ${effectiveGuardName} activó auxilio directo desde pantalla hacia Central C4.`;
 
     try {
       const payload = {
@@ -824,122 +793,15 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
     setTimeout(() => setSosFeedbackMessage(null), 4000);
   };
 
-  // 1. Triple-Tap on Screen Gesture (Works 100% reliably on all mobile smartphones without looking)
+  // Bluetooth Panic Button / Wireless Clicker & External Key Listener
   useEffect(() => {
-    let tapTimes: number[] = [];
-
-    const handlePointerDown = (e: PointerEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (target) {
-        const tagName = target.tagName.toLowerCase();
-        if (tagName === "input" || tagName === "textarea" || tagName === "select") return;
-        // Don't intercept if clicking header controls
-        if (target.closest("header")) return;
-      }
-
-      const now = Date.now();
-      tapTimes = tapTimes.filter((t) => now - t < 1800);
-      tapTimes.push(now);
-
-      const count = tapTimes.length;
-      setTapCount(count);
-
-      if (typeof navigator !== "undefined" && navigator.vibrate) {
-        if (count === 1) navigator.vibrate(60);
-        else if (count === 2) navigator.vibrate([80, 40, 80]);
-      }
-
-      if (count >= 3) {
-        tapTimes = [];
-        setTapCount(0);
-        triggerGuardSos("TRIPLE_TAP");
-      }
-    };
-
-    window.addEventListener("pointerdown", handlePointerDown, { capture: true, passive: true });
-    return () => {
-      window.removeEventListener("pointerdown", handlePointerDown, { capture: true });
-    };
-  }, [guardName, assignedStoreId, assignedStoreName, boundTerminalInfo, terminals, appUser, isEmittingSos, guardLocation]);
-
-  useEffect(() => {
-    if (tapCount > 0) {
-      const timer = setTimeout(() => setTapCount(0), 1800);
-      return () => clearTimeout(timer);
-    }
-  }, [tapCount]);
-
-  // 2. Shake Device Listener (DeviceMotionEvent for rapid shake / struggle detection)
-  useEffect(() => {
-    let shakeTimes: number[] = [];
-    let lastX: number | null = null;
-    let lastY: number | null = null;
-    let lastZ: number | null = null;
-    let lastSampleTime = 0;
-
-    const handleMotion = (e: DeviceMotionEvent) => {
-      const now = Date.now();
-      if (now - lastSampleTime < 90) return;
-      lastSampleTime = now;
-
-      const acc = e.accelerationIncludingGravity || e.acceleration;
-      if (!acc || acc.x === null || acc.y === null || acc.z === null) return;
-
-      if (lastX !== null && lastY !== null && lastZ !== null) {
-        const deltaX = Math.abs(acc.x - lastX);
-        const deltaY = Math.abs(acc.y - lastY);
-        const deltaZ = Math.abs(acc.z - lastZ);
-        const totalDelta = deltaX + deltaY + deltaZ;
-
-        if (totalDelta > 26) {
-          shakeTimes = shakeTimes.filter((t) => now - t < 2200);
-          shakeTimes.push(now);
-
-          const count = shakeTimes.length;
-          setShakeCount(count);
-
-          if (typeof navigator !== "undefined" && navigator.vibrate) {
-            if (count === 1) navigator.vibrate(80);
-            else if (count === 2) navigator.vibrate([100, 50, 100]);
-          }
-
-          if (count >= 3) {
-            shakeTimes = [];
-            setShakeCount(0);
-            triggerGuardSos("SHAKE_GESTURE");
-          }
-        }
-      }
-
-      lastX = acc.x;
-      lastY = acc.y;
-      lastZ = acc.z;
-    };
-
-    if (typeof window !== "undefined" && "DeviceMotionEvent" in window) {
-      window.addEventListener("devicemotion", handleMotion, { passive: true });
-    }
-
-    return () => {
-      if (typeof window !== "undefined" && "DeviceMotionEvent" in window) {
-        window.removeEventListener("devicemotion", handleMotion);
-      }
-    };
-  }, [guardName, assignedStoreId, assignedStoreName, boundTerminalInfo, terminals, appUser, isEmittingSos, guardLocation]);
-
-  useEffect(() => {
-    if (shakeCount > 0) {
-      const timer = setTimeout(() => setShakeCount(0), 2200);
-      return () => clearTimeout(timer);
-    }
-  }, [shakeCount]);
-
-  // 3. Hardware Volume & External Key Listener (captures volume keys on hardware keyboards, headsets, clickers)
-  useEffect(() => {
-    let presses: number[] = [];
-
-    const handleVolumeKey = (e: KeyboardEvent) => {
-      const isVolumeKey =
+    const handleBluetoothKeyEvent = (e: KeyboardEvent) => {
+      // Common keys sent by Bluetooth panic clickers, smart rings, wireless fobs, and hardware buttons
+      const isBluetoothClickerKey =
+        e.key === "Enter" ||
+        e.key === " " ||
+        e.code === "Space" ||
+        e.code === "Enter" ||
         e.key === "AudioVolumeUp" ||
         e.code === "AudioVolumeUp" ||
         e.key === "AudioVolumeDown" ||
@@ -952,37 +814,36 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
         e.code === "NumpadAdd" ||
         e.key === "=";
 
-      if (isVolumeKey) {
-        const now = Date.now();
-        presses = presses.filter((t) => now - t < 2500);
-        presses.push(now);
+      const target = e.target as HTMLElement | null;
+      if (target) {
+        const tagName = target.tagName.toLowerCase();
+        if ((tagName === "input" || tagName === "textarea") && (e.key === " " || e.key === "Enter")) {
+          // Allow normal typing inside input fields
+          return;
+        }
+      }
 
-        const currentCount = presses.length;
-        setVolumePressCount(currentCount);
-        setLastVolumePressTime(now);
+      if (isBluetoothClickerKey) {
+        const now = Date.now();
+        setBluetoothPressCount((prev) => prev + 1);
+        setLastBluetoothPressTime(now);
 
         if (typeof navigator !== "undefined" && navigator.vibrate) {
-          if (currentCount === 1) navigator.vibrate(80);
-          else if (currentCount === 2) navigator.vibrate([100, 50, 100]);
+          navigator.vibrate([100, 50, 150]);
         }
 
-        if (currentCount >= 3) {
-          presses = [];
-          setVolumePressCount(0);
-          triggerGuardSos("VOLUME_BUTTON");
-        }
+        // Trigger immediate SOS panic via Bluetooth button
+        triggerGuardSos("VOLUME_BUTTON");
       }
     };
 
-    window.addEventListener("keydown", handleVolumeKey, { capture: true, passive: false });
-    window.addEventListener("keyup", handleVolumeKey, { capture: true, passive: false });
+    window.addEventListener("keydown", handleBluetoothKeyEvent, { capture: true, passive: false });
     return () => {
-      window.removeEventListener("keydown", handleVolumeKey, { capture: true });
-      window.removeEventListener("keyup", handleVolumeKey, { capture: true });
+      window.removeEventListener("keydown", handleBluetoothKeyEvent, { capture: true });
     };
   }, [guardName, assignedStoreId, assignedStoreName, boundTerminalInfo, terminals, appUser, isEmittingSos, guardLocation]);
 
-  // 4. Lockscreen & Headset MediaSession SOS Trigger Handler
+  // Lockscreen & Headset MediaSession SOS Trigger Handler
   useEffect(() => {
     alarmSound.setMediaSessionSosHandler(() => {
       triggerGuardSos("VOLUME_BUTTON");
@@ -991,16 +852,6 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
       alarmSound.setMediaSessionSosHandler(null);
     };
   }, [guardName, assignedStoreId, assignedStoreName, boundTerminalInfo, terminals, appUser, isEmittingSos, guardLocation]);
-
-  // Reset volume counter after 2.5 seconds of inactivity
-  useEffect(() => {
-    if (volumePressCount > 0) {
-      const timer = setTimeout(() => {
-        setVolumePressCount(0);
-      }, 2500);
-      return () => clearTimeout(timer);
-    }
-  }, [volumePressCount, lastVolumePressTime]);
 
   const handleGuardExit = async () => {
     localStorage.removeItem("pg_guard_store_id");
@@ -1047,20 +898,8 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
             </div>
           </div>
 
-          {/* Quick duty toggle, Centinela mode, Sound Settings & Exit button */}
+          {/* Quick duty toggle, Sound Settings & Exit button */}
           <div className="flex items-center gap-1.5 flex-shrink-0">
-            <button
-              onClick={toggleSentinelMode}
-              className={`p-2 rounded-xl border text-xs font-bold transition-all cursor-pointer active:scale-95 shadow-sm flex items-center gap-1 ${
-                isSentinelMode
-                  ? "bg-purple-600 text-white border-purple-400 ring-2 ring-purple-500/50 animate-pulse"
-                  : "bg-slate-800/80 hover:bg-slate-700 border-slate-700/80 text-purple-300 hover:text-purple-200"
-              }`}
-              title="Modo Centinela: Pantalla Oscura Antidescanso con 3 Toques / Agitar Activo"
-            >
-              <Moon className="w-4 h-4 text-purple-300" />
-            </button>
-
             <button
               onClick={() => setIsAudioSettingsModalOpen(true)}
               className="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 border border-slate-700/80 text-amber-400 hover:text-amber-300 transition-all cursor-pointer active:scale-95 shadow-sm"
@@ -1199,10 +1038,10 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
             </button>
           </div>
         ) : (
-          /* Tactile, Triple-Tap, Shake & Volume SOS Panic Card */
+          /* Tactile Red Button & Bluetooth SOS Panic Card */
           <div
             id="guard-sos-card"
-            className="bg-gradient-to-br from-slate-900 via-slate-900 to-red-950/40 border-2 border-red-600/40 hover:border-red-500/70 rounded-2xl p-3.5 shadow-xl space-y-2.5 transition-all"
+            className="bg-gradient-to-br from-slate-900 via-slate-900 to-red-950/40 border-2 border-red-600/40 hover:border-red-500/70 rounded-2xl p-3.5 shadow-xl space-y-3 transition-all"
           >
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
@@ -1219,64 +1058,24 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
                 </div>
               </div>
 
-              {/* Status Pill with Multiple Triggers */}
-              <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-red-950/60 border border-red-700/60 text-[10px] font-mono font-bold text-red-300 shrink-0">
-                <Zap className="w-3 h-3 text-amber-400 animate-pulse" />
-                <span>3x Toques / Vol+</span>
+              {/* Status Pill for Bluetooth & Manual Trigger */}
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-red-950/70 border border-red-700/70 text-[10px] font-mono font-bold text-red-300 shrink-0">
+                <Bluetooth className="w-3.5 h-3.5 text-blue-400" />
+                <span>Táctil / Bluetooth</span>
               </div>
             </div>
 
             {/* Quick Trigger Method Pills */}
-            <div className="flex flex-wrap items-center gap-1.5 text-[9px] font-mono font-bold">
-              <span className="px-2 py-0.5 rounded-md bg-slate-950 border border-slate-800 text-slate-300 flex items-center gap-1">
-                <span>👆</span> 3 Toques Pantalla
+            <div className="flex items-center gap-2 text-[10px] font-mono font-bold">
+              <span className="px-2.5 py-1 rounded-lg bg-red-950/60 border border-red-800/80 text-red-200 flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                <span>1 Toque Botón Rojo</span>
               </span>
-              <span className="px-2 py-0.5 rounded-md bg-slate-950 border border-slate-800 text-slate-300 flex items-center gap-1">
-                <span>📳</span> Agitar Celular
-              </span>
-              <span className="px-2 py-0.5 rounded-md bg-slate-950 border border-slate-800 text-slate-300 flex items-center gap-1">
-                <span>🔊</span> 3x Vol+ / Teclado
+              <span className="px-2.5 py-1 rounded-lg bg-blue-950/60 border border-blue-800/80 text-blue-200 flex items-center gap-1.5">
+                <Bluetooth className="w-3 h-3 text-blue-400" />
+                <span>Pulsador Bluetooth</span>
               </span>
             </div>
-
-            {/* Live Tap Detection Alert */}
-            {tapCount > 0 && (
-              <div className="p-2 rounded-xl bg-amber-500/20 border border-amber-500/60 text-xs font-mono font-bold text-amber-300 flex items-center justify-between animate-pulse">
-                <div className="flex items-center gap-2">
-                  <span className="text-base">👆</span>
-                  <span>Toque en pantalla: {tapCount} / 3</span>
-                </div>
-                <span className="text-[10px] text-amber-200">
-                  {tapCount === 2 ? "¡Da 1 toque más para alerta!" : "Toca 2 veces más rápido..."}
-                </span>
-              </div>
-            )}
-
-            {/* Live Shake Detection Alert */}
-            {shakeCount > 0 && (
-              <div className="p-2 rounded-xl bg-cyan-500/20 border border-cyan-500/60 text-xs font-mono font-bold text-cyan-300 flex items-center justify-between animate-pulse">
-                <div className="flex items-center gap-2">
-                  <span className="text-base">📳</span>
-                  <span>Movimiento detectado: {shakeCount} / 3</span>
-                </div>
-                <span className="text-[10px] text-cyan-200">
-                  {shakeCount === 2 ? "¡Agita 1 vez más!" : "Agita 2 veces más..."}
-                </span>
-              </div>
-            )}
-
-            {/* Live Volume Press Detection Alert (if user pressed volume 1 or 2 times) */}
-            {volumePressCount > 0 && (
-              <div className="p-2 rounded-xl bg-red-600/20 border border-red-500/60 text-xs font-mono font-bold text-red-300 flex items-center justify-between animate-pulse">
-                <div className="flex items-center gap-2">
-                  <Volume2 className="w-4 h-4 text-amber-400 animate-bounce" />
-                  <span>Pulsación de Volumen: {volumePressCount} / 3</span>
-                </div>
-                <span className="text-[10px] text-amber-300">
-                  {volumePressCount === 2 ? "¡Pulsa 1 vez más para SOS!" : "Pulsa 2 veces más rápido..."}
-                </span>
-              </div>
-            )}
 
             {/* Giant One-Tap SOS Panic Button */}
             <button
@@ -1298,31 +1097,26 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
                       🚨 EMITIR PÁNICO SOS A CENTRAL C4
                     </div>
                     <div className="text-[10px] text-red-100 font-normal font-sans opacity-95">
-                      Toca aquí • O pulsa 3 veces la pantalla • O agita el celular
+                      Toca aquí • O presiona tu botón Bluetooth vinculado
                     </div>
                   </div>
                 </>
               )}
             </button>
 
-            {/* Subtext info & Centinela Mode Activation */}
-            <div className="pt-0.5 text-[10px] text-slate-400 font-mono space-y-2">
+            {/* Subtext info */}
+            <div className="pt-0.5 text-[10px] text-slate-400 font-mono space-y-1">
               <div className="flex items-center justify-between gap-2">
                 <span className="flex items-center gap-1 text-slate-400">
                   <MapPin className="w-3 h-3 text-emerald-400" />
-                  <span>GPS: {guardLocation ? `${guardLocation.latitude.toFixed(5)}°, ${guardLocation.longitude.toFixed(5)}°` : "Calibrado"}</span>
+                  <span>GPS exacto: {guardLocation ? `${guardLocation.latitude.toFixed(5)}°, ${guardLocation.longitude.toFixed(5)}°` : "Calibrado"}</span>
                 </span>
-                <button
-                  type="button"
-                  onClick={toggleSentinelMode}
-                  className="px-2 py-1 rounded-lg bg-purple-950/80 hover:bg-purple-900 border border-purple-700/80 text-purple-300 font-bold flex items-center gap-1 text-[10px] active:scale-95 transition-all cursor-pointer shadow-sm"
-                >
-                  <Moon className="w-3 h-3 text-purple-300" />
-                  <span>Modo Centinela Oscuro</span>
-                </button>
+                <span className="text-[10px] text-slate-500">
+                  Central C4 & Red Táctica
+                </span>
               </div>
               <p className="text-[9px] text-slate-500 leading-snug">
-                💡 <b>Para activar sin mirar:</b> Usa el <b>Modo Centinela</b> (pantalla oscura antidescanso), da <b>3 toques en pantalla</b>, <b>agita el celular</b> o pulsa los controles de la pantalla de bloqueo.
+                💡 Activa tocando el botón rojo en pantalla o presionando un botón de pánico Bluetooth / pulsador inalámbrico vinculado.
               </p>
             </div>
           </div>
@@ -1663,109 +1457,6 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
             <div className="mt-3 text-center text-xs font-mono text-slate-300">
               {currentEmergency.store.storeName} • Cuadro #{selectedFrameIndex + 1} de {currentEmergency.images.length}
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* ================= FULLSCREEN STEALTH CENTINELA OVERLAY (BLACKOUT PATROL MODE) ================= */}
-      {isSentinelMode && (
-        <div
-          className="fixed inset-0 z-50 bg-black text-white flex flex-col justify-between p-6 select-none touch-none animate-in fade-in duration-300"
-          style={{ backgroundColor: "#000000" }}
-          onClick={(e) => {
-            // Screen tap detection inside blackout
-            const target = e.target as HTMLElement | null;
-            if (target && target.closest("button")) return;
-            const now = Date.now();
-            setTapCount((prev) => {
-              const next = prev + 1;
-              if (typeof navigator !== "undefined" && navigator.vibrate) {
-                navigator.vibrate(next === 1 ? 60 : next === 2 ? [80, 40, 80] : [200, 80, 400]);
-              }
-              if (next >= 3) {
-                triggerGuardSos("TRIPLE_TAP");
-                return 0;
-              }
-              return next;
-            });
-          }}
-        >
-          {/* Top minimal stealth indicator */}
-          <div className="flex items-center justify-between pt-2">
-            <div className="flex items-center gap-2 text-xs font-mono text-purple-400/80">
-              <span className="w-2 h-2 rounded-full bg-purple-500 animate-ping" />
-              <span>MODO CENTINELA ACTIVO</span>
-            </div>
-
-            <span className="text-[10px] font-mono text-slate-600 bg-slate-950 px-2 py-0.5 rounded border border-slate-900">
-              AMOLED ULTRA-AHORRO
-            </span>
-          </div>
-
-          {/* Center Stealth Touch/Shake Feedback */}
-          <div className="text-center space-y-4 my-auto pointer-events-none">
-            {myActiveSosAlert ? (
-              <div className="p-4 rounded-2xl bg-red-950/80 border-2 border-red-500 space-y-3 pointer-events-auto">
-                <AlertOctagon className="w-12 h-12 text-red-400 animate-bounce mx-auto" />
-                <h2 className="text-base font-black text-red-300 tracking-wider">
-                  🚨 ¡PÁNICO SOS TRANSMITIDO A C4!
-                </h2>
-                <p className="text-xs text-slate-300">
-                  Ubicación GPS transmitida. La central y patrullas están acudiendo.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => handleResolveMySos(myActiveSosAlert.id)}
-                  className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs cursor-pointer active:scale-95 transition-all shadow-lg"
-                >
-                  CANCELAR PÁNICO / BAJO CONTROL
-                </button>
-              </div>
-            ) : tapCount > 0 ? (
-              <div className="space-y-2 animate-pulse">
-                <div className="text-5xl">👆</div>
-                <div className="text-2xl font-black text-amber-400 font-mono">
-                  TOQUE {tapCount} / 3
-                </div>
-                <p className="text-xs text-amber-300">
-                  {tapCount === 2 ? "¡Da 1 toque más en cualquier parte!" : "Da 2 toques más rápido para SOS"}
-                </p>
-              </div>
-            ) : shakeCount > 0 ? (
-              <div className="space-y-2 animate-pulse">
-                <div className="text-5xl">📳</div>
-                <div className="text-2xl font-black text-cyan-400 font-mono">
-                  MOVIMIENTO {shakeCount} / 3
-                </div>
-                <p className="text-xs text-cyan-300">
-                  ¡Agita con fuerza para activar SOS!
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-3 opacity-60">
-                <div className="w-16 h-16 rounded-full border border-purple-500/30 flex items-center justify-center mx-auto">
-                  <Moon className="w-8 h-8 text-purple-400 animate-pulse" />
-                </div>
-                <div className="text-xs font-mono text-slate-400 space-y-1">
-                  <p className="text-slate-300 font-bold">Pantalla activa protegida contra apagado</p>
-                  <p className="text-[10px] text-slate-500">
-                    Da 3 toques en cualquier lugar de la pantalla o agita el celular para enviar SOS inmediato
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Bottom Stealth Exit Button */}
-          <div className="pb-4 pt-2">
-            <button
-              type="button"
-              onClick={() => setIsSentinelMode(false)}
-              className="w-full py-3 rounded-2xl bg-slate-950 hover:bg-slate-900 border border-slate-800 text-slate-400 hover:text-white text-xs font-mono font-bold flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer shadow-lg"
-            >
-              <Unlock className="w-4 h-4 text-purple-400" />
-              <span>Toca aquí para Salir del Centinela</span>
-            </button>
           </div>
         </div>
       )}

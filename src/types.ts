@@ -187,13 +187,9 @@ export function formatTriggerType(type: TriggerMode | string): { label: string; 
     case 'KEYBOARD_HOTKEY':
       return { label: 'ATAJO DE TECLADO', isDrill: false };
     case 'VOLUME_BUTTON':
-      return { label: 'BOTÓN DE VOLUMEN (3X)', isDrill: false };
-    case 'TRIPLE_TAP':
-      return { label: 'TRIPLE TOQUE DE PANTALLA', isDrill: false };
-    case 'SHAKE_GESTURE':
-      return { label: 'AGITAR CELULAR (SHAKE)', isDrill: false };
+      return { label: 'BOTÓN BLUETOOTH / PULSADOR EXTERNO', isDrill: false };
     case 'GUARD_PANIC':
-      return { label: 'SOS GUARDIA TÁCTICO', isDrill: false };
+      return { label: 'SOS GUARDIA (BOTÓN ROJO)', isDrill: false };
     case 'MANUAL_BUTTON':
     default:
       return { label: 'BOTÓN DE PÁNICO', isDrill: false };
