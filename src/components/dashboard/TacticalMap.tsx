@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { MapPin, ExternalLink, Layers, Copy, Check, Radio } from "lucide-react";
 import { GeoCoordinates } from "../../types.js";
 
@@ -21,16 +21,35 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
   const cleanCity = city ? city.trim() : "";
   const cleanStore = storeName ? storeName.trim() : "";
 
+  // 1. Comprobar si hay coordenadas numéricas disponibles
+  const hasValidCoords = Boolean(
+    coordinates &&
+    typeof coordinates.latitude === "number" &&
+    typeof coordinates.longitude === "number" &&
+    coordinates.latitude !== 0 &&
+    !isNaN(coordinates.latitude)
+  );
+
   const [mapType, setMapType] = useState<"m" | "k">("m"); // "m" = callejero, "k" = satélite
+  // Priorizar siempre las coordenadas GPS exactas sobre la dirección aproximada en texto
   const [targetMode, setTargetMode] = useState<"ADDRESS" | "COORDS">(() => {
-    return cleanAddress ? "ADDRESS" : "COORDS";
+    return hasValidCoords ? "COORDS" : "ADDRESS";
   });
   const [copied, setCopied] = useState<boolean>(false);
+
+  // Sincronizar targetMode cuando cambian las coordenadas de la alerta
+  useEffect(() => {
+    if (hasValidCoords) {
+      setTargetMode("COORDS");
+    }
+  }, [coordinates?.latitude, coordinates?.longitude, hasValidCoords]);
 
   // 2. Construir la consulta de dirección oficial registrada
   const addressParts: string[] = [];
   if (cleanAddress) {
-    addressParts.push(cleanAddress);
+    // Si la dirección incluye prefijo de GPS de guardia, limpiar para búsqueda
+    const sanitizedAddr = cleanAddress.replace(/^GPS(?:\s*Guardia)?:\s*[\d.-]+,\s*[\d.-]+\s*•\s*/i, "").trim();
+    if (sanitizedAddr) addressParts.push(sanitizedAddr);
   }
   if (cleanCity && (!cleanAddress || !cleanAddress.toLowerCase().includes(cleanCity.toLowerCase()))) {
     addressParts.push(cleanCity);
@@ -44,19 +63,10 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
     addressParts.push(cleanStore, "México");
   }
 
-  // 3. Comprobar si hay coordenadas numéricas disponibles
-  const hasValidCoords = Boolean(
-    coordinates &&
-    typeof coordinates.latitude === "number" &&
-    typeof coordinates.longitude === "number" &&
-    coordinates.latitude !== 0 &&
-    !isNaN(coordinates.latitude)
-  );
-
   const coordsQuery = hasValidCoords ? `${coordinates!.latitude},${coordinates!.longitude}` : "";
   const fullAddressQuery = addressParts.join(", ") || (hasValidCoords ? coordsQuery : "Ciudad de México, México");
 
-  // 4. Seleccionar la consulta activa: por defecto la DIRECCIÓN REGISTRADA
+  // 4. Seleccionar la consulta activa: si hay coordenadas válidas, ubicar el PIN en el punto GPS exacto
   const activeQuery = targetMode === "COORDS" && hasValidCoords ? coordsQuery : fullAddressQuery;
 
   // 5. URL para Google Maps externo

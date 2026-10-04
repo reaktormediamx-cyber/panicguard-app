@@ -113,7 +113,7 @@ export interface AiVerdict {
 
 export type AlertStatus = 'ACTIVE' | 'IN_REVIEW' | 'DISPATCHED' | 'RESOLVED' | 'FALSE_ALARM';
 
-export type TriggerMode = 'MANUAL_BUTTON' | 'SILENT_TRIGGER' | 'KEYBOARD_HOTKEY' | 'DRILL_TEST' | 'VOLUME_BUTTON' | 'GUARD_PANIC';
+export type TriggerMode = 'MANUAL_BUTTON' | 'SILENT_TRIGGER' | 'KEYBOARD_HOTKEY' | 'DRILL_TEST' | 'VOLUME_BUTTON' | 'GUARD_PANIC' | 'TRIPLE_TAP' | 'SHAKE_GESTURE';
 
 export interface AlertLogItem {
   timestamp: string;
@@ -188,6 +188,10 @@ export function formatTriggerType(type: TriggerMode | string): { label: string; 
       return { label: 'ATAJO DE TECLADO', isDrill: false };
     case 'VOLUME_BUTTON':
       return { label: 'BOTÓN DE VOLUMEN (3X)', isDrill: false };
+    case 'TRIPLE_TAP':
+      return { label: 'TRIPLE TOQUE DE PANTALLA', isDrill: false };
+    case 'SHAKE_GESTURE':
+      return { label: 'AGITAR CELULAR (SHAKE)', isDrill: false };
     case 'GUARD_PANIC':
       return { label: 'SOS GUARDIA TÁCTICO', isDrill: false };
     case 'MANUAL_BUTTON':

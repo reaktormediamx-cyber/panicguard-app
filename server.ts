@@ -408,6 +408,10 @@ app.post("/api/alerts", async (req, res) => {
         timestamp: new Date().toISOString(),
         action: triggerType === "VOLUME_BUTTON"
           ? "🚨 Alerta SOS emitida por Guardia mediante Tecla de Hardware (Subir Volumen 3x)"
+          : triggerType === "TRIPLE_TAP"
+          ? "🚨 Alerta SOS emitida por Guardia mediante Triple Toque en Pantalla"
+          : triggerType === "SHAKE_GESTURE"
+          ? "🚨 Alerta SOS emitida por Guardia al Agitar el Celular (Sensor Movimiento)"
           : triggerType === "GUARD_PANIC"
           ? "🚨 Alerta SOS emitida por Guardia mediante Botón Táctico en Celular"
           : isCameraActive

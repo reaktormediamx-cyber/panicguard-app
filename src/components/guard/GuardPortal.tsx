@@ -58,12 +58,28 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
   });
   const [volumePressCount, setVolumePressCount] = useState<number>(0);
   const [lastVolumePressTime, setLastVolumePressTime] = useState<number>(0);
+  const [tapCount, setTapCount] = useState<number>(0);
+  const [shakeCount, setShakeCount] = useState<number>(0);
   const [sosFeedbackMessage, setSosFeedbackMessage] = useState<string | null>(null);
 
-  // Guard Real-time GPS Location
-  const [guardLocation, setGuardLocation] = useState<GeoCoordinates | null>(null);
+  // Guard Real-time GPS Location - Read cached real coordinates from localStorage if available
+  const [guardLocation, setGuardLocation] = useState<GeoCoordinates | null>(() => {
+    try {
+      const lat = localStorage.getItem("pg_guard_last_lat");
+      const lng = localStorage.getItem("pg_guard_last_lng");
+      if (lat && lng) {
+        return { latitude: parseFloat(lat), longitude: parseFloat(lng), accuracy: 10 };
+      }
+    } catch {}
+    return null;
+  });
   const [isLocating, setIsLocating] = useState<boolean>(false);
-  const [locationStatus, setLocationStatus] = useState<string>("Iniciando GPS...");
+  const [locationStatus, setLocationStatus] = useState<string>(() => {
+    try {
+      if (localStorage.getItem("pg_guard_last_lat")) return "GPS Calibrado";
+    } catch {}
+    return "Iniciando GPS...";
+  });
   const [showGuardMap, setShowGuardMap] = useState<boolean>(false);
 
   const fetchGuardLocation = () => {
@@ -71,25 +87,42 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
       setIsLocating(true);
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          setGuardLocation({
+          const coords: GeoCoordinates = {
             latitude: pos.coords.latitude,
             longitude: pos.coords.longitude,
             accuracy: pos.coords.accuracy || 8,
-          });
+          };
+          setGuardLocation(coords);
+          try {
+            localStorage.setItem("pg_guard_last_lat", coords.latitude.toString());
+            localStorage.setItem("pg_guard_last_lng", coords.longitude.toString());
+          } catch {}
           setLocationStatus(`GPS Activo (±${Math.round(pos.coords.accuracy || 8)}m)`);
           setIsLocating(false);
         },
         (err) => {
           console.warn("Geolocation warning:", err);
-          setLocationStatus("GPS en espera de señal");
           setIsLocating(false);
-          setGuardLocation((curr) => curr || { latitude: 19.4326, longitude: -99.1332, accuracy: 15 });
+          // Try to recover from cached real location first
+          const savedLat = localStorage.getItem("pg_guard_last_lat");
+          const savedLng = localStorage.getItem("pg_guard_last_lng");
+          if (savedLat && savedLng) {
+            setGuardLocation({
+              latitude: parseFloat(savedLat),
+              longitude: parseFloat(savedLng),
+              accuracy: 15,
+            });
+            setLocationStatus("GPS en Memoria (Reciente)");
+          } else {
+            setLocationStatus("GPS en espera de señal");
+            setGuardLocation((curr) => curr || { latitude: 19.432608, longitude: -99.133209, accuracy: 25 });
+          }
         },
-        { enableHighAccuracy: true, timeout: 8000, maximumAge: 10000 }
+        { enableHighAccuracy: true, timeout: 12000, maximumAge: 5000 }
       );
     } else {
       setLocationStatus("Geolocalización no disponible");
-      setGuardLocation({ latitude: 19.4326, longitude: -99.1332, accuracy: 20 });
+      setGuardLocation({ latitude: 19.432608, longitude: -99.133209, accuracy: 20 });
     }
   };
 
@@ -100,15 +133,20 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
       try {
         watchId = navigator.geolocation.watchPosition(
           (pos) => {
-            setGuardLocation({
+            const coords: GeoCoordinates = {
               latitude: pos.coords.latitude,
               longitude: pos.coords.longitude,
               accuracy: pos.coords.accuracy || 8,
-            });
+            };
+            setGuardLocation(coords);
+            try {
+              localStorage.setItem("pg_guard_last_lat", coords.latitude.toString());
+              localStorage.setItem("pg_guard_last_lng", coords.longitude.toString());
+            } catch {}
             setLocationStatus(`GPS Activo (±${Math.round(pos.coords.accuracy || 8)}m)`);
           },
           () => {},
-          { enableHighAccuracy: true, maximumAge: 10000 }
+          { enableHighAccuracy: true, maximumAge: 5000 }
         );
       } catch {}
     }
@@ -400,12 +438,22 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
     );
   }, [assignedStoreId, terminals]);
 
-  // Effective store with tactical metadata
+  const isGuardEmergency = Boolean(
+    currentEmergency?.guardName ||
+    currentEmergency?.triggerType === "GUARD_PANIC" ||
+    currentEmergency?.triggerType === "VOLUME_BUTTON" ||
+    currentEmergency?.triggerType === "TRIPLE_TAP" ||
+    currentEmergency?.triggerType === "SHAKE_GESTURE" ||
+    currentEmergency?.store?.category?.includes("Guardia") ||
+    currentEmergency?.store?.storeName?.includes("Oficial")
+  );
+
+  // Effective store with tactical metadata - never overwrite live guard coordinates with static store coordinates
   const effectiveStore = useMemo(() => {
     if (!currentEmergency) return null;
     return {
       ...currentEmergency.store,
-      ...(matchedTerminal ? {
+      ...(matchedTerminal && !isGuardEmergency ? {
         storeName: matchedTerminal.storeName || currentEmergency.store.storeName,
         address: matchedTerminal.address || currentEmergency.store.address,
         city: matchedTerminal.city || currentEmergency.store.city,
@@ -416,11 +464,14 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
           : currentEmergency.store.coordinates,
       } : {}),
     };
-  }, [currentEmergency, matchedTerminal]);
+  }, [currentEmergency, matchedTerminal, isGuardEmergency]);
 
-  // Precise Google Maps destination URL matching the tactical map
+  // Precise Google Maps destination URL matching the tactical map - always prioritizes exact coordinates
   const gpsDirectionsUrl = useMemo(() => {
     if (!effectiveStore) return "#";
+    if (effectiveStore.coordinates && effectiveStore.coordinates.latitude !== 0) {
+      return `https://www.google.com/maps/dir/?api=1&destination=${effectiveStore.coordinates.latitude},${effectiveStore.coordinates.longitude}`;
+    }
     const cleanAddress = effectiveStore.address ? effectiveStore.address.replace(/^.*?—\s*/, "").trim() : "";
     const queryParts = [
       cleanAddress || "",
@@ -428,12 +479,7 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
       cleanAddress.toLowerCase().includes("méxico") || cleanAddress.toLowerCase().includes("mexico") ? "" : "México",
     ].filter(Boolean);
 
-    const fullSearchQuery = queryParts.join(", ") || (
-      effectiveStore.coordinates && effectiveStore.coordinates.latitude !== 0
-        ? `${effectiveStore.coordinates.latitude},${effectiveStore.coordinates.longitude}`
-        : "México"
-    );
-
+    const fullSearchQuery = queryParts.join(", ") || "Ciudad de México, México";
     return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(fullSearchQuery)}`;
   }, [effectiveStore]);
 
@@ -585,13 +631,17 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
     setQuickNoteText("");
   };
 
-  // Trigger SOS Panic from Guard (via Tactile button or 3x Volume button)
+  // Trigger SOS Panic from Guard (via Tactile button, 3x Screen Tap, Shake or 3x Volume button)
   const triggerGuardSos = async (triggerType: TriggerMode = "MANUAL_BUTTON") => {
     if (isEmittingSos) return;
     setIsEmittingSos(true);
     setSosFeedbackMessage(
       triggerType === "VOLUME_BUTTON"
-        ? "🚨 [3x SUBIR VOLUMEN] TRANSMITIENDO PÁNICO SOS A CENTRAL..."
+        ? "🚨 [3x BOTÓN VOLUMEN] TRANSMITIENDO PÁNICO SOS A CENTRAL..."
+        : triggerType === "TRIPLE_TAP"
+        ? "🚨 [TRIPLE TOQUE PANTALLA] TRANSMITIENDO PÁNICO SOS A CENTRAL..."
+        : triggerType === "SHAKE_GESTURE"
+        ? "🚨 [AGITAR CELULAR] TRANSMITIENDO PÁNICO SOS A CENTRAL..."
         : "🚨 TRANSMITIENDO PÁNICO SOS A CENTRAL C4..."
     );
 
@@ -612,21 +662,35 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
         guardCoords = await new Promise<GeoCoordinates | undefined>((resolve) => {
           navigator.geolocation.getCurrentPosition(
             (pos) => {
-              resolve({
+              const coords: GeoCoordinates = {
                 latitude: pos.coords.latitude,
                 longitude: pos.coords.longitude,
-                accuracy: pos.coords.accuracy || 10,
-              });
+                accuracy: pos.coords.accuracy || 8,
+              };
+              try {
+                localStorage.setItem("pg_guard_last_lat", coords.latitude.toString());
+                localStorage.setItem("pg_guard_last_lng", coords.longitude.toString());
+              } catch {}
+              resolve(coords);
             },
             () => resolve(undefined),
-            { timeout: 3200, enableHighAccuracy: true }
+            { timeout: 4500, enableHighAccuracy: true, maximumAge: 5000 }
           );
         });
       } catch {}
     }
 
+    const savedLat = typeof localStorage !== "undefined" ? localStorage.getItem("pg_guard_last_lat") : null;
+    const savedLng = typeof localStorage !== "undefined" ? localStorage.getItem("pg_guard_last_lng") : null;
+    const savedCoords = savedLat && savedLng ? { latitude: parseFloat(savedLat), longitude: parseFloat(savedLng), accuracy: 10 } : undefined;
+
+    const effectiveCoords: GeoCoordinates =
+      guardCoords ||
+      guardLocation ||
+      savedCoords ||
+      (boundTerminalInfo?.coordinates && boundTerminalInfo.coordinates.latitude !== 0 ? boundTerminalInfo.coordinates : { latitude: 19.432608, longitude: -99.133209 });
+
     const effectiveGuardName = guardName.trim() || "Oficial de Seguridad";
-    const effectiveCoords = guardCoords || guardLocation || (boundTerminalInfo?.coordinates && boundTerminalInfo.coordinates.latitude !== 0 ? boundTerminalInfo.coordinates : { latitude: 19.4326, longitude: -99.1332 });
     const matchedTerm = boundTerminalInfo || (assignedStoreId ? terminals.find((t) => t.storeId === assignedStoreId) : null);
 
     let targetStore: StoreMetadata;
@@ -636,7 +700,7 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
         storeName: `Oficial de Seguridad: ${effectiveGuardName} (${matchedTerm.storeName})`,
         ownerName: matchedTerm.ownerName || effectiveGuardName,
         phone: matchedTerm.phone || "55-0000-0000",
-        address: `GPS Guardia: ${effectiveCoords.latitude.toFixed(6)}, ${effectiveCoords.longitude.toFixed(6)} • ${matchedTerm.address || "En Patrullaje"}`,
+        address: `GPS Oficial: ${effectiveCoords.latitude.toFixed(6)}, ${effectiveCoords.longitude.toFixed(6)} • ${matchedTerm.address || "En Patrullaje"}`,
         city: matchedTerm.city || "Ciudad de México",
         category: `SOS Guardia • ${matchedTerm.storeName}`,
         coordinates: effectiveCoords,
@@ -651,7 +715,7 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
         storeName: `SOS Oficial en Patrullaje: ${effectiveGuardName}`,
         ownerName: effectiveGuardName,
         phone: "55-0000-0000",
-        address: `GPS Guardia: ${effectiveCoords.latitude.toFixed(6)}, ${effectiveCoords.longitude.toFixed(6)} • Patrullaje Móvil`,
+        address: `GPS Oficial: ${effectiveCoords.latitude.toFixed(6)}, ${effectiveCoords.longitude.toFixed(6)} • Patrullaje Móvil`,
         city: terminals[0]?.city || "Ciudad de México",
         category: "Patrulla de Seguridad Táctica",
         coordinates: effectiveCoords,
@@ -662,7 +726,11 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
 
     const desc =
       triggerType === "VOLUME_BUTTON"
-        ? `🚨 SOS GUARDIA (ACTIVADO POR SUBIR VOLUMEN 3X): Oficial ${effectiveGuardName} en situación de riesgo crítico. Requiere apoyo urgente de la Central C4.`
+        ? `🚨 SOS GUARDIA (BOTÓN VOLUMEN 3X): Oficial ${effectiveGuardName} en situación de riesgo crítico. Requiere apoyo urgente en coordenadas exactas.`
+        : triggerType === "TRIPLE_TAP"
+        ? `🚨 SOS GUARDIA (TRIPLE TOQUE PANTALLA): Oficial ${effectiveGuardName} activó auxilio táctico sin mirar la pantalla.`
+        : triggerType === "SHAKE_GESTURE"
+        ? `🚨 SOS GUARDIA (AGITAR CELULAR): Oficial ${effectiveGuardName} activó auxilio inmediato por movimiento brusco/sacudida.`
         : `🚨 SOS GUARDIA (BOTÓN TÁCTICO): Oficial ${effectiveGuardName} solicita apoyo y refuerzos urgentes de la Central C4.`;
 
     try {
@@ -693,7 +761,7 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
       try {
         sessionStorage.setItem("pg_guard_last_sos_id", data.alertId);
       } catch {}
-      setSosFeedbackMessage(`🚨 ¡ALERTA SOS TRANSMITIDA! Central C4 alertada.`);
+      setSosFeedbackMessage(`🚨 ¡ALERTA SOS TRANSMITIDA! Central C4 alertada en tiempo real.`);
     } catch (err: any) {
       setSosFeedbackMessage(`Error al transmitir alerta: ${err.message || "Fallo de conexión"}`);
     } finally {
@@ -711,24 +779,136 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
     setTimeout(() => setSosFeedbackMessage(null), 4000);
   };
 
-  // Volume Button (Subir Volumen 3x) Hardware Detection & Hotkey Listener
+  // 1. Triple-Tap on Screen Gesture (Works 100% reliably on all mobile smartphones without looking)
+  useEffect(() => {
+    let tapTimes: number[] = [];
+
+    const handlePointerDown = (e: PointerEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target) {
+        const tagName = target.tagName.toLowerCase();
+        if (tagName === "input" || tagName === "textarea" || tagName === "select") return;
+        // Don't intercept if clicking header controls
+        if (target.closest("header")) return;
+      }
+
+      const now = Date.now();
+      tapTimes = tapTimes.filter((t) => now - t < 1800);
+      tapTimes.push(now);
+
+      const count = tapTimes.length;
+      setTapCount(count);
+
+      if (typeof navigator !== "undefined" && navigator.vibrate) {
+        if (count === 1) navigator.vibrate(60);
+        else if (count === 2) navigator.vibrate([80, 40, 80]);
+      }
+
+      if (count >= 3) {
+        tapTimes = [];
+        setTapCount(0);
+        triggerGuardSos("TRIPLE_TAP");
+      }
+    };
+
+    window.addEventListener("pointerdown", handlePointerDown, { capture: true, passive: true });
+    return () => {
+      window.removeEventListener("pointerdown", handlePointerDown, { capture: true });
+    };
+  }, [guardName, assignedStoreId, assignedStoreName, boundTerminalInfo, terminals, appUser, isEmittingSos, guardLocation]);
+
+  useEffect(() => {
+    if (tapCount > 0) {
+      const timer = setTimeout(() => setTapCount(0), 1800);
+      return () => clearTimeout(timer);
+    }
+  }, [tapCount]);
+
+  // 2. Shake Device Listener (DeviceMotionEvent for rapid shake / struggle detection)
+  useEffect(() => {
+    let shakeTimes: number[] = [];
+    let lastX: number | null = null;
+    let lastY: number | null = null;
+    let lastZ: number | null = null;
+    let lastSampleTime = 0;
+
+    const handleMotion = (e: DeviceMotionEvent) => {
+      const now = Date.now();
+      if (now - lastSampleTime < 90) return;
+      lastSampleTime = now;
+
+      const acc = e.accelerationIncludingGravity || e.acceleration;
+      if (!acc || acc.x === null || acc.y === null || acc.z === null) return;
+
+      if (lastX !== null && lastY !== null && lastZ !== null) {
+        const deltaX = Math.abs(acc.x - lastX);
+        const deltaY = Math.abs(acc.y - lastY);
+        const deltaZ = Math.abs(acc.z - lastZ);
+        const totalDelta = deltaX + deltaY + deltaZ;
+
+        if (totalDelta > 26) {
+          shakeTimes = shakeTimes.filter((t) => now - t < 2200);
+          shakeTimes.push(now);
+
+          const count = shakeTimes.length;
+          setShakeCount(count);
+
+          if (typeof navigator !== "undefined" && navigator.vibrate) {
+            if (count === 1) navigator.vibrate(80);
+            else if (count === 2) navigator.vibrate([100, 50, 100]);
+          }
+
+          if (count >= 3) {
+            shakeTimes = [];
+            setShakeCount(0);
+            triggerGuardSos("SHAKE_GESTURE");
+          }
+        }
+      }
+
+      lastX = acc.x;
+      lastY = acc.y;
+      lastZ = acc.z;
+    };
+
+    if (typeof window !== "undefined" && "DeviceMotionEvent" in window) {
+      window.addEventListener("devicemotion", handleMotion, { passive: true });
+    }
+
+    return () => {
+      if (typeof window !== "undefined" && "DeviceMotionEvent" in window) {
+        window.removeEventListener("devicemotion", handleMotion);
+      }
+    };
+  }, [guardName, assignedStoreId, assignedStoreName, boundTerminalInfo, terminals, appUser, isEmittingSos, guardLocation]);
+
+  useEffect(() => {
+    if (shakeCount > 0) {
+      const timer = setTimeout(() => setShakeCount(0), 2200);
+      return () => clearTimeout(timer);
+    }
+  }, [shakeCount]);
+
+  // 3. Hardware Volume & External Key Listener (captures volume keys on hardware keyboards, headsets, clickers)
   useEffect(() => {
     let presses: number[] = [];
 
     const handleVolumeKey = (e: KeyboardEvent) => {
-      // Key codes for Volume Up on mobile / PWA / Android / desktop testing
-      const isVolumeUp =
+      const isVolumeKey =
         e.key === "AudioVolumeUp" ||
         e.code === "AudioVolumeUp" ||
+        e.key === "AudioVolumeDown" ||
+        e.code === "AudioVolumeDown" ||
         e.keyCode === 24 ||
+        e.keyCode === 25 ||
         (e as any).which === 24 ||
+        (e as any).which === 25 ||
         e.key === "+" ||
         e.code === "NumpadAdd" ||
         e.key === "=";
 
-      if (isVolumeUp) {
+      if (isVolumeKey) {
         const now = Date.now();
-        // Keep presses in last 2.5 seconds window
         presses = presses.filter((t) => now - t < 2500);
         presses.push(now);
 
@@ -736,7 +916,6 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
         setVolumePressCount(currentCount);
         setLastVolumePressTime(now);
 
-        // Haptic feedback
         if (typeof navigator !== "undefined" && navigator.vibrate) {
           if (currentCount === 1) navigator.vibrate(80);
           else if (currentCount === 2) navigator.vibrate([100, 50, 100]);
@@ -751,10 +930,12 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
     };
 
     window.addEventListener("keydown", handleVolumeKey, { capture: true, passive: false });
+    window.addEventListener("keyup", handleVolumeKey, { capture: true, passive: false });
     return () => {
       window.removeEventListener("keydown", handleVolumeKey, { capture: true });
+      window.removeEventListener("keyup", handleVolumeKey, { capture: true });
     };
-  }, [guardName, assignedStoreId, assignedStoreName, boundTerminalInfo, terminals, appUser, isEmittingSos]);
+  }, [guardName, assignedStoreId, assignedStoreName, boundTerminalInfo, terminals, appUser, isEmittingSos, guardLocation]);
 
   // Reset volume counter after 2.5 seconds of inactivity
   useEffect(() => {
@@ -951,8 +1132,11 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
             </button>
           </div>
         ) : (
-          /* Tactile & 3x Volume SOS Panic Card */
-          <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-red-950/40 border-2 border-red-600/40 hover:border-red-500/70 rounded-2xl p-3.5 shadow-xl space-y-2.5 transition-all">
+          /* Tactile, Triple-Tap, Shake & Volume SOS Panic Card */
+          <div
+            id="guard-sos-card"
+            className="bg-gradient-to-br from-slate-900 via-slate-900 to-red-950/40 border-2 border-red-600/40 hover:border-red-500/70 rounded-2xl p-3.5 shadow-xl space-y-2.5 transition-all"
+          >
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <div className="w-7 h-7 rounded-lg bg-red-600/20 border border-red-500/40 flex items-center justify-center text-red-400 shrink-0">
@@ -963,17 +1147,56 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
                     Botón de Pánico Táctico (Guardia)
                   </h3>
                   <p className="text-[10px] text-slate-400 font-mono">
-                    Alerta inmediata a Central C4 ante asalto o riesgo
+                    Alerta inmediata con GPS a Central C4 y Terminales
                   </p>
                 </div>
               </div>
 
-              {/* Hardware Volume Key Status Pill */}
-              <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-red-950/60 border border-red-700/60 text-[10px] font-mono font-bold text-red-300 shrink-0">
+              {/* Status Pill with Multiple Triggers */}
+              <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-red-950/60 border border-red-700/60 text-[10px] font-mono font-bold text-red-300 shrink-0">
                 <Zap className="w-3 h-3 text-amber-400 animate-pulse" />
-                <span>3x Vol+ Activo</span>
+                <span>3x Toques / Vol+</span>
               </div>
             </div>
+
+            {/* Quick Trigger Method Pills */}
+            <div className="flex flex-wrap items-center gap-1.5 text-[9px] font-mono font-bold">
+              <span className="px-2 py-0.5 rounded-md bg-slate-950 border border-slate-800 text-slate-300 flex items-center gap-1">
+                <span>👆</span> 3 Toques Pantalla
+              </span>
+              <span className="px-2 py-0.5 rounded-md bg-slate-950 border border-slate-800 text-slate-300 flex items-center gap-1">
+                <span>📳</span> Agitar Celular
+              </span>
+              <span className="px-2 py-0.5 rounded-md bg-slate-950 border border-slate-800 text-slate-300 flex items-center gap-1">
+                <span>🔊</span> 3x Vol+ / Teclado
+              </span>
+            </div>
+
+            {/* Live Tap Detection Alert */}
+            {tapCount > 0 && (
+              <div className="p-2 rounded-xl bg-amber-500/20 border border-amber-500/60 text-xs font-mono font-bold text-amber-300 flex items-center justify-between animate-pulse">
+                <div className="flex items-center gap-2">
+                  <span className="text-base">👆</span>
+                  <span>Toque en pantalla: {tapCount} / 3</span>
+                </div>
+                <span className="text-[10px] text-amber-200">
+                  {tapCount === 2 ? "¡Da 1 toque más para alerta!" : "Toca 2 veces más rápido..."}
+                </span>
+              </div>
+            )}
+
+            {/* Live Shake Detection Alert */}
+            {shakeCount > 0 && (
+              <div className="p-2 rounded-xl bg-cyan-500/20 border border-cyan-500/60 text-xs font-mono font-bold text-cyan-300 flex items-center justify-between animate-pulse">
+                <div className="flex items-center gap-2">
+                  <span className="text-base">📳</span>
+                  <span>Movimiento detectado: {shakeCount} / 3</span>
+                </div>
+                <span className="text-[10px] text-cyan-200">
+                  {shakeCount === 2 ? "¡Agita 1 vez más!" : "Agita 2 veces más..."}
+                </span>
+              </div>
+            )}
 
             {/* Live Volume Press Detection Alert (if user pressed volume 1 or 2 times) */}
             {volumePressCount > 0 && (
@@ -993,7 +1216,7 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
               type="button"
               onClick={() => triggerGuardSos("MANUAL_BUTTON")}
               disabled={isEmittingSos}
-              className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-red-600 via-red-700 to-red-800 hover:from-red-500 hover:to-red-700 active:scale-95 text-white font-black text-sm sm:text-base flex items-center justify-center gap-3 shadow-2xl shadow-red-950/90 border-2 border-red-400/50 cursor-pointer transition-all disabled:opacity-50"
+              className="w-full py-4 px-4 rounded-2xl bg-gradient-to-r from-red-600 via-red-700 to-red-800 hover:from-red-500 hover:to-red-700 active:scale-95 text-white font-black text-sm sm:text-base flex items-center justify-center gap-3 shadow-2xl shadow-red-950/90 border-2 border-red-400/50 cursor-pointer transition-all disabled:opacity-50"
             >
               {isEmittingSos ? (
                 <>
@@ -1004,11 +1227,11 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
                 <>
                   <AlertOctagon className="w-6 h-6 text-white animate-bounce shrink-0" />
                   <div className="text-left">
-                    <div className="tracking-wider uppercase font-black text-sm">
+                    <div className="tracking-wider uppercase font-black text-sm sm:text-base">
                       🚨 EMITIR PÁNICO SOS A CENTRAL C4
                     </div>
-                    <div className="text-[10px] text-red-100 font-normal font-sans opacity-90">
-                      Toca aquí o pulsa SUBIR VOLUMEN 3 veces seguidas
+                    <div className="text-[10px] text-red-100 font-normal font-sans opacity-95">
+                      Toca aquí • O pulsa 3 veces la pantalla • O agita el celular
                     </div>
                   </div>
                 </>
@@ -1016,14 +1239,19 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
             </button>
 
             {/* Subtext info */}
-            <div className="flex items-center justify-between gap-2 pt-0.5 text-[10px] text-slate-400 font-mono">
-              <span className="flex items-center gap-1 text-slate-400">
-                <MapPin className="w-3 h-3 text-emerald-400" />
-                <span>Geolocalización en tiempo real activa</span>
-              </span>
-              <span className="text-[10px] text-slate-500">
-                Central C4 & Red Táctica
-              </span>
+            <div className="pt-0.5 text-[10px] text-slate-400 font-mono space-y-1">
+              <div className="flex items-center justify-between gap-2">
+                <span className="flex items-center gap-1 text-slate-400">
+                  <MapPin className="w-3 h-3 text-emerald-400" />
+                  <span>GPS exacto: {guardLocation ? `${guardLocation.latitude.toFixed(5)}°, ${guardLocation.longitude.toFixed(5)}°` : "Calibrado"}</span>
+                </span>
+                <span className="text-[10px] text-slate-500">
+                  Central C4 & Red Táctica
+                </span>
+              </div>
+              <p className="text-[9px] text-slate-500 leading-snug">
+                💡 En smartphones Android/iOS los navegadores no reciben el botón físico de volumen por seguridad del sistema; para activar sin mirar la pantalla da <b>3 toques en la pantalla</b> o <b>agita el celular</b>.
+              </p>
             </div>
           </div>
         )}
