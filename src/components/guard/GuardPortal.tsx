@@ -35,6 +35,38 @@ import { useAuth } from "../../context/AuthContext.js";
 import { TacticalMap } from "../dashboard/TacticalMap.js";
 import { AudioSettingsModal } from "../audio/AudioSettingsModal.js";
 
+// Function to extract store binding from window URL (search or hash)
+const extractStoreParamsFromUrl = () => {
+  if (typeof window === "undefined") return { sid: "", sname: "" };
+  try {
+    const url = new URL(window.location.href);
+    let sid = url.searchParams.get("storeId") || url.searchParams.get("storeid") || url.searchParams.get("store_id") || url.searchParams.get("sid") || "";
+    let sname = url.searchParams.get("storeName") || url.searchParams.get("storename") || url.searchParams.get("store_name") || url.searchParams.get("sname") || "";
+
+    if (!sid && window.location.hash) {
+      const hash = window.location.hash;
+      let queryPart = "";
+      if (hash.includes("?")) {
+        queryPart = hash.split("?")[1] || "";
+      } else {
+        queryPart = hash.replace(/^#\/?guard\??/i, "");
+      }
+      if (queryPart) {
+        const hashParams = new URLSearchParams(queryPart);
+        if (!sid) sid = hashParams.get("storeId") || hashParams.get("storeid") || hashParams.get("store_id") || hashParams.get("sid") || "";
+        if (!sname) sname = hashParams.get("storeName") || hashParams.get("storename") || hashParams.get("store_name") || hashParams.get("sname") || "";
+      }
+    }
+
+    return {
+      sid: sid.trim(),
+      sname: sname ? decodeURIComponent(sname.trim()) : ""
+    };
+  } catch {
+    return { sid: "", sname: "" };
+  }
+};
+
 interface GuardPortalProps {
   alerts: PanicAlert[];
   isConnected: boolean;
@@ -175,38 +207,6 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
       }
     };
   }, []);
-
-  // Function to extract store binding from window URL (search or hash)
-  const extractStoreParamsFromUrl = () => {
-    if (typeof window === "undefined") return { sid: "", sname: "" };
-    try {
-      const url = new URL(window.location.href);
-      let sid = url.searchParams.get("storeId") || url.searchParams.get("storeid") || "";
-      let sname = url.searchParams.get("storeName") || url.searchParams.get("storename") || "";
-
-      if (!sid && window.location.hash) {
-        const hash = window.location.hash;
-        let queryPart = "";
-        if (hash.includes("?")) {
-          queryPart = hash.split("?")[1] || "";
-        } else if (hash.includes("storeId=") || hash.includes("storeid=")) {
-          queryPart = hash.replace(/^#\/?guard\??/i, "");
-        }
-        if (queryPart) {
-          const hashParams = new URLSearchParams(queryPart);
-          if (!sid) sid = hashParams.get("storeId") || hashParams.get("storeid") || "";
-          if (!sname) sname = hashParams.get("storeName") || hashParams.get("storename") || "";
-        }
-      }
-
-      return {
-        sid: sid.trim(),
-        sname: sname ? decodeURIComponent(sname.trim()) : ""
-      };
-    } catch {
-      return { sid: "", sname: "" };
-    }
-  };
 
   // Store-specific binding locked to the scanned QR code
   const [assignedStoreId, setAssignedStoreId] = useState<string>(() => {

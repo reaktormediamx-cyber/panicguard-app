@@ -30,18 +30,19 @@ import { useAuth } from "./context/AuthContext.js";
 // Helper to detect if current URL is for the Guard mobile view via QR or direct link
 const isGuardUrl = () => {
   if (typeof window === "undefined") return false;
-  const hash = (window.location.hash || "").toLowerCase();
   const search = (window.location.search || "").toLowerCase();
-  const pathname = (window.location.pathname || "").toLowerCase();
-  const fullUrl = (window.location.href || "").toLowerCase();
+  const hash = (window.location.hash || "").toLowerCase();
+  
+  // Search string (query params after ?) or hash fragment (after #) containing guard or store parameters
   return (
-    hash.includes("guard") ||
     search.includes("guard") ||
-    pathname.includes("guard") ||
-    fullUrl.includes("guard") ||
-    hash.includes("storeid") ||
     search.includes("storeid") ||
-    fullUrl.includes("storeid")
+    search.includes("store_id") ||
+    search.includes("sname") ||
+    hash.includes("guard") ||
+    hash.includes("storeid") ||
+    hash.includes("store_id") ||
+    hash.includes("sname")
   );
 };
 

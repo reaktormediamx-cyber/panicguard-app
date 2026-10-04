@@ -159,7 +159,23 @@ export interface SocketAlertEvent {
   alert: PanicAlert;
 }
 
-export const DEFAULT_CENTRALES: CentralStation[] = [];
+export const DEFAULT_CENTRALES: CentralStation[] = [
+  {
+    id: "CEN-CDMX-01",
+    name: "C4 Centro de Comando y Control Poniente - CDMX",
+    code: "C4-CDMX-PONIENTE",
+    responsibleName: "Inspector General de Guardia",
+    email: "central.operador@panicguard.mx",
+    phone: "+52 55 5200 9000",
+    city: "Ciudad de México",
+    state: "CDMX",
+    address: "Av. Patriotismo 760, San Pedro de los Pinos, Benito Juárez",
+    status: "ACTIVE",
+    notes: "Central de Despacho y Monitoreo Metropolitano Activa",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    registeredBy: "Super Admin (Matriz)"
+  }
+];
 
 export const DEFAULT_STORE: StoreMetadata = {
   storeId: "STR-MEX-0842",

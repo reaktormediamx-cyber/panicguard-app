@@ -10,14 +10,17 @@ import {
   Building2,
   Eye,
   EyeOff,
+  Smartphone,
+  Zap,
 } from "lucide-react";
-import { useAuth } from "../../context/AuthContext.js";
+import { useAuth, SUPER_ADMIN_EMAILS } from "../../context/AuthContext.js";
 
 export const AuthModal: React.FC = () => {
   const { 
     loginWithMasterPassword, 
     loginWithCentralPassword,
     loginWithEmail, 
+    loginAsGuard,
     centrales
   } = useAuth();
 
@@ -32,13 +35,13 @@ export const AuthModal: React.FC = () => {
   });
   
   // Super Admin state
-  const [masterEmail, setMasterEmail] = useState<string>("panicguardmx@gmail.com");
+  const [masterEmail, setMasterEmail] = useState<string>("");
   const [masterPassword, setMasterPassword] = useState<string>("");
   const [showMasterPassword, setShowMasterPassword] = useState<boolean>(false);
 
   // Central state
   const [centralEmail, setCentralEmail] = useState<string>("");
-  const [centralId, setCentralId] = useState<string>(centrales[0]?.id || "");
+  const [centralId, setCentralId] = useState<string>(centrales[0]?.id || "CEN-CDMX-01");
   const [centralPassword, setCentralPassword] = useState<string>("");
   const [showCentralPassword, setShowCentralPassword] = useState<boolean>(false);
 
@@ -51,8 +54,8 @@ export const AuthModal: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   // Master Login execution
-  const handleMasterLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleMasterLogin = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     setErrorMsg(null);
     setIsSubmitting(true);
     try {
@@ -68,8 +71,8 @@ export const AuthModal: React.FC = () => {
   };
 
   // Central Login execution
-  const handleCentralLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleCentralLogin = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     setErrorMsg(null);
     setIsSubmitting(true);
     try {
@@ -85,8 +88,8 @@ export const AuthModal: React.FC = () => {
   };
 
   // Email / Password Login or Auto-register
-  const handleEmailSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleEmailSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     setErrorMsg(null);
     setIsSubmitting(true);
     try {
@@ -109,9 +112,9 @@ export const AuthModal: React.FC = () => {
         <div className="absolute bottom-0 right-10 w-[400px] h-[400px] bg-blue-900/10 blur-[100px] rounded-full" />
       </div>
 
-      <div className="relative w-full max-w-lg bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-black/80 space-y-6">
+      <div className="relative w-full max-w-lg bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-black/80 space-y-5">
         {/* Brand Header */}
-        <div className="text-center space-y-2">
+        <div className="text-center space-y-1.5">
           <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-red-600 via-red-700 to-slate-950 border border-red-500/40 mx-auto flex items-center justify-center text-white shadow-xl shadow-red-950/50">
             <ShieldAlert className="w-7 h-7" />
           </div>
@@ -119,13 +122,11 @@ export const AuthModal: React.FC = () => {
             PANIC<span className="text-red-500">GUARD</span>
           </h1>
           <p className="text-xs text-slate-400 max-w-sm mx-auto">
-            Plataforma de video vigilancia/accesos por Rol
+            Plataforma de video vigilancia y alertas de pánico por Rol
           </p>
         </div>
 
-
-
-        {/* Tab Selection: Central & Terminal for standard access; hidden on Super Admin panel */}
+        {/* Tab Selection */}
         {!isAdminRoute && (
           <div className="grid grid-cols-2 gap-1.5 bg-slate-950 p-1.5 rounded-2xl border border-slate-800 text-xs">
             <button
@@ -166,7 +167,7 @@ export const AuthModal: React.FC = () => {
 
         {/* Tab 1: Super Admin Master Login */}
         {activeTab === "MASTER" && (
-          <form onSubmit={handleMasterLogin} className="space-y-4 text-xs">
+          <form onSubmit={handleMasterLogin} className="space-y-3.5 text-xs">
             <div className="flex items-center justify-between px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800">
               <span className="font-semibold text-slate-300 flex items-center gap-1.5">
                 <Shield className="w-3.5 h-3.5 text-red-400" />
@@ -235,7 +236,7 @@ export const AuthModal: React.FC = () => {
 
         {/* Tab 2: Central de Monitoreo Login */}
         {activeTab === "CENTRAL" && (
-          <form onSubmit={handleCentralLogin} className="space-y-4 text-xs">
+          <form onSubmit={handleCentralLogin} className="space-y-3.5 text-xs">
             <div className="flex items-center justify-between px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800">
               <span className="font-semibold text-slate-300 flex items-center gap-1.5">
                 <Building2 className="w-3.5 h-3.5 text-red-400" />
