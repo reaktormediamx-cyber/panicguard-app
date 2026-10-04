@@ -1350,7 +1350,7 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
             {/* QR Code */}
             <div className="p-4 bg-white rounded-2xl inline-block shadow-xl mx-auto">
               <QRCodeSVG
-                value={`${window.location.origin}/#guard`}
+                value={`${window.location.origin}/?guard=1#guard`}
                 size={200}
                 level="H"
                 includeMargin={false}

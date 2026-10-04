@@ -33,12 +33,15 @@ const isGuardUrl = () => {
   const hash = (window.location.hash || "").toLowerCase();
   const search = (window.location.search || "").toLowerCase();
   const pathname = (window.location.pathname || "").toLowerCase();
+  const fullUrl = (window.location.href || "").toLowerCase();
   return (
     hash.includes("guard") ||
     search.includes("guard") ||
     pathname.includes("guard") ||
-    hash.includes("storeid=") ||
-    search.includes("storeid=")
+    fullUrl.includes("guard") ||
+    hash.includes("storeid") ||
+    search.includes("storeid") ||
+    fullUrl.includes("storeid")
   );
 };
 
@@ -101,6 +104,13 @@ export default function App() {
   }, [currentView, isAudioAlarmActive, activeEmergencyModalAlert, acknowledgeAlarmSound, setActiveEmergencyModalAlert]);
 
   useEffect(() => {
+    if (isGuardUrl()) {
+      if (currentView !== "GUARD") {
+        setCurrentView("GUARD");
+      }
+      return;
+    }
+
     if (appUser) {
       if (appUser.role === "SUPER_ADMIN") {
         // Super admin can inspect any view
@@ -124,6 +134,10 @@ export default function App() {
 
   // Set default view on user login
   useEffect(() => {
+    if (isGuardUrl()) {
+      setCurrentView("GUARD");
+      return;
+    }
     if (appUser) {
       if (appUser.role === "SUPER_ADMIN") {
         setCurrentView("MASTER_ADMIN");
@@ -214,25 +228,8 @@ export default function App() {
     );
   }
 
-  // If no user is logged in, allow instant direct access for Security Guards accessing via Terminal QR code / Guard URL
-  if (!appUser) {
-    if (isGuardUrl() || currentView === "GUARD") {
-      return (
-        <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-red-500 selection:text-white">
-          <GuardPortal
-            alerts={alerts}
-            isConnected={isConnected}
-            updateAlertStatus={updateAlertStatus}
-            onOpenStoreConfig={() => setIsStoreConfigOpen(true)}
-          />
-        </div>
-      );
-    }
-    return <AuthModal />;
-  }
-
-  // Pure mobile full-viewport experience for Security Guards on mobile devices
-  if (appUser.role === "GUARD") {
+  // Direct instant access for Security Guards accessing via Terminal QR code / Guard URL / Guard role
+  if (isGuardUrl() || currentView === "GUARD" || appUser?.role === "GUARD") {
     return (
       <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-red-500 selection:text-white">
         <GuardPortal
@@ -243,6 +240,11 @@ export default function App() {
         />
       </div>
     );
+  }
+
+  // If no user is logged in, show AuthModal
+  if (!appUser) {
+    return <AuthModal />;
   }
 
   const isSuperAdmin = appUser.role === "SUPER_ADMIN";

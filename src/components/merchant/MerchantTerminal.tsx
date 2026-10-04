@@ -111,7 +111,6 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
   const streamingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const [isStoreQrModalOpen, setIsStoreQrModalOpen] = useState<boolean>(false);
-  const [copiedStoreQrUrl, setCopiedStoreQrUrl] = useState<boolean>(false);
   const [isDownloadingQr, setIsDownloadingQr] = useState<boolean>(false);
 
   const toggleSound = () => {
@@ -1100,7 +1099,7 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
             <div className="hidden">
               <QRCodeCanvas
                 id="merchant-qr-canvas"
-                value={`${window.location.origin}/#guard?storeId=${encodeURIComponent(activeStore.storeId)}&storeName=${encodeURIComponent(activeStore.storeName)}`}
+                value={`${window.location.origin}/?guard=1&storeId=${encodeURIComponent(activeStore.storeId)}&storeName=${encodeURIComponent(activeStore.storeName)}#guard`}
                 size={512}
                 level="H"
                 includeMargin={false}
@@ -1111,7 +1110,7 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
             <div className="bg-white rounded-2xl p-5 shadow-2xl text-slate-900 space-y-3 mx-auto max-w-sm border-2 border-slate-300">
               <div className="p-2 bg-white rounded-xl inline-block">
                 <QRCodeSVG
-                  value={`${window.location.origin}/#guard?storeId=${encodeURIComponent(activeStore.storeId)}&storeName=${encodeURIComponent(activeStore.storeName)}`}
+                  value={`${window.location.origin}/?guard=1&storeId=${encodeURIComponent(activeStore.storeId)}&storeName=${encodeURIComponent(activeStore.storeName)}#guard`}
                   size={190}
                   level="H"
                   includeMargin={false}
@@ -1149,8 +1148,8 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
               </div>
             </div>
 
-            {/* Action Buttons: Download PNG & Copy Link */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+            {/* Action Button: Download PNG */}
+            <div className="pt-1">
               <button
                 type="button"
                 onClick={() => {
@@ -1280,33 +1279,10 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
                   }
                 }}
                 disabled={isDownloadingQr}
-                className="py-3 px-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 active:scale-95 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg shadow-emerald-950/60"
+                className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 active:scale-95 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg shadow-emerald-950/60"
               >
-                <Download className="w-4 h-4 text-emerald-200" />
+                <Download className="w-5 h-5 text-emerald-200" />
                 <span>{isDownloadingQr ? "Generando..." : "Descargar QR (PNG Imprimible)"}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  const targetUrl = `${window.location.origin}/#guard?storeId=${encodeURIComponent(activeStore.storeId)}&storeName=${encodeURIComponent(activeStore.storeName)}`;
-                  navigator.clipboard.writeText(targetUrl);
-                  setCopiedStoreQrUrl(true);
-                  setTimeout(() => setCopiedStoreQrUrl(false), 2500);
-                }}
-                className="py-3 px-3 rounded-2xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow"
-              >
-                {copiedStoreQrUrl ? (
-                  <>
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                    <span className="text-emerald-300">¡Enlace Copiado!</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-4 h-4 text-slate-400" />
-                    <span>Copiar Enlace Web</span>
-                  </>
-                )}
               </button>
             </div>
           </div>
