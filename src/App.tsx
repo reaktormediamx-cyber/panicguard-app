@@ -426,7 +426,14 @@ export default function App() {
         {currentView === "CENTRAL" && (
           <MonitoringDashboard
             alerts={appUser && appUser.role !== "SUPER_ADMIN" && appUser.centralId
-              ? alerts.filter((a) => a.centralId === appUser.centralId || a.store?.centralId === appUser.centralId)
+              ? alerts.filter((a) =>
+                  !a.centralId ||
+                  a.centralId === appUser.centralId ||
+                  a.store?.centralId === appUser.centralId ||
+                  a.triggerType === "VOLUME_BUTTON" ||
+                  a.triggerType === "GUARD_PANIC" ||
+                  Boolean(a.guardName)
+                )
               : alerts
             }
             isConnected={isConnected}
@@ -444,6 +451,7 @@ export default function App() {
           <MerchantTerminal
             store={store}
             onOpenStoreConfig={() => setIsStoreConfigOpen(true)}
+            alerts={alerts}
           />
         )}
 

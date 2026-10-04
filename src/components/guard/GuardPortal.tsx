@@ -10,20 +10,9 @@ import {
   AlertTriangle,
   Volume2,
   User,
-  Clock,
   Maximize2,
   X,
-  Store as StoreIcon,
   LogOut,
-  QrCode,
-  Radio,
-  Send,
-  Sparkles,
-  Smartphone,
-  Check,
-  Download,
-  Info,
-  BatteryCharging,
   BellRing,
   BellOff,
   CameraOff,
@@ -31,6 +20,7 @@ import {
   AlertOctagon,
   Zap,
   Loader2,
+  RefreshCw,
 } from "lucide-react";
 import { PanicAlert, AlertStatus, GeoCoordinates, TriggerMode, StoreMetadata } from "../../types.js";
 import { alarmSound } from "../../utils/audio.js";
@@ -69,6 +59,65 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
   const [volumePressCount, setVolumePressCount] = useState<number>(0);
   const [lastVolumePressTime, setLastVolumePressTime] = useState<number>(0);
   const [sosFeedbackMessage, setSosFeedbackMessage] = useState<string | null>(null);
+
+  // Guard Real-time GPS Location
+  const [guardLocation, setGuardLocation] = useState<GeoCoordinates | null>(null);
+  const [isLocating, setIsLocating] = useState<boolean>(false);
+  const [locationStatus, setLocationStatus] = useState<string>("Iniciando GPS...");
+  const [showGuardMap, setShowGuardMap] = useState<boolean>(false);
+
+  const fetchGuardLocation = () => {
+    if (typeof navigator !== "undefined" && navigator.geolocation) {
+      setIsLocating(true);
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setGuardLocation({
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+            accuracy: pos.coords.accuracy || 8,
+          });
+          setLocationStatus(`GPS Activo (±${Math.round(pos.coords.accuracy || 8)}m)`);
+          setIsLocating(false);
+        },
+        (err) => {
+          console.warn("Geolocation warning:", err);
+          setLocationStatus("GPS en espera de señal");
+          setIsLocating(false);
+          setGuardLocation((curr) => curr || { latitude: 19.4326, longitude: -99.1332, accuracy: 15 });
+        },
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 10000 }
+      );
+    } else {
+      setLocationStatus("Geolocalización no disponible");
+      setGuardLocation({ latitude: 19.4326, longitude: -99.1332, accuracy: 20 });
+    }
+  };
+
+  useEffect(() => {
+    fetchGuardLocation();
+    let watchId: number | null = null;
+    if (typeof navigator !== "undefined" && navigator.geolocation) {
+      try {
+        watchId = navigator.geolocation.watchPosition(
+          (pos) => {
+            setGuardLocation({
+              latitude: pos.coords.latitude,
+              longitude: pos.coords.longitude,
+              accuracy: pos.coords.accuracy || 8,
+            });
+            setLocationStatus(`GPS Activo (±${Math.round(pos.coords.accuracy || 8)}m)`);
+          },
+          () => {},
+          { enableHighAccuracy: true, maximumAge: 10000 }
+        );
+      } catch {}
+    }
+    return () => {
+      if (watchId !== null && typeof navigator !== "undefined" && navigator.geolocation) {
+        navigator.geolocation.clearWatch(watchId);
+      }
+    };
+  }, []);
 
   // Function to extract store binding from window URL (search or hash)
   const extractStoreParamsFromUrl = () => {
@@ -126,11 +175,6 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
     return typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted";
   });
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-  const [isApkInfoModalOpen, setIsApkInfoModalOpen] = useState<boolean>(false);
-  const [isStandaloneApp, setIsStandaloneApp] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    return window.matchMedia("(display-mode: standalone)").matches || (window.navigator as any).standalone === true;
-  });
 
   // Listen for PWA Install Prompt (Add to Home Screen / WebAPK)
   useEffect(() => {
@@ -141,23 +185,6 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
     return () => window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
   }, []);
-
-  const handleInstallPwa = async () => {
-    if (deferredPrompt) {
-      try {
-        deferredPrompt.prompt();
-        const { outcome } = await deferredPrompt.userChoice;
-        if (outcome === "accepted") {
-          setDeferredPrompt(null);
-          setIsStandaloneApp(true);
-        }
-      } catch {
-        setIsApkInfoModalOpen(true);
-      }
-    } else {
-      setIsApkInfoModalOpen(true);
-    }
-  };
 
   // Screen WakeLock ref
   const wakeLockRef = useRef<any>(null);
@@ -599,19 +626,20 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
     }
 
     const effectiveGuardName = guardName.trim() || "Oficial de Seguridad";
+    const effectiveCoords = guardCoords || guardLocation || (boundTerminalInfo?.coordinates && boundTerminalInfo.coordinates.latitude !== 0 ? boundTerminalInfo.coordinates : { latitude: 19.4326, longitude: -99.1332 });
     const matchedTerm = boundTerminalInfo || (assignedStoreId ? terminals.find((t) => t.storeId === assignedStoreId) : null);
 
     let targetStore: StoreMetadata;
     if (matchedTerm) {
       targetStore = {
         storeId: matchedTerm.storeId,
-        storeName: matchedTerm.storeName,
+        storeName: `Oficial de Seguridad: ${effectiveGuardName} (${matchedTerm.storeName})`,
         ownerName: matchedTerm.ownerName || effectiveGuardName,
         phone: matchedTerm.phone || "55-0000-0000",
-        address: matchedTerm.address || "Ubicación en Patrullaje",
+        address: `GPS Guardia: ${effectiveCoords.latitude.toFixed(6)}, ${effectiveCoords.longitude.toFixed(6)} • ${matchedTerm.address || "En Patrullaje"}`,
         city: matchedTerm.city || "Ciudad de México",
         category: `SOS Guardia • ${matchedTerm.storeName}`,
-        coordinates: guardCoords || (matchedTerm.coordinates && matchedTerm.coordinates.latitude !== 0 ? matchedTerm.coordinates : { latitude: 19.4326, longitude: -99.1332 }),
+        coordinates: effectiveCoords,
         centralId: matchedTerm.centralId || appUser?.centralId || "CEN-CDMX-01",
         centralName: matchedTerm.centralName || appUser?.centralName || "C4 Centro de Comando Poniente - CDMX",
       };
@@ -623,12 +651,10 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
         storeName: `SOS Oficial en Patrullaje: ${effectiveGuardName}`,
         ownerName: effectiveGuardName,
         phone: "55-0000-0000",
-        address: guardCoords
-          ? `GPS Guardia: ${guardCoords.latitude.toFixed(5)}, ${guardCoords.longitude.toFixed(5)}`
-          : "Patrullaje Móvil en Terreno",
+        address: `GPS Guardia: ${effectiveCoords.latitude.toFixed(6)}, ${effectiveCoords.longitude.toFixed(6)} • Patrullaje Móvil`,
         city: terminals[0]?.city || "Ciudad de México",
         category: "Patrulla de Seguridad Táctica",
-        coordinates: guardCoords || terminals[0]?.coordinates || { latitude: 19.4326, longitude: -99.1332 },
+        coordinates: effectiveCoords,
         centralId: defaultCentralId,
         centralName: defaultCentral,
       };
@@ -819,88 +845,78 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
         </div>
       </header>
 
-      {/* ================= PERMANENT GUARD IDENTIFIER & TERMINAL ASIGNADA (DIRECTAMENTE A LA VISTA) ================= */}
-      <section className="px-3.5 pt-3 pb-1 space-y-2.5">
-        {/* Guard Name Input Direct Field (No Gear Needed!) */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-3 shadow-md space-y-2">
-          <div className="flex items-center justify-between gap-2">
-            <label className="text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold flex items-center gap-1.5">
-              <User className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Nombre del Guardia en Turno:</span>
-            </label>
-            <span className="text-[9px] font-mono text-emerald-400/90 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+      {/* ================= COMPACT OFFICER & REAL-TIME GPS BAR ================= */}
+      <section className="px-3.5 pt-3 pb-1 space-y-2">
+        <div className="bg-slate-900/95 border border-slate-800 rounded-2xl p-3 shadow-md space-y-2.5">
+          {/* Officer Name Field (Integrated inline) */}
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+              <User className="w-4 h-4" />
+            </div>
+            <div className="flex-1 relative min-w-0">
+              <input
+                type="text"
+                value={guardName}
+                onChange={(e) => setGuardName(e.target.value)}
+                placeholder="Nombre del Guardia en Turno"
+                className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 rounded-xl px-3 py-1.5 text-white text-xs font-semibold placeholder:text-slate-600 transition-all outline-none"
+              />
+            </div>
+            <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-lg border border-emerald-500/20 shrink-0">
               Auto-guardado
             </span>
           </div>
 
-          <div className="relative">
-            <input
-              type="text"
-              value={guardName}
-              onChange={(e) => setGuardName(e.target.value)}
-              placeholder="Escribe tu nombre (Ej. Oficial Carlos R.)"
-              className="w-full bg-slate-950 border border-slate-800/90 hover:border-slate-700 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 rounded-xl px-3.5 py-2.5 text-white text-sm font-semibold placeholder:text-slate-600 transition-all outline-none"
-            />
-          </div>
-        </div>
-
-        {/* Solo la Terminal Asignada al QR (Read-only, Locked from QR Scan) */}
-        <div className="bg-gradient-to-r from-slate-900 to-slate-900/90 border border-slate-800 rounded-2xl p-3 shadow-md">
-          <div className="flex items-start justify-between gap-2">
-            <div className="space-y-1 min-w-0">
-              <div className="flex items-center gap-1.5 text-[10px] font-mono font-bold uppercase tracking-wider text-amber-400">
-                <QrCode className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
-                <span>Terminal Asignada por QR:</span>
+          {/* Real-time GPS status line with live coordinates */}
+          <div className="flex items-center justify-between gap-2 p-2.5 bg-slate-950 rounded-xl border border-slate-800/80 text-[11px] font-mono">
+            <div className="flex items-center gap-2 min-w-0">
+              <MapPin className="w-4 h-4 text-emerald-400 shrink-0 animate-pulse" />
+              <div className="truncate">
+                <span className="text-slate-400 text-[10px] block leading-tight">
+                  {locationStatus}
+                </span>
+                <span className="text-slate-200 font-bold">
+                  {guardLocation
+                    ? `${guardLocation.latitude.toFixed(6)}°, ${guardLocation.longitude.toFixed(6)}°`
+                    : "19.432608°, -99.133209°"}
+                </span>
               </div>
-
-              {assignedStoreId && assignedStoreId !== "ALL" ? (
-                <div>
-                  <div className="text-base font-black text-white truncate flex items-center gap-1.5">
-                    <StoreIcon className="w-4 h-4 text-amber-400 flex-shrink-0" />
-                    <span className="truncate">{assignedStoreName || boundTerminalInfo?.storeName || assignedStoreId}</span>
-                  </div>
-                  <div className="text-[11px] text-slate-400 font-mono flex items-center gap-2 mt-0.5">
-                    <span className="text-amber-300/90 font-bold">ID: {assignedStoreId}</span>
-                    {boundTerminalInfo?.address && (
-                      <>
-                        <span>•</span>
-                        <span className="truncate">{boundTerminalInfo.address}</span>
-                      </>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <div className="py-1">
-                  <div className="text-sm font-bold text-slate-300">
-                    🌐 Patrullaje General (Todos los Locales)
-                  </div>
-                  <p className="text-[10px] text-slate-400 mt-0.5">
-                    Para asignar una terminal específica, escanea el código QR exclusivo del comercio.
-                  </p>
-                </div>
-              )}
             </div>
 
-            {/* QR Verified Badge or Siren Test */}
-            <div className="flex flex-col items-end gap-1 flex-shrink-0">
-              {assignedStoreId && assignedStoreId !== "ALL" ? (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-                  <Check className="w-3 h-3 text-emerald-400" />
-                  <span>QR Vinculado</span>
-                </span>
-              ) : null}
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={fetchGuardLocation}
+                disabled={isLocating}
+                className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 text-slate-300 transition-all cursor-pointer"
+                title="Actualizar coordenadas GPS"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 text-emerald-400 ${isLocating ? "animate-spin" : ""}`} />
+              </button>
 
               <button
-                onClick={handleTestSiren}
-                disabled={isAudioTestActive}
-                className="mt-1 text-[10px] font-mono font-bold text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 active:scale-95 border border-amber-500/30 px-2 py-1 rounded-lg flex items-center gap-1 cursor-pointer transition-all"
-                title="Probar sonido de alarma"
+                type="button"
+                onClick={() => setShowGuardMap(!showGuardMap)}
+                className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 text-[10px] font-mono font-bold text-slate-300 transition-all cursor-pointer"
+                title={showGuardMap ? "Ocultar mapa" : "Ver mapa"}
               >
-                <Volume2 className={`w-3 h-3 ${isAudioTestActive ? "animate-bounce text-red-400" : ""}`} />
-                <span>{isAudioTestActive ? "Sonando..." : "Probar Sirena"}</span>
+                {showGuardMap ? "Ocultar Mapa" : "Ver Mapa"}
               </button>
             </div>
           </div>
+
+          {/* Collapsible Tactical Map of Guard's Location */}
+          {showGuardMap && (
+            <div className="rounded-xl overflow-hidden border border-slate-800 shadow-inner mt-1">
+              <TacticalMap
+                coordinates={guardLocation || { latitude: 19.4326, longitude: -99.1332 }}
+                storeName={`Oficial: ${guardName || "Guardia en Turno"}`}
+                address=""
+                city="Ubicación GPS en Terreno"
+                className="h-44 sm:h-52"
+              />
+            </div>
+          )}
         </div>
       </section>
 
@@ -999,23 +1015,15 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
               )}
             </button>
 
-            {/* Quick helper footer with manual 3x Volume test button */}
+            {/* Subtext info */}
             <div className="flex items-center justify-between gap-2 pt-0.5 text-[10px] text-slate-400 font-mono">
-              <span className="flex items-center gap-1">
-                <Radio className="w-3 h-3 text-emerald-400" />
-                <span>Envía GPS en tiempo real</span>
+              <span className="flex items-center gap-1 text-slate-400">
+                <MapPin className="w-3 h-3 text-emerald-400" />
+                <span>Geolocalización en tiempo real activa</span>
               </span>
-
-              <button
-                type="button"
-                onClick={() => {
-                  triggerGuardSos("VOLUME_BUTTON");
-                }}
-                className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-colors cursor-pointer"
-                title="Simular 3 pulsaciones de subir volumen para pruebas"
-              >
-                Simular 3x Volumen
-              </button>
+              <span className="text-[10px] text-slate-500">
+                Central C4 & Red Táctica
+              </span>
             </div>
           </div>
         )}
@@ -1093,7 +1101,9 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
               <div className="bg-slate-950 border border-slate-800 rounded-xl p-3.5 space-y-2.5 shadow-inner">
                 <div>
                   <span className="text-[9px] font-mono text-red-400 font-bold uppercase tracking-wider">
-                    COMERCIO AFECTADO
+                    {currentEmergency.guardName || currentEmergency.triggerType === "VOLUME_BUTTON" || currentEmergency.triggerType === "GUARD_PANIC"
+                      ? "ORIGEN DEL AUXILIO / GUARDIA"
+                      : "UBICACIÓN DEL INCIDENTE"}
                   </span>
                   <h3 className="text-xl font-black text-white leading-tight mt-0.5">
                     {effectiveStore?.storeName || currentEmergency.store.storeName}
@@ -1249,15 +1259,6 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
                     <ShieldCheck className="w-5 h-5" />
                     <span>3. PERÍMETRO ASEGURADO</span>
                   </button>
-
-                  {/* 4. Silenciar sonido de alerta */}
-                  <button
-                    onClick={() => silenceAlert(currentEmergency.id)}
-                    className="w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-750 active:scale-95 border border-slate-700 text-slate-300 font-bold text-xs flex items-center justify-center gap-2 cursor-pointer transition-all shadow-sm"
-                  >
-                    <BellOff className="w-4 h-4 text-amber-400" />
-                    <span>🔕 Silenciar Alarma en Celular</span>
-                  </button>
                 </div>
               </div>
 
@@ -1288,25 +1289,23 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
           </div>
         ) : (
           /* STANDBY STATE (NO ACTIVE EMERGENCY) */
-          <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 text-center space-y-4 shadow-xl my-auto">
-            <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mx-auto shadow-inner">
-              <ShieldCheck className="w-8 h-8" />
+          <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 text-center space-y-3.5 shadow-xl my-auto">
+            <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mx-auto shadow-inner">
+              <ShieldCheck className="w-7 h-7" />
             </div>
             
             <div className="space-y-1">
-              <h3 className="text-xl font-black text-white">
-                Perímetro en Calma
+              <h3 className="text-base font-black text-white">
+                Perímetro Seguro
               </h3>
               <p className="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">
-                {assignedStoreId && assignedStoreId !== "ALL"
-                  ? `Monitoreando exclusivamente el canal de alarma de ${assignedStoreName || assignedStoreId}.`
-                  : "Monitoreando todos los locales comerciales de la plaza."}
+                Canal táctico en vivo con Central C4. Tu ubicación GPS está activa y lista para respuesta inmediata ante cualquier incidente.
               </p>
             </div>
 
-            <div className="p-3 rounded-xl bg-slate-950 border border-slate-800/80 text-xs text-slate-300 font-mono flex items-center justify-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
-              <span>Sirena y vibración táctica activas en celular</span>
+            <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800/80 text-xs text-slate-300 font-mono flex items-center justify-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+              <span>Monitoreo táctico y sirena armados</span>
             </div>
 
             {!hasNotificationPermission && typeof window !== "undefined" && "Notification" in window && (
@@ -1318,133 +1317,9 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
                 <span>🔔 Permitir Alertas con Pantalla Bloqueada</span>
               </button>
             )}
-
-            {/* PWA / APK Mobile App Installation Button */}
-            {!isStandaloneApp && (
-              <button
-                onClick={handleInstallPwa}
-                className="w-full p-2.5 rounded-xl bg-gradient-to-r from-blue-600/30 to-indigo-600/30 hover:from-blue-600/40 hover:to-indigo-600/40 active:scale-95 border border-blue-500/50 text-blue-200 text-xs font-bold font-mono flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md"
-              >
-                <Download className="w-4 h-4 text-blue-400" />
-                <span>📲 Instalar App en Celular (PWA / APK)</span>
-              </button>
-            )}
-
-            <div className="pt-2 flex flex-col gap-2">
-              <button
-                onClick={handleTestSiren}
-                disabled={isAudioTestActive}
-                className="w-full py-3 rounded-xl bg-slate-800 hover:bg-slate-750 active:scale-95 border border-slate-700 text-amber-300 font-bold text-xs flex items-center justify-center gap-2 cursor-pointer shadow-md transition-all"
-              >
-                <Volume2 className="w-4 h-4" />
-                <span>{isAudioTestActive ? "Sirena Sonando..." : "Realizar Prueba de Sirena"}</span>
-              </button>
-
-              <button
-                onClick={() => setIsApkInfoModalOpen(true)}
-                className="w-full py-2 rounded-xl bg-slate-950/80 hover:bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-200 text-[11px] font-mono flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
-              >
-                <Info className="w-3.5 h-3.5 text-slate-400" />
-                <span>¿Cómo activar sonido con pantalla apagada / APK?</span>
-              </button>
-            </div>
           </div>
         )}
       </main>
-
-      {/* MODAL DE GUÍA: INSTALACIÓN DE APP MÓVIL (OPCIÓN 1 - PWA / WEBAPK) */}
-      {isApkInfoModalOpen && (
-        <div
-          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-3"
-          onClick={() => setIsApkInfoModalOpen(false)}
-        >
-          <div
-            className="bg-slate-900 border border-slate-700 rounded-3xl p-5 max-w-md w-full shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-xl bg-red-600/20 border border-red-500/40 flex items-center justify-center text-red-400">
-                  <Download className="w-5 h-5 animate-pulse" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-white">Instalar App en Celular (PWA)</h3>
-                  <span className="text-[10px] font-mono text-emerald-400">Para alertas con pantalla apagada</span>
-                </div>
-              </div>
-              <button
-                onClick={() => setIsApkInfoModalOpen(false)}
-                className="p-1.5 rounded-xl bg-slate-800 text-slate-400 hover:text-white"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="space-y-3 text-xs text-slate-300">
-              {/* Paso 1: Instalar en pantalla de inicio */}
-              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-3.5 space-y-2">
-                <div className="flex items-center gap-2 text-emerald-400 font-bold font-mono text-xs">
-                  <span className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center text-[11px] text-emerald-400">1</span>
-                  <span>Instalar la Aplicación en la Pantalla:</span>
-                </div>
-                
-                {deferredPrompt ? (
-                  <button
-                    onClick={handleInstallPwa}
-                    className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-700 active:scale-95 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md cursor-pointer"
-                  >
-                    <Download className="w-4 h-4" />
-                    <span>Tocar aquí para Instalar Directamente</span>
-                  </button>
-                ) : (
-                  <div className="bg-slate-900/90 rounded-xl p-3 text-[11px] font-mono text-slate-300 space-y-2 border border-slate-800">
-                    <div>
-                      <b className="text-amber-300 block mb-0.5">📱 En Android (Google Chrome):</b>
-                      Toca los <b>tres puntos (⋮)</b> arriba a la derecha en Chrome y presiona <b>"Instalar aplicación"</b> o <b>"Añadir a la pantalla de inicio"</b>.
-                    </div>
-                    <div className="pt-1.5 border-t border-slate-800">
-                      <b className="text-cyan-300 block mb-0.5">🍏 En iPhone (Safari):</b>
-                      Toca el botón <b>Compartir (icono del cuadro con flecha ⎋)</b> y selecciona <b>"Añadir a la pantalla de inicio"</b>.
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Paso 2: Permitir notificaciones */}
-              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-3.5 space-y-2">
-                <div className="flex items-center gap-2 text-amber-400 font-bold font-mono text-xs">
-                  <span className="w-5 h-5 rounded-full bg-amber-500/20 flex items-center justify-center text-[11px] text-amber-400">2</span>
-                  <span>Permitir Notificaciones con Sonido:</span>
-                </div>
-                <p className="text-[11px] text-slate-400 leading-relaxed">
-                  Al abrir la app instalada, presiona el botón <b>"🔔 Permitir Alertas con Pantalla Bloqueada"</b> y pulsa <b>"Permitir"</b> en el aviso del celular.
-                </p>
-              </div>
-
-              {/* Paso 3: Quitar restricción de batería en Android */}
-              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-3.5 space-y-2">
-                <div className="flex items-center gap-2 text-blue-400 font-bold font-mono text-xs">
-                  <span className="w-5 h-5 rounded-full bg-blue-500/20 flex items-center justify-center text-[11px] text-blue-400">3</span>
-                  <span>Batería Sin Restricciones (Crucial en Android):</span>
-                </div>
-                <p className="text-[11px] text-slate-400 leading-relaxed">
-                  Para que Android no ponga la aplicación a dormir cuando bloquees el celular:
-                </p>
-                <div className="bg-slate-900/90 rounded-xl p-2.5 text-[11px] font-mono text-slate-300 border border-slate-800">
-                  Ve a <b>Ajustes de tu celular</b> ➔ <b>Aplicaciones</b> ➔ <b>PanicGuard</b> ➔ <b>Batería</b> ➔ Elige <b>"Sin restricciones"</b>.
-                </div>
-              </div>
-            </div>
-
-            <button
-              onClick={() => setIsApkInfoModalOpen(false)}
-              className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-700 text-white font-bold text-xs shadow-lg shadow-emerald-950/60 cursor-pointer"
-            >
-              Listo, Entendido
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* FULLSCREEN IMAGE MODAL (FOR MOBILE ZOOM) */}
       {isZoomImageOpen && currentEmergency && currentEmergency.cameraEnabled !== false && currentEmergency.images && currentEmergency.images.length > 0 && (

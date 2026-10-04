@@ -31,7 +31,7 @@ import {
   Sliders,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
-import { StoreMetadata } from "../../types.js";
+import { StoreMetadata, PanicAlert } from "../../types.js";
 import { usePanicCapture } from "../../hooks/usePanicCapture.js";
 import { alarmSound } from "../../utils/audio.js";
 import { AudioSettingsModal } from "../audio/AudioSettingsModal.js";
@@ -41,11 +41,13 @@ import { useAuth } from "../../context/AuthContext.js";
 interface MerchantTerminalProps {
   store: StoreMetadata;
   onOpenStoreConfig: () => void;
+  alerts?: PanicAlert[];
 }
 
 export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
   store,
   onOpenStoreConfig,
+  alerts = [],
 }) => {
   const { terminals, appUser } = useAuth();
 
@@ -108,6 +110,24 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
     if (saved !== null) return saved === "true";
     return activeStore.cameraEnabled !== false;
   });
+
+  // Active SOS alert triggered by a security guard
+  const activeGuardSosAlert = (alerts || []).find(
+    (a) =>
+      a.status === "ACTIVE" &&
+      (a.triggerType === "VOLUME_BUTTON" ||
+        a.triggerType === "GUARD_PANIC" ||
+        Boolean(a.guardName && (a.guardDescription?.includes("SOS GUARDIA") || a.guardDescription?.includes("PÁNICO SOS"))))
+  );
+
+  // Sound chime when guard SOS starts
+  useEffect(() => {
+    if (activeGuardSosAlert && !isMuted) {
+      try {
+        alarmSound.playTone("DISCRETE_CHIME");
+      } catch {}
+    }
+  }, [activeGuardSosAlert?.id, isMuted]);
 
   const {
     videoRef,
@@ -427,6 +447,53 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
           </button>
         </div>
       </div>
+
+      {/* ================= ALERTA SOS DE GUARDIA REFLEJADA EN LA TERMINAL ================= */}
+      {activeGuardSosAlert && (
+        <div className="bg-gradient-to-r from-red-950 via-slate-900 to-red-950 border-2 border-red-500 rounded-3xl p-4 sm:p-5 shadow-2xl ring-4 ring-red-500/30 animate-pulse space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-red-600 flex items-center justify-center text-white shrink-0 shadow-lg shadow-red-950 animate-bounce">
+                <ShieldAlert className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-black bg-red-600 text-white uppercase tracking-wider">
+                    {activeGuardSosAlert.triggerType === "VOLUME_BUTTON" ? "SOS BOTÓN DE VOLUMEN (3X)" : "SOS GUARDIA DE SEGURIDAD"}
+                  </span>
+                  <span className="text-xs font-mono text-red-300 font-bold">
+                    Folio: {activeGuardSosAlert.id}
+                  </span>
+                </div>
+                <h3 className="text-base sm:text-lg font-black text-white mt-0.5">
+                  🚨 ¡ALERTA SOS EMITIDA POR EL GUARDIA: {activeGuardSosAlert.guardName || "Oficial en Sitio"}!
+                </h3>
+              </div>
+            </div>
+
+            <span className="px-3 py-1 rounded-xl bg-red-900/80 border border-red-500/60 text-white font-mono text-xs font-bold animate-pulse">
+              EN CURSO EN CENTRAL C4
+            </span>
+          </div>
+
+          <div className="p-3 rounded-xl bg-slate-950/80 border border-red-900/50 text-xs text-slate-200 space-y-1 font-mono">
+            <p className="text-red-200 font-bold">
+              {activeGuardSosAlert.guardDescription || "El oficial de seguridad ha emitido una señal de auxilio urgente a la Central de Monitoreo."}
+            </p>
+            <div className="flex items-center gap-3 text-slate-400 text-[11px] pt-1 border-t border-slate-800">
+              <span className="flex items-center gap-1">
+                <Clock className="w-3 h-3 text-red-400" />
+                {new Date(activeGuardSosAlert.timestamp).toLocaleTimeString()}
+              </span>
+              <span>•</span>
+              <span className="flex items-center gap-1">
+                <MapPin className="w-3 h-3 text-red-400" />
+                {activeGuardSosAlert.store?.address || "Ubicación en Terreno"}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Grid: Left Control Panel & Right Live Camera HUD */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">

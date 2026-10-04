@@ -17,14 +17,15 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
   city = "",
   className = "",
 }) => {
-  const [mapType, setMapType] = useState<"m" | "k">("m"); // "m" = callejero, "k" = satélite
-  const [targetMode, setTargetMode] = useState<"ADDRESS" | "COORDS">("ADDRESS");
-  const [copied, setCopied] = useState<boolean>(false);
-
-  // 1. Limpieza y preparación de la dirección registrada del comercio
   const cleanAddress = address ? address.replace(/^.*?—\s*/, "").trim() : "";
   const cleanCity = city ? city.trim() : "";
   const cleanStore = storeName ? storeName.trim() : "";
+
+  const [mapType, setMapType] = useState<"m" | "k">("m"); // "m" = callejero, "k" = satélite
+  const [targetMode, setTargetMode] = useState<"ADDRESS" | "COORDS">(() => {
+    return cleanAddress ? "ADDRESS" : "COORDS";
+  });
+  const [copied, setCopied] = useState<boolean>(false);
 
   // 2. Construir la consulta de dirección oficial registrada
   const addressParts: string[] = [];
@@ -43,8 +44,6 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
     addressParts.push(cleanStore, "México");
   }
 
-  const fullAddressQuery = addressParts.join(", ") || "Ciudad de México, México";
-
   // 3. Comprobar si hay coordenadas numéricas disponibles
   const hasValidCoords = Boolean(
     coordinates &&
@@ -55,6 +54,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
   );
 
   const coordsQuery = hasValidCoords ? `${coordinates!.latitude},${coordinates!.longitude}` : "";
+  const fullAddressQuery = addressParts.join(", ") || (hasValidCoords ? coordsQuery : "Ciudad de México, México");
 
   // 4. Seleccionar la consulta activa: por defecto la DIRECCIÓN REGISTRADA
   const activeQuery = targetMode === "COORDS" && hasValidCoords ? coordsQuery : fullAddressQuery;
