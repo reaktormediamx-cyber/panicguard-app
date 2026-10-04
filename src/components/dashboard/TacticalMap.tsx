@@ -31,18 +31,22 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
   );
 
   const [mapType, setMapType] = useState<"m" | "k">("m"); // "m" = callejero, "k" = satélite
-  // Priorizar siempre las coordenadas GPS exactas sobre la dirección aproximada en texto
+  const hasCleanAddress = Boolean(cleanAddress && cleanAddress.trim().length > 3);
+
+  // Default to ADDRESS mode whenever a registered establishment address is available
   const [targetMode, setTargetMode] = useState<"ADDRESS" | "COORDS">(() => {
-    return hasValidCoords ? "COORDS" : "ADDRESS";
+    return hasCleanAddress ? "ADDRESS" : hasValidCoords ? "COORDS" : "ADDRESS";
   });
   const [copied, setCopied] = useState<boolean>(false);
 
-  // Sincronizar targetMode cuando cambian las coordenadas de la alerta
+  // Keep targetMode set to ADDRESS when address is present, unless manually toggled
   useEffect(() => {
-    if (hasValidCoords) {
+    if (hasCleanAddress) {
+      setTargetMode("ADDRESS");
+    } else if (hasValidCoords) {
       setTargetMode("COORDS");
     }
-  }, [coordinates?.latitude, coordinates?.longitude, hasValidCoords]);
+  }, [cleanAddress, coordinates?.latitude, coordinates?.longitude, hasValidCoords, hasCleanAddress]);
 
   // 2. Construir la consulta de dirección oficial registrada
   const addressParts: string[] = [];

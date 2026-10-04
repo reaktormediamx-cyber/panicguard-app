@@ -499,10 +499,13 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
 
   // Also resolve assigned terminal data for the standby banner
   const boundTerminalInfo = useMemo(() => {
-    if (!assignedStoreId) return null;
-    return terminals.find(
-      (t) => t.storeId === assignedStoreId || t.id === assignedStoreId
-    );
+    if (assignedStoreId) {
+      const found = terminals.find(
+        (t) => t.storeId === assignedStoreId || t.id === assignedStoreId
+      );
+      if (found) return found;
+    }
+    return terminals[0] || null;
   }, [assignedStoreId, terminals]);
 
   const isGuardEmergency = Boolean(
