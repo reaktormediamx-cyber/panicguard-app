@@ -28,8 +28,11 @@ import {
   BellOff,
   CameraOff,
   Sliders,
+  AlertOctagon,
+  Zap,
+  Loader2,
 } from "lucide-react";
-import { PanicAlert, AlertStatus } from "../../types.js";
+import { PanicAlert, AlertStatus, GeoCoordinates, TriggerMode, StoreMetadata } from "../../types.js";
 import { alarmSound } from "../../utils/audio.js";
 import { useAuth } from "../../context/AuthContext.js";
 import { TacticalMap } from "../dashboard/TacticalMap.js";
@@ -57,6 +60,15 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
     return localStorage.getItem("pg_guard_duty") !== "false";
   });
   const [isAudioSettingsModalOpen, setIsAudioSettingsModalOpen] = useState(false);
+
+  // Guard SOS Panic Button & Volume 3x Trigger State
+  const [isEmittingSos, setIsEmittingSos] = useState<boolean>(false);
+  const [lastSentSosAlertId, setLastSentSosAlertId] = useState<string | null>(() => {
+    return typeof sessionStorage !== "undefined" ? sessionStorage.getItem("pg_guard_last_sos_id") : null;
+  });
+  const [volumePressCount, setVolumePressCount] = useState<number>(0);
+  const [lastVolumePressTime, setLastVolumePressTime] = useState<number>(0);
+  const [sosFeedbackMessage, setSosFeedbackMessage] = useState<string | null>(null);
 
   // Function to extract store binding from window URL (search or hash)
   const extractStoreParamsFromUrl = () => {
@@ -247,16 +259,36 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
   }, []);
 
   // Filter alerts: only show for assigned store if bound via QR, or all if general
+  // (Always includes alerts triggered by this guard so they stay visible)
   const relevantAlerts = useMemo(() => {
     if (assignedStoreId && assignedStoreId.trim() !== "" && assignedStoreId !== "ALL") {
       return alerts.filter(
         (a) =>
           a.store?.storeId === assignedStoreId ||
-          (assignedStoreName && a.store?.storeName?.toLowerCase() === assignedStoreName.toLowerCase())
+          (assignedStoreName && a.store?.storeName?.toLowerCase() === assignedStoreName.toLowerCase()) ||
+          a.id === lastSentSosAlertId ||
+          (a.guardName && a.guardName.toLowerCase() === guardName.toLowerCase())
       );
     }
     return alerts;
-  }, [alerts, assignedStoreId, assignedStoreName]);
+  }, [alerts, assignedStoreId, assignedStoreName, lastSentSosAlertId, guardName]);
+
+  // Specific check if the guard's own SOS alert is currently active
+  const myActiveSosAlert = useMemo(() => {
+    return (
+      alerts.find(
+        (a) =>
+          a.status === "ACTIVE" &&
+          (a.id === lastSentSosAlertId ||
+            (a.guardName &&
+              a.guardName.toLowerCase() === guardName.toLowerCase() &&
+              (a.triggerType === "VOLUME_BUTTON" ||
+                a.triggerType === "GUARD_PANIC" ||
+                a.guardDescription?.includes("SOS GUARDIA") ||
+                a.store?.category?.includes("SOS Guardia"))))
+      ) || null
+    );
+  }, [alerts, lastSentSosAlertId, guardName]);
 
   // Set of alert IDs that have been responded to, silenced, or resolved on this guard device
   const [silencedAlertIds, setSilencedAlertIds] = useState<Set<string>>(() => {
@@ -526,6 +558,188 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
     setQuickNoteText("");
   };
 
+  // Trigger SOS Panic from Guard (via Tactile button or 3x Volume button)
+  const triggerGuardSos = async (triggerType: TriggerMode = "MANUAL_BUTTON") => {
+    if (isEmittingSos) return;
+    setIsEmittingSos(true);
+    setSosFeedbackMessage(
+      triggerType === "VOLUME_BUTTON"
+        ? "🚨 [3x SUBIR VOLUMEN] TRANSMITIENDO PÁNICO SOS A CENTRAL..."
+        : "🚨 TRANSMITIENDO PÁNICO SOS A CENTRAL C4..."
+    );
+
+    // Haptic vibration feedback (strong pulse)
+    if (typeof navigator !== "undefined" && navigator.vibrate) {
+      navigator.vibrate([250, 80, 250, 80, 500]);
+    }
+
+    // Play tactical siren tone locally
+    try {
+      alarmSound.playTone("POLICE_SIREN");
+    } catch {}
+
+    // Real-time GPS capture from guard device
+    let guardCoords: GeoCoordinates | undefined = undefined;
+    if (typeof navigator !== "undefined" && navigator.geolocation) {
+      try {
+        guardCoords = await new Promise<GeoCoordinates | undefined>((resolve) => {
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              resolve({
+                latitude: pos.coords.latitude,
+                longitude: pos.coords.longitude,
+                accuracy: pos.coords.accuracy || 10,
+              });
+            },
+            () => resolve(undefined),
+            { timeout: 3200, enableHighAccuracy: true }
+          );
+        });
+      } catch {}
+    }
+
+    const effectiveGuardName = guardName.trim() || "Oficial de Seguridad";
+    const matchedTerm = boundTerminalInfo || (assignedStoreId ? terminals.find((t) => t.storeId === assignedStoreId) : null);
+
+    let targetStore: StoreMetadata;
+    if (matchedTerm) {
+      targetStore = {
+        storeId: matchedTerm.storeId,
+        storeName: matchedTerm.storeName,
+        ownerName: matchedTerm.ownerName || effectiveGuardName,
+        phone: matchedTerm.phone || "55-0000-0000",
+        address: matchedTerm.address || "Ubicación en Patrullaje",
+        city: matchedTerm.city || "Ciudad de México",
+        category: `SOS Guardia • ${matchedTerm.storeName}`,
+        coordinates: guardCoords || (matchedTerm.coordinates && matchedTerm.coordinates.latitude !== 0 ? matchedTerm.coordinates : { latitude: 19.4326, longitude: -99.1332 }),
+        centralId: matchedTerm.centralId || appUser?.centralId || "CEN-CDMX-01",
+        centralName: matchedTerm.centralName || appUser?.centralName || "C4 Centro de Comando Poniente - CDMX",
+      };
+    } else {
+      const defaultCentral = terminals[0]?.centralName || appUser?.centralName || "C4 Centro de Comando Poniente - CDMX";
+      const defaultCentralId = terminals[0]?.centralId || appUser?.centralId || "CEN-CDMX-01";
+      targetStore = {
+        storeId: "GUARD-" + (effectiveGuardName.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 10) || "SOS"),
+        storeName: `SOS Oficial en Patrullaje: ${effectiveGuardName}`,
+        ownerName: effectiveGuardName,
+        phone: "55-0000-0000",
+        address: guardCoords
+          ? `GPS Guardia: ${guardCoords.latitude.toFixed(5)}, ${guardCoords.longitude.toFixed(5)}`
+          : "Patrullaje Móvil en Terreno",
+        city: terminals[0]?.city || "Ciudad de México",
+        category: "Patrulla de Seguridad Táctica",
+        coordinates: guardCoords || terminals[0]?.coordinates || { latitude: 19.4326, longitude: -99.1332 },
+        centralId: defaultCentralId,
+        centralName: defaultCentral,
+      };
+    }
+
+    const desc =
+      triggerType === "VOLUME_BUTTON"
+        ? `🚨 SOS GUARDIA (ACTIVADO POR SUBIR VOLUMEN 3X): Oficial ${effectiveGuardName} en situación de riesgo crítico. Requiere apoyo urgente de la Central C4.`
+        : `🚨 SOS GUARDIA (BOTÓN TÁCTICO): Oficial ${effectiveGuardName} solicita apoyo y refuerzos urgentes de la Central C4.`;
+
+    try {
+      const payload = {
+        store: targetStore,
+        images: [],
+        cameraEnabled: false,
+        timestamp: new Date().toISOString(),
+        triggerType,
+        centralId: targetStore.centralId,
+        centralName: targetStore.centralName,
+        guardName: effectiveGuardName,
+        guardDescription: desc,
+      };
+
+      const res = await fetch("/api/alerts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        throw new Error(`Error en servidor: ${res.statusText}`);
+      }
+
+      const data = await res.json();
+      setLastSentSosAlertId(data.alertId);
+      try {
+        sessionStorage.setItem("pg_guard_last_sos_id", data.alertId);
+      } catch {}
+      setSosFeedbackMessage(`🚨 ¡ALERTA SOS TRANSMITIDA! Central C4 alertada.`);
+    } catch (err: any) {
+      setSosFeedbackMessage(`Error al transmitir alerta: ${err.message || "Fallo de conexión"}`);
+    } finally {
+      setIsEmittingSos(false);
+    }
+  };
+
+  const handleResolveMySos = (alertId: string) => {
+    updateAlertStatus(alertId, "RESOLVED", guardName, "Oficial de seguridad reporta situación bajo control / Cierre de emergencia");
+    setLastSentSosAlertId(null);
+    try {
+      sessionStorage.removeItem("pg_guard_last_sos_id");
+    } catch {}
+    setSosFeedbackMessage("✅ Alerta de pánico SOS marcada como resuelta.");
+    setTimeout(() => setSosFeedbackMessage(null), 4000);
+  };
+
+  // Volume Button (Subir Volumen 3x) Hardware Detection & Hotkey Listener
+  useEffect(() => {
+    let presses: number[] = [];
+
+    const handleVolumeKey = (e: KeyboardEvent) => {
+      // Key codes for Volume Up on mobile / PWA / Android / desktop testing
+      const isVolumeUp =
+        e.key === "AudioVolumeUp" ||
+        e.code === "AudioVolumeUp" ||
+        e.keyCode === 24 ||
+        (e as any).which === 24 ||
+        e.key === "+" ||
+        e.code === "NumpadAdd" ||
+        e.key === "=";
+
+      if (isVolumeUp) {
+        const now = Date.now();
+        // Keep presses in last 2.5 seconds window
+        presses = presses.filter((t) => now - t < 2500);
+        presses.push(now);
+
+        const currentCount = presses.length;
+        setVolumePressCount(currentCount);
+        setLastVolumePressTime(now);
+
+        // Haptic feedback
+        if (typeof navigator !== "undefined" && navigator.vibrate) {
+          if (currentCount === 1) navigator.vibrate(80);
+          else if (currentCount === 2) navigator.vibrate([100, 50, 100]);
+        }
+
+        if (currentCount >= 3) {
+          presses = [];
+          setVolumePressCount(0);
+          triggerGuardSos("VOLUME_BUTTON");
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleVolumeKey, { capture: true, passive: false });
+    return () => {
+      window.removeEventListener("keydown", handleVolumeKey, { capture: true });
+    };
+  }, [guardName, assignedStoreId, assignedStoreName, boundTerminalInfo, terminals, appUser, isEmittingSos]);
+
+  // Reset volume counter after 2.5 seconds of inactivity
+  useEffect(() => {
+    if (volumePressCount > 0) {
+      const timer = setTimeout(() => {
+        setVolumePressCount(0);
+      }, 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [volumePressCount, lastVolumePressTime]);
+
   const handleGuardExit = async () => {
     localStorage.removeItem("pg_guard_store_id");
     localStorage.removeItem("pg_guard_store_name");
@@ -692,6 +906,132 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
 
       {/* ================= MAIN TACTICAL CONTENT (ADAPTED FOR MOBILE) ================= */}
       <main className="flex-1 px-3.5 py-2 space-y-3">
+        {/* ================= GUARD SOS PANIC CARD (TACTILE & 3X VOLUME) ================= */}
+        {myActiveSosAlert ? (
+          /* Active SOS Emergency Banner emitted by this Guard */
+          <div className="bg-gradient-to-r from-red-950 via-slate-900 to-red-950 border-2 border-red-500 rounded-2xl p-4 shadow-2xl space-y-3 ring-2 ring-red-500/50 animate-pulse">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-red-400 font-black text-sm">
+                <AlertOctagon className="w-5 h-5 animate-bounce text-red-400 shrink-0" />
+                <span>🚨 TU PÁNICO SOS ESTÁ ACTIVO EN CENTRAL C4</span>
+              </div>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-red-900/90 text-white font-bold border border-red-400 shrink-0">
+                EN CURSO
+              </span>
+            </div>
+            <p className="text-xs text-slate-300">
+              Se transmitió tu identidad ({guardName}) y coordenadas GPS. Los operadores y mandos de la Central C4 están enterados de tu situación de auxilio.
+            </p>
+            <div className="flex items-center justify-between gap-2 pt-1 border-t border-red-900/50 text-[11px] font-mono text-slate-400">
+              <span>Folio: {myActiveSosAlert.id}</span>
+              <span>Hora: {new Date(myActiveSosAlert.timestamp).toLocaleTimeString()}</span>
+            </div>
+            <button
+              onClick={() => handleResolveMySos(myActiveSosAlert.id)}
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 active:scale-95 text-white font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-950 cursor-pointer transition-all"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              <span>CANCELAR PÁNICO / REPORTAR TODO BAJO CONTROL</span>
+            </button>
+          </div>
+        ) : (
+          /* Tactile & 3x Volume SOS Panic Card */
+          <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-red-950/40 border-2 border-red-600/40 hover:border-red-500/70 rounded-2xl p-3.5 shadow-xl space-y-2.5 transition-all">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-red-600/20 border border-red-500/40 flex items-center justify-center text-red-400 shrink-0">
+                  <AlertTriangle className="w-4 h-4 animate-pulse" />
+                </div>
+                <div>
+                  <h3 className="text-xs font-black text-white tracking-wide uppercase flex items-center gap-1.5">
+                    Botón de Pánico Táctico (Guardia)
+                  </h3>
+                  <p className="text-[10px] text-slate-400 font-mono">
+                    Alerta inmediata a Central C4 ante asalto o riesgo
+                  </p>
+                </div>
+              </div>
+
+              {/* Hardware Volume Key Status Pill */}
+              <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-red-950/60 border border-red-700/60 text-[10px] font-mono font-bold text-red-300 shrink-0">
+                <Zap className="w-3 h-3 text-amber-400 animate-pulse" />
+                <span>3x Vol+ Activo</span>
+              </div>
+            </div>
+
+            {/* Live Volume Press Detection Alert (if user pressed volume 1 or 2 times) */}
+            {volumePressCount > 0 && (
+              <div className="p-2 rounded-xl bg-red-600/20 border border-red-500/60 text-xs font-mono font-bold text-red-300 flex items-center justify-between animate-pulse">
+                <div className="flex items-center gap-2">
+                  <Volume2 className="w-4 h-4 text-amber-400 animate-bounce" />
+                  <span>Pulsación de Volumen: {volumePressCount} / 3</span>
+                </div>
+                <span className="text-[10px] text-amber-300">
+                  {volumePressCount === 2 ? "¡Pulsa 1 vez más para SOS!" : "Pulsa 2 veces más rápido..."}
+                </span>
+              </div>
+            )}
+
+            {/* Giant One-Tap SOS Panic Button */}
+            <button
+              type="button"
+              onClick={() => triggerGuardSos("MANUAL_BUTTON")}
+              disabled={isEmittingSos}
+              className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-red-600 via-red-700 to-red-800 hover:from-red-500 hover:to-red-700 active:scale-95 text-white font-black text-sm sm:text-base flex items-center justify-center gap-3 shadow-2xl shadow-red-950/90 border-2 border-red-400/50 cursor-pointer transition-all disabled:opacity-50"
+            >
+              {isEmittingSos ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>TRANSMITIENDO PÁNICO SOS A CENTRAL...</span>
+                </>
+              ) : (
+                <>
+                  <AlertOctagon className="w-6 h-6 text-white animate-bounce shrink-0" />
+                  <div className="text-left">
+                    <div className="tracking-wider uppercase font-black text-sm">
+                      🚨 EMITIR PÁNICO SOS A CENTRAL C4
+                    </div>
+                    <div className="text-[10px] text-red-100 font-normal font-sans opacity-90">
+                      Toca aquí o pulsa SUBIR VOLUMEN 3 veces seguidas
+                    </div>
+                  </div>
+                </>
+              )}
+            </button>
+
+            {/* Quick helper footer with manual 3x Volume test button */}
+            <div className="flex items-center justify-between gap-2 pt-0.5 text-[10px] text-slate-400 font-mono">
+              <span className="flex items-center gap-1">
+                <Radio className="w-3 h-3 text-emerald-400" />
+                <span>Envía GPS en tiempo real</span>
+              </span>
+
+              <button
+                type="button"
+                onClick={() => {
+                  triggerGuardSos("VOLUME_BUTTON");
+                }}
+                className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-colors cursor-pointer"
+                title="Simular 3 pulsaciones de subir volumen para pruebas"
+              >
+                Simular 3x Volumen
+              </button>
+            </div>
+          </div>
+        )}
+
+        {sosFeedbackMessage && !myActiveSosAlert && (
+          <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs font-mono text-emerald-400 flex items-center justify-between animate-in fade-in">
+            <span>{sosFeedbackMessage}</span>
+            <button
+              onClick={() => setSosFeedbackMessage(null)}
+              className="text-slate-400 hover:text-white ml-2 text-sm"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         {currentEmergency ? (
           /* ACTIVE EMERGENCY CARD */
           <div

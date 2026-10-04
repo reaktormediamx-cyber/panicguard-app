@@ -406,7 +406,11 @@ app.post("/api/alerts", async (req, res) => {
     const initialLogs: AlertLogItem[] = [
       {
         timestamp: new Date().toISOString(),
-        action: isCameraActive
+        action: triggerType === "VOLUME_BUTTON"
+          ? "🚨 Alerta SOS emitida por Guardia mediante Tecla de Hardware (Subir Volumen 3x)"
+          : triggerType === "GUARD_PANIC"
+          ? "🚨 Alerta SOS emitida por Guardia mediante Botón Táctico en Celular"
+          : isCameraActive
           ? `Alerta recibida vía REST API (${finalImages.length} fotogramas capturados)`
           : `Alerta recibida vía Botón de Emergencia REST API (Modo Solo Botón - Sin cámara)`,
       },
