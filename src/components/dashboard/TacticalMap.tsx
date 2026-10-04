@@ -48,8 +48,10 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
   const addressParts: string[] = [];
   if (cleanAddress) {
     // Si la dirección incluye prefijo de GPS de guardia, limpiar para búsqueda
-    const sanitizedAddr = cleanAddress.replace(/^GPS(?:\s*Guardia)?:\s*[\d.-]+,\s*[\d.-]+\s*•\s*/i, "").trim();
-    if (sanitizedAddr) addressParts.push(sanitizedAddr);
+    const sanitizedAddr = cleanAddress.replace(/^GPS(?:\s*(?:Oficial|Guardia|Sensor|En Terreno|Móvil))?:\s*[\d.-]+,\s*[\d.-]+\s*•\s*/i, "").trim();
+    if (sanitizedAddr && !sanitizedAddr.toLowerCase().includes("patrullaje móvil")) {
+      addressParts.push(sanitizedAddr);
+    }
   }
   if (cleanCity && (!cleanAddress || !cleanAddress.toLowerCase().includes(cleanCity.toLowerCase()))) {
     addressParts.push(cleanCity);
@@ -59,7 +61,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
     if (!joined.includes("méxico") && !joined.includes("mexico")) {
       addressParts.push("México");
     }
-  } else if (cleanStore) {
+  } else if (cleanStore && !cleanStore.toLowerCase().includes("oficial de seguridad") && !cleanStore.toLowerCase().includes("sos oficial")) {
     addressParts.push(cleanStore, "México");
   }
 

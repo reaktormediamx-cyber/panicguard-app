@@ -226,6 +226,12 @@ class AlarmSoundEngine {
     return this.muted;
   }
 
+  private onMediaSessionSosCallback: (() => void) | null = null;
+
+  public setMediaSessionSosHandler(handler: (() => void) | null) {
+    this.onMediaSessionSosCallback = handler;
+  }
+
   /**
    * Enables the Mobile Background Keep-Alive Audio Engine.
    */
@@ -247,11 +253,24 @@ class AlarmSoundEngine {
     if (typeof navigator !== "undefined" && "mediaSession" in navigator) {
       try {
         navigator.mediaSession.metadata = new MediaMetadata({
-          title: "PanicGuard Táctico",
-          artist: "Guardia en Turno - Canal Activo",
-          album: "Sistema de Alerta Móvil",
+          title: "🚨 PanicGuard Táctico (SOS)",
+          artist: "Presiona cualquier botón para enviar SOS",
+          album: "Canal de Seguridad C4",
         });
         navigator.mediaSession.playbackState = "playing";
+
+        const triggerSosAction = () => {
+          if (this.onMediaSessionSosCallback) {
+            this.onMediaSessionSosCallback();
+          }
+        };
+
+        const actions: MediaSessionAction[] = ["play", "pause", "nexttrack", "previoustrack", "seekforward", "seekbackward"];
+        actions.forEach((act) => {
+          try {
+            navigator.mediaSession.setActionHandler(act, triggerSosAction);
+          } catch {}
+        });
       } catch {}
     }
   }

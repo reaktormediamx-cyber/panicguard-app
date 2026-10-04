@@ -21,6 +21,12 @@ import {
   Zap,
   Loader2,
   RefreshCw,
+  Radio,
+  Moon,
+  Eye,
+  EyeOff,
+  Lock,
+  Unlock,
 } from "lucide-react";
 import { PanicAlert, AlertStatus, GeoCoordinates, TriggerMode, StoreMetadata } from "../../types.js";
 import { alarmSound } from "../../utils/audio.js";
@@ -61,6 +67,23 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
   const [tapCount, setTapCount] = useState<number>(0);
   const [shakeCount, setShakeCount] = useState<number>(0);
   const [sosFeedbackMessage, setSosFeedbackMessage] = useState<string | null>(null);
+  const [isSentinelMode, setIsSentinelMode] = useState<boolean>(false);
+
+  const toggleSentinelMode = async () => {
+    // Request DeviceMotionEvent permission on iOS 13+ if applicable
+    if (typeof (DeviceMotionEvent as any)?.requestPermission === "function") {
+      try {
+        await (DeviceMotionEvent as any).requestPermission();
+      } catch {}
+    }
+    // Ensure screen WakeLock is triggered
+    if (!isSentinelMode && "wakeLock" in navigator) {
+      try {
+        wakeLockRef.current = await (navigator as any).wakeLock.request("screen");
+      } catch {}
+    }
+    setIsSentinelMode((prev) => !prev);
+  };
 
   // Guard Real-time GPS Location - Read cached real coordinates from localStorage if available
   const [guardLocation, setGuardLocation] = useState<GeoCoordinates | null>(() => {
@@ -382,6 +405,28 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
     return relevantAlerts.filter((a) => a.status === "ACTIVE");
   }, [relevantAlerts]);
 
+  // Active alerts excluding this guard's own triggered SOS alert (so it does not duplicate as an emergency to respond to)
+  const otherActiveAlerts = useMemo(() => {
+    return activeAlerts.filter((a) => {
+      if (myActiveSosAlert && a.id === myActiveSosAlert.id) return false;
+      if (lastSentSosAlertId && a.id === lastSentSosAlertId) return false;
+      if (
+        a.guardName &&
+        guardName &&
+        a.guardName.trim().toLowerCase() === guardName.trim().toLowerCase() &&
+        (a.triggerType === "VOLUME_BUTTON" ||
+          a.triggerType === "GUARD_PANIC" ||
+          a.triggerType === "TRIPLE_TAP" ||
+          a.triggerType === "SHAKE_GESTURE" ||
+          a.guardDescription?.includes("SOS GUARDIA") ||
+          a.store?.category?.includes("SOS Guardia"))
+      ) {
+        return false;
+      }
+      return true;
+    });
+  }, [activeAlerts, myActiveSosAlert, lastSentSosAlertId, guardName]);
+
   // Once an alert is no longer ACTIVE (e.g. Central dispatched, resolved or marked as false alarm),
   // automatically add it to silencedAlertIds and kill the local siren so it never rings again
   useEffect(() => {
@@ -408,19 +453,19 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
     }
   }, [relevantAlerts]);
 
-  // Alerts that are currently ACTIVE and have NOT yet been silenced or responded to by this guard
+  // Alerts from OTHER stores/guards that are currently ACTIVE and have NOT yet been silenced or responded to by this guard
   const pendingAlarmAlerts = useMemo(() => {
-    return activeAlerts.filter((a) => !silencedAlertIds.has(a.id));
-  }, [activeAlerts, silencedAlertIds]);
+    return otherActiveAlerts.filter((a) => !silencedAlertIds.has(a.id));
+  }, [otherActiveAlerts, silencedAlertIds]);
 
-  // Current emergency requiring attention (only ACTIVE alerts - deactivates when central dispatches or resolves)
+  // Current emergency from another store/guard requiring attention (only ACTIVE alerts from others)
   const currentEmergency: PanicAlert | null = useMemo(() => {
     if (selectedAlertId) {
-      const found = activeAlerts.find((a) => a.id === selectedAlertId);
+      const found = otherActiveAlerts.find((a) => a.id === selectedAlertId);
       if (found) return found;
     }
-    return activeAlerts[0] || null;
-  }, [activeAlerts, selectedAlertId]);
+    return otherActiveAlerts[0] || null;
+  }, [otherActiveAlerts, selectedAlertId]);
 
   // Resolve matching terminal from database to ensure calibrated tactical coordinates & address
   const matchedTerminal = useMemo(() => {
@@ -937,6 +982,16 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
     };
   }, [guardName, assignedStoreId, assignedStoreName, boundTerminalInfo, terminals, appUser, isEmittingSos, guardLocation]);
 
+  // 4. Lockscreen & Headset MediaSession SOS Trigger Handler
+  useEffect(() => {
+    alarmSound.setMediaSessionSosHandler(() => {
+      triggerGuardSos("VOLUME_BUTTON");
+    });
+    return () => {
+      alarmSound.setMediaSessionSosHandler(null);
+    };
+  }, [guardName, assignedStoreId, assignedStoreName, boundTerminalInfo, terminals, appUser, isEmittingSos, guardLocation]);
+
   // Reset volume counter after 2.5 seconds of inactivity
   useEffect(() => {
     if (volumePressCount > 0) {
@@ -992,8 +1047,20 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
             </div>
           </div>
 
-          {/* Quick duty toggle, Sound Settings & Exit button */}
+          {/* Quick duty toggle, Centinela mode, Sound Settings & Exit button */}
           <div className="flex items-center gap-1.5 flex-shrink-0">
+            <button
+              onClick={toggleSentinelMode}
+              className={`p-2 rounded-xl border text-xs font-bold transition-all cursor-pointer active:scale-95 shadow-sm flex items-center gap-1 ${
+                isSentinelMode
+                  ? "bg-purple-600 text-white border-purple-400 ring-2 ring-purple-500/50 animate-pulse"
+                  : "bg-slate-800/80 hover:bg-slate-700 border-slate-700/80 text-purple-300 hover:text-purple-200"
+              }`}
+              title="Modo Centinela: Pantalla Oscura Antidescanso con 3 Toques / Agitar Activo"
+            >
+              <Moon className="w-4 h-4 text-purple-300" />
+            </button>
+
             <button
               onClick={() => setIsAudioSettingsModalOpen(true)}
               className="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 border border-slate-700/80 text-amber-400 hover:text-amber-300 transition-all cursor-pointer active:scale-95 shadow-sm"
@@ -1238,19 +1305,24 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
               )}
             </button>
 
-            {/* Subtext info */}
-            <div className="pt-0.5 text-[10px] text-slate-400 font-mono space-y-1">
+            {/* Subtext info & Centinela Mode Activation */}
+            <div className="pt-0.5 text-[10px] text-slate-400 font-mono space-y-2">
               <div className="flex items-center justify-between gap-2">
                 <span className="flex items-center gap-1 text-slate-400">
                   <MapPin className="w-3 h-3 text-emerald-400" />
-                  <span>GPS exacto: {guardLocation ? `${guardLocation.latitude.toFixed(5)}°, ${guardLocation.longitude.toFixed(5)}°` : "Calibrado"}</span>
+                  <span>GPS: {guardLocation ? `${guardLocation.latitude.toFixed(5)}°, ${guardLocation.longitude.toFixed(5)}°` : "Calibrado"}</span>
                 </span>
-                <span className="text-[10px] text-slate-500">
-                  Central C4 & Red Táctica
-                </span>
+                <button
+                  type="button"
+                  onClick={toggleSentinelMode}
+                  className="px-2 py-1 rounded-lg bg-purple-950/80 hover:bg-purple-900 border border-purple-700/80 text-purple-300 font-bold flex items-center gap-1 text-[10px] active:scale-95 transition-all cursor-pointer shadow-sm"
+                >
+                  <Moon className="w-3 h-3 text-purple-300" />
+                  <span>Modo Centinela Oscuro</span>
+                </button>
               </div>
               <p className="text-[9px] text-slate-500 leading-snug">
-                💡 En smartphones Android/iOS los navegadores no reciben el botón físico de volumen por seguridad del sistema; para activar sin mirar la pantalla da <b>3 toques en la pantalla</b> o <b>agita el celular</b>.
+                💡 <b>Para activar sin mirar:</b> Usa el <b>Modo Centinela</b> (pantalla oscura antidescanso), da <b>3 toques en pantalla</b>, <b>agita el celular</b> o pulsa los controles de la pantalla de bloqueo.
               </p>
             </div>
           </div>
@@ -1515,6 +1587,27 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
               </div>
             </div>
           </div>
+        ) : myActiveSosAlert ? (
+          /* SOS ACTIVE TELEMETRY TRANSMISSION (NO DUPLICATE CARD) */
+          <div className="bg-slate-900/90 border border-red-900/60 rounded-2xl p-5 text-center space-y-3 shadow-xl my-auto">
+            <div className="w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-400 mx-auto shadow-inner">
+              <Radio className="w-6 h-6 animate-pulse" />
+            </div>
+
+            <div className="space-y-1">
+              <h3 className="text-sm font-black text-white uppercase tracking-wider">
+                📡 Enlace Táctico de Emergencia Transmitiendo
+              </h3>
+              <p className="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">
+                Tus coordenadas GPS y reporte de auxilio están desplegados en la pantalla principal de la Central C4 y unidades de apoyo.
+              </p>
+            </div>
+
+            <div className="p-2.5 rounded-xl bg-slate-950 border border-red-900/50 text-[11px] text-red-300 font-mono flex items-center justify-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
+              <span>Transmisión prioritaria en curso con C4</span>
+            </div>
+          </div>
         ) : (
           /* STANDBY STATE (NO ACTIVE EMERGENCY) */
           <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 text-center space-y-3.5 shadow-xl my-auto">
@@ -1570,6 +1663,109 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
             <div className="mt-3 text-center text-xs font-mono text-slate-300">
               {currentEmergency.store.storeName} • Cuadro #{selectedFrameIndex + 1} de {currentEmergency.images.length}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= FULLSCREEN STEALTH CENTINELA OVERLAY (BLACKOUT PATROL MODE) ================= */}
+      {isSentinelMode && (
+        <div
+          className="fixed inset-0 z-50 bg-black text-white flex flex-col justify-between p-6 select-none touch-none animate-in fade-in duration-300"
+          style={{ backgroundColor: "#000000" }}
+          onClick={(e) => {
+            // Screen tap detection inside blackout
+            const target = e.target as HTMLElement | null;
+            if (target && target.closest("button")) return;
+            const now = Date.now();
+            setTapCount((prev) => {
+              const next = prev + 1;
+              if (typeof navigator !== "undefined" && navigator.vibrate) {
+                navigator.vibrate(next === 1 ? 60 : next === 2 ? [80, 40, 80] : [200, 80, 400]);
+              }
+              if (next >= 3) {
+                triggerGuardSos("TRIPLE_TAP");
+                return 0;
+              }
+              return next;
+            });
+          }}
+        >
+          {/* Top minimal stealth indicator */}
+          <div className="flex items-center justify-between pt-2">
+            <div className="flex items-center gap-2 text-xs font-mono text-purple-400/80">
+              <span className="w-2 h-2 rounded-full bg-purple-500 animate-ping" />
+              <span>MODO CENTINELA ACTIVO</span>
+            </div>
+
+            <span className="text-[10px] font-mono text-slate-600 bg-slate-950 px-2 py-0.5 rounded border border-slate-900">
+              AMOLED ULTRA-AHORRO
+            </span>
+          </div>
+
+          {/* Center Stealth Touch/Shake Feedback */}
+          <div className="text-center space-y-4 my-auto pointer-events-none">
+            {myActiveSosAlert ? (
+              <div className="p-4 rounded-2xl bg-red-950/80 border-2 border-red-500 space-y-3 pointer-events-auto">
+                <AlertOctagon className="w-12 h-12 text-red-400 animate-bounce mx-auto" />
+                <h2 className="text-base font-black text-red-300 tracking-wider">
+                  🚨 ¡PÁNICO SOS TRANSMITIDO A C4!
+                </h2>
+                <p className="text-xs text-slate-300">
+                  Ubicación GPS transmitida. La central y patrullas están acudiendo.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => handleResolveMySos(myActiveSosAlert.id)}
+                  className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs cursor-pointer active:scale-95 transition-all shadow-lg"
+                >
+                  CANCELAR PÁNICO / BAJO CONTROL
+                </button>
+              </div>
+            ) : tapCount > 0 ? (
+              <div className="space-y-2 animate-pulse">
+                <div className="text-5xl">👆</div>
+                <div className="text-2xl font-black text-amber-400 font-mono">
+                  TOQUE {tapCount} / 3
+                </div>
+                <p className="text-xs text-amber-300">
+                  {tapCount === 2 ? "¡Da 1 toque más en cualquier parte!" : "Da 2 toques más rápido para SOS"}
+                </p>
+              </div>
+            ) : shakeCount > 0 ? (
+              <div className="space-y-2 animate-pulse">
+                <div className="text-5xl">📳</div>
+                <div className="text-2xl font-black text-cyan-400 font-mono">
+                  MOVIMIENTO {shakeCount} / 3
+                </div>
+                <p className="text-xs text-cyan-300">
+                  ¡Agita con fuerza para activar SOS!
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3 opacity-60">
+                <div className="w-16 h-16 rounded-full border border-purple-500/30 flex items-center justify-center mx-auto">
+                  <Moon className="w-8 h-8 text-purple-400 animate-pulse" />
+                </div>
+                <div className="text-xs font-mono text-slate-400 space-y-1">
+                  <p className="text-slate-300 font-bold">Pantalla activa protegida contra apagado</p>
+                  <p className="text-[10px] text-slate-500">
+                    Da 3 toques en cualquier lugar de la pantalla o agita el celular para enviar SOS inmediato
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Bottom Stealth Exit Button */}
+          <div className="pb-4 pt-2">
+            <button
+              type="button"
+              onClick={() => setIsSentinelMode(false)}
+              className="w-full py-3 rounded-2xl bg-slate-950 hover:bg-slate-900 border border-slate-800 text-slate-400 hover:text-white text-xs font-mono font-bold flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer shadow-lg"
+            >
+              <Unlock className="w-4 h-4 text-purple-400" />
+              <span>Toca aquí para Salir del Centinela</span>
+            </button>
           </div>
         </div>
       )}
