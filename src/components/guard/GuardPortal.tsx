@@ -23,6 +23,11 @@ import {
   RefreshCw,
   Radio,
   Bluetooth,
+  UserCheck,
+  BadgeCheck,
+  Building,
+  Store,
+  Edit3,
 } from "lucide-react";
 import { PanicAlert, AlertStatus, GeoCoordinates, TriggerMode, StoreMetadata } from "../../types.js";
 import { alarmSound } from "../../utils/audio.js";
@@ -52,6 +57,20 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
     return localStorage.getItem("pg_guard_duty") !== "false";
   });
   const [isAudioSettingsModalOpen, setIsAudioSettingsModalOpen] = useState(false);
+
+  // Modal para que el guardia ingrese su nombre al escanear la terminal
+  const [isNameModalOpen, setIsNameModalOpen] = useState<boolean>(() => {
+    const savedName = localStorage.getItem("pg_guard_name");
+    const { sid } = extractStoreParamsFromUrl();
+    if (sid && !localStorage.getItem(`pg_guard_checked_in_${sid}`)) {
+      return true;
+    }
+    return !savedName || savedName.trim() === "" || savedName === "Oficial de Seguridad";
+  });
+  const [tempGuardInput, setTempGuardInput] = useState<string>(() => {
+    const saved = localStorage.getItem("pg_guard_name");
+    return (saved && saved !== "Oficial de Seguridad") ? saved : "";
+  });
 
   // Guard SOS Panic Button & Bluetooth / External Clicker Trigger State
   const [isEmittingSos, setIsEmittingSos] = useState<boolean>(false);
@@ -299,6 +318,28 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
     }
   };
 
+  // Handle name saving and check-in
+  const handleConfirmGuardName = (name: string) => {
+    const cleanName = name.trim() || "Oficial de Seguridad";
+    setGuardName(cleanName);
+    localStorage.setItem("pg_guard_name", cleanName);
+    if (assignedStoreId) {
+      localStorage.setItem(`pg_guard_checked_in_${assignedStoreId}`, "true");
+    }
+    setIsNameModalOpen(false);
+
+    // Notify Central via socket of guard checkin at this terminal
+    const socket = (window as any).__panicSocket;
+    if (socket) {
+      socket.emit("guard:checkin", {
+        guardName: cleanName,
+        storeId: assignedStoreId,
+        storeName: assignedStoreName || boundTerminalInfo?.storeName,
+        timestamp: new Date().toISOString(),
+      });
+    }
+  };
+
   // Read and react to URL query parameters for store binding from QR
   useEffect(() => {
     const syncFromUrl = () => {
@@ -309,6 +350,10 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
         if (sname) {
           setAssignedStoreName(sname);
           localStorage.setItem("pg_guard_store_name", sname);
+        }
+        // If not checked in for this specific scanned terminal, prompt to put their name
+        if (!localStorage.getItem(`pg_guard_checked_in_${sid}`)) {
+          setIsNameModalOpen(true);
         }
       }
     };
@@ -934,6 +979,37 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
 
       {/* ================= COMPACT OFFICER & REAL-TIME GPS BAR ================= */}
       <section className="px-3.5 pt-3 pb-1 space-y-2">
+        {/* Puesto Asignado por QR si existe */}
+        {(assignedStoreId || boundTerminalInfo) && (
+          <div className="bg-emerald-950/70 border border-emerald-500/50 rounded-2xl p-2.5 px-3 flex items-center justify-between gap-2 text-xs shadow-md">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-7 h-7 rounded-lg bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-300 shrink-0">
+                <Store className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <span className="text-[9px] font-mono uppercase font-bold text-emerald-400 block leading-tight">
+                  Puesto de Guardia Vinculado
+                </span>
+                <span className="font-bold text-white truncate block text-[11px]">
+                  {assignedStoreName || boundTerminalInfo?.storeName || `Terminal ${assignedStoreId}`}
+                </span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setTempGuardInput(guardName !== "Oficial de Seguridad" ? guardName : "");
+                setIsNameModalOpen(true);
+              }}
+              className="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-200 text-[10px] font-mono font-bold shrink-0 flex items-center gap-1 cursor-pointer active:scale-95 transition-all"
+            >
+              <Edit3 className="w-3 h-3 text-emerald-400" />
+              <span>Cambiar Guardia</span>
+            </button>
+          </div>
+        )}
+
         <div className="bg-slate-900/95 border border-slate-800 rounded-2xl p-3 shadow-md space-y-2.5">
           {/* Officer Name Field (Integrated inline) */}
           <div className="flex items-center gap-2">
@@ -949,9 +1025,16 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
                 className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 rounded-xl px-3 py-1.5 text-white text-xs font-semibold placeholder:text-slate-600 transition-all outline-none"
               />
             </div>
-            <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-lg border border-emerald-500/20 shrink-0">
-              Auto-guardado
-            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setTempGuardInput(guardName !== "Oficial de Seguridad" ? guardName : "");
+                setIsNameModalOpen(true);
+              }}
+              className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 px-2 py-1 rounded-lg border border-emerald-500/20 shrink-0 cursor-pointer"
+            >
+              Registro
+            </button>
           </div>
 
           {/* Real-time GPS status line with live coordinates */}
@@ -1435,6 +1518,93 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
           </div>
         )}
       </main>
+
+      {/* MODAL: REGISTRO DE IDENTIFICACIÓN DEL GUARDIA EN TURNO */}
+      {isNameModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-slate-900 border-2 border-emerald-500/60 rounded-3xl p-6 sm:p-7 shadow-2xl space-y-5 relative">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-600/20 border border-emerald-500/50 flex items-center justify-center text-emerald-400 shrink-0 shadow-inner">
+                <UserCheck className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white tracking-tight">
+                  Registro de Guardia en Turno
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Identificación oficial para Central C4 y Bitácora
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-slate-950/90 border border-slate-800 rounded-2xl p-4 text-xs space-y-2 text-slate-300">
+              <div className="flex justify-between items-center pb-2 border-b border-slate-800/80">
+                <span className="text-slate-400">Puesto / Terminal Vinculada:</span>
+                <span className="font-bold text-emerald-400">
+                  {assignedStoreName || boundTerminalInfo?.storeName || (assignedStoreId ? `Terminal ${assignedStoreId}` : "Terminal de Seguridad")}
+                </span>
+              </div>
+              {boundTerminalInfo?.address && (
+                <div className="flex items-start gap-1.5 text-[11px] text-slate-400 pt-0.5">
+                  <MapPin className="w-3.5 h-3.5 text-red-400 shrink-0 mt-0.5" />
+                  <span>{boundTerminalInfo.address}</span>
+                </div>
+              )}
+              <p className="text-slate-400 text-[11px] leading-relaxed pt-1">
+                Por protocolo de seguridad, tu nombre se registrará en cada auxilio, ruta GPS y reporte de pánico emitido a la Central C4.
+              </p>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (tempGuardInput.trim()) {
+                  handleConfirmGuardName(tempGuardInput);
+                }
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+                  Escribe tu Nombre y Apellido:
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    required
+                    autoFocus
+                    value={tempGuardInput}
+                    onChange={(e) => setTempGuardInput(e.target.value)}
+                    placeholder="Ej. Oficial Carlos Mendoza"
+                    className="w-full bg-slate-950 border-2 border-slate-700 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/20 rounded-2xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none transition-all shadow-inner font-medium"
+                  />
+                  <BadgeCheck className="w-5 h-5 text-emerald-400 absolute right-3.5 top-3.5 pointer-events-none" />
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                {guardName && guardName !== "Oficial de Seguridad" && (
+                  <button
+                    type="button"
+                    onClick={() => setIsNameModalOpen(false)}
+                    className="flex-1 py-3 rounded-2xl bg-slate-800 hover:bg-slate-750 border border-slate-700 text-slate-300 text-xs font-bold transition-colors cursor-pointer"
+                  >
+                    Mantener Anterior
+                  </button>
+                )}
+                <button
+                  type="submit"
+                  disabled={!tempGuardInput.trim()}
+                  className="flex-1 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold tracking-wide shadow-lg shadow-emerald-600/30 transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-95"
+                >
+                  <UserCheck className="w-4 h-4" />
+                  <span>Confirmar y Comenzar Guardia</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* FULLSCREEN IMAGE MODAL (FOR MOBILE ZOOM) */}
       {isZoomImageOpen && currentEmergency && currentEmergency.cameraEnabled !== false && currentEmergency.images && currentEmergency.images.length > 0 && (

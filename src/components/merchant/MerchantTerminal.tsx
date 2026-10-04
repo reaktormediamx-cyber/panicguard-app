@@ -29,8 +29,9 @@ import {
   Copy,
   X,
   Sliders,
+  Download,
 } from "lucide-react";
-import { QRCodeSVG } from "qrcode.react";
+import { QRCodeSVG, QRCodeCanvas } from "qrcode.react";
 import { StoreMetadata, PanicAlert } from "../../types.js";
 import { usePanicCapture } from "../../hooks/usePanicCapture.js";
 import { alarmSound } from "../../utils/audio.js";
@@ -60,11 +61,25 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
   });
 
   const [selectedTerminalId, setSelectedTerminalId] = useState<string>(() => {
-    const match = terminals.find(t => t.storeId === store.storeId);
+    const match = terminals.find(t => t.storeId === store.storeId || (appUser?.email && t.email?.toLowerCase() === appUser.email.toLowerCase()));
     return match ? match.id : (availableTerminals[0]?.id || "");
   });
 
-  const matchingTerminal = terminals.find(t => t.id === selectedTerminalId) || terminals.find(t => t.storeId === store.storeId);
+  // Re-sync selectedTerminalId when terminals load from Firestore or store changes
+  useEffect(() => {
+    if (terminals.length > 0) {
+      const match = terminals.find(
+        (t) =>
+          t.storeId === store.storeId ||
+          (appUser?.email && (t.email || "").toLowerCase() === (appUser.email || "").toLowerCase())
+      );
+      if (match) {
+        setSelectedTerminalId(match.id);
+      }
+    }
+  }, [terminals, store.storeId, appUser?.email]);
+
+  const matchingTerminal = terminals.find(t => t.id === selectedTerminalId) || terminals.find(t => t.storeId === store.storeId || (appUser?.email && t.email?.toLowerCase() === appUser.email.toLowerCase()));
   const activeStore = matchingTerminal || store;
   const firestoreId = matchingTerminal ? matchingTerminal.id : store.storeId;
 
@@ -97,6 +112,7 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
 
   const [isStoreQrModalOpen, setIsStoreQrModalOpen] = useState<boolean>(false);
   const [copiedStoreQrUrl, setCopiedStoreQrUrl] = useState<boolean>(false);
+  const [isDownloadingQr, setIsDownloadingQr] = useState<boolean>(false);
 
   const toggleSound = () => {
     const next = !isMuted;
@@ -120,6 +136,14 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
         Boolean(a.guardName && (a.guardDescription?.includes("SOS GUARDIA") || a.guardDescription?.includes("PÁNICO SOS"))))
   );
 
+  // Active panic alert emitted by this terminal
+  const activeTerminalAlert = (alerts || []).find(
+    (a) =>
+      a.status === "ACTIVE" &&
+      (a.store?.storeId === activeStore.storeId ||
+        a.store?.storeName?.toLowerCase() === activeStore.storeName?.toLowerCase())
+  );
+
   // Sound chime when guard SOS starts
   useEffect(() => {
     if (activeGuardSosAlert && !isMuted) {
@@ -128,6 +152,15 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
       } catch {}
     }
   }, [activeGuardSosAlert?.id, isMuted]);
+
+  // Start or maintain repetitive siren loop when this terminal's panic is active
+  useEffect(() => {
+    if (activeTerminalAlert && activeTerminalAlert.triggerType !== "SILENT_TRIGGER" && !isMuted) {
+      alarmSound.startEmergencySiren();
+    } else if (!activeTerminalAlert && !activeGuardSosAlert) {
+      alarmSound.silenceAll();
+    }
+  }, [activeTerminalAlert?.id, activeTerminalAlert?.status, isMuted, activeGuardSosAlert]);
 
   const {
     videoRef,
@@ -1042,7 +1075,7 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
       {/* MODAL: QR CODE EXCLUSIVO PARA GUARDIAS DE ESTE COMERCIO */}
       {isStoreQrModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 max-w-md w-full space-y-5 text-center shadow-2xl relative">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-7 max-w-lg w-full space-y-4 text-center shadow-2xl relative max-h-[92vh] overflow-y-auto">
             <button
               onClick={() => setIsStoreQrModalOpen(false)}
               className="absolute top-4 right-4 p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors cursor-pointer"
@@ -1050,63 +1083,232 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
               <X className="w-4 h-4" />
             </button>
 
-            <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mx-auto shadow-lg">
-              <Store className="w-7 h-7" />
+            <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mx-auto shadow-lg">
+              <Store className="w-6 h-6" />
             </div>
 
-            <div className="space-y-1.5">
-              <h3 className="text-xl font-black text-white tracking-tight">
-                QR Exclusivo para Guardias de:
+            <div className="space-y-1">
+              <h3 className="text-lg font-black text-white tracking-tight">
+                Código QR Oficial de Vinculación de Guardia
               </h3>
-              <div className="text-sm font-bold text-amber-300">
-                {activeStore.storeName} ({activeStore.storeId})
-              </div>
-              <p className="text-xs text-slate-400 leading-relaxed max-w-xs mx-auto">
-                Los guardias que escaneen este código QR únicamente recibirán la sirena y fotos cuando este local específico active su alerta de pánico.
+              <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                Los oficiales de seguridad que escaneen este código quedarán asignados a esta sucursal y recibirán sus alertas de pánico en tiempo real.
               </p>
             </div>
 
-            {/* QR Code with storeId and storeName binding */}
-            <div className="p-4 bg-white rounded-2xl inline-block shadow-xl mx-auto">
-              <QRCodeSVG
+            {/* Hidden Canvas for High-Resolution PNG Generator */}
+            <div className="hidden">
+              <QRCodeCanvas
+                id="merchant-qr-canvas"
                 value={`${window.location.origin}/#guard?storeId=${encodeURIComponent(activeStore.storeId)}&storeName=${encodeURIComponent(activeStore.storeName)}`}
-                size={200}
+                size={512}
                 level="H"
                 includeMargin={false}
               />
             </div>
 
-            <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-[11px] text-slate-300 font-mono text-left space-y-1">
-              <div className="flex items-center gap-1.5 text-emerald-400 font-bold">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>Vinculación Directa a esta Terminal</span>
+            {/* Interactive QR Display Card with Printed Establishment Details */}
+            <div className="bg-white rounded-2xl p-5 shadow-2xl text-slate-900 space-y-3 mx-auto max-w-sm border-2 border-slate-300">
+              <div className="p-2 bg-white rounded-xl inline-block">
+                <QRCodeSVG
+                  value={`${window.location.origin}/#guard?storeId=${encodeURIComponent(activeStore.storeId)}&storeName=${encodeURIComponent(activeStore.storeName)}`}
+                  size={190}
+                  level="H"
+                  includeMargin={false}
+                />
               </div>
-              <p className="text-slate-400 text-[10px]">
-                No le sonará a otros guardias que pertenezcan a otras tiendas. 0 Créditos consumidos.
-              </p>
+
+              {/* Text printed below the QR code */}
+              <div className="space-y-1 pt-2 border-t-2 border-slate-200 text-left">
+                <div className="flex items-center justify-between gap-2">
+                  <h4 className="font-black text-sm text-slate-950 uppercase leading-tight line-clamp-1">
+                    {activeStore.storeName}
+                  </h4>
+                  <span className="text-[10px] font-mono font-black bg-red-100 text-red-700 px-2 py-0.5 rounded border border-red-300 shrink-0">
+                    {activeStore.storeId}
+                  </span>
+                </div>
+
+                <div className="flex items-start gap-1.5 text-[11px] text-slate-700 leading-snug pt-0.5">
+                  <MapPin className="w-3.5 h-3.5 text-red-600 shrink-0 mt-0.5" />
+                  <span className="font-medium">
+                    {activeStore.address}{activeStore.city ? `, ${activeStore.city}` : ""}
+                  </span>
+                </div>
+
+                {activeStore.phone && (
+                  <div className="flex items-center gap-1.5 text-[10px] text-slate-600 pt-0.5">
+                    <Phone className="w-3 h-3 text-slate-500 shrink-0" />
+                    <span>Tel: {activeStore.phone} • Titular: {activeStore.ownerName || "Comercio"}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-slate-100 p-2 rounded-lg text-[10px] text-slate-600 text-center font-medium leading-tight">
+                📲 Escanea con la cámara de tu celular para ingresar al Puesto de Guardia
+              </div>
             </div>
 
-            <button
-              onClick={() => {
-                const targetUrl = `${window.location.origin}/#guard?storeId=${encodeURIComponent(activeStore.storeId)}&storeName=${encodeURIComponent(activeStore.storeName)}`;
-                navigator.clipboard.writeText(targetUrl);
-                setCopiedStoreQrUrl(true);
-                setTimeout(() => setCopiedStoreQrUrl(false), 2500);
-              }}
-              className="w-full py-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow"
-            >
-              {copiedStoreQrUrl ? (
-                <>
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                  <span className="text-emerald-300">¡Enlace de Tienda Copiado!</span>
-                </>
-              ) : (
-                <>
-                  <Copy className="w-4 h-4 text-emerald-400" />
-                  <span>Copiar Enlace Exclusivo de Esta Tienda</span>
-                </>
-              )}
-            </button>
+            {/* Action Buttons: Download PNG & Copy Link */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsDownloadingQr(true);
+                  try {
+                    const qrCanvas = document.getElementById("merchant-qr-canvas") as HTMLCanvasElement | null;
+                    if (!qrCanvas) {
+                      alert("No se pudo generar la imagen del código QR.");
+                      setIsDownloadingQr(false);
+                      return;
+                    }
+
+                    const canvas = document.createElement("canvas");
+                    const ctx = canvas.getContext("2d");
+                    if (!ctx) {
+                      setIsDownloadingQr(false);
+                      return;
+                    }
+
+                    canvas.width = 900;
+                    canvas.height = 1180;
+
+                    // Background
+                    ctx.fillStyle = "#ffffff";
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                    // Outer border
+                    ctx.strokeStyle = "#0f172a";
+                    ctx.lineWidth = 14;
+                    ctx.strokeRect(20, 20, canvas.width - 40, canvas.height - 40);
+
+                    // Header Banner
+                    ctx.fillStyle = "#0f172a";
+                    ctx.fillRect(20, 20, canvas.width - 40, 130);
+
+                    ctx.fillStyle = "#ffffff";
+                    ctx.font = "900 36px system-ui, sans-serif";
+                    ctx.textAlign = "center";
+                    ctx.fillText("🛡️ PANICGUARD TÁCTICO", canvas.width / 2, 80);
+
+                    ctx.fillStyle = "#38bdf8";
+                    ctx.font = "bold 18px monospace";
+                    ctx.fillText("VINCULACIÓN OFICIAL DE GUARDIA EN TURNO", canvas.width / 2, 115);
+
+                    // Draw QR Code
+                    const qrSize = 420;
+                    const qrX = (canvas.width - qrSize) / 2;
+                    const qrY = 180;
+
+                    ctx.fillStyle = "#ffffff";
+                    ctx.strokeStyle = "#e2e8f0";
+                    ctx.lineWidth = 4;
+                    ctx.strokeRect(qrX - 15, qrY - 15, qrSize + 30, qrSize + 30);
+                    ctx.drawImage(qrCanvas, qrX, qrY, qrSize, qrSize);
+
+                    // Store details below QR
+                    let textY = qrY + qrSize + 55;
+
+                    ctx.fillStyle = "#0f172a";
+                    ctx.font = "bold 32px system-ui, sans-serif";
+                    ctx.textAlign = "center";
+                    ctx.fillText(activeStore.storeName, canvas.width / 2, textY);
+
+                    textY += 38;
+                    ctx.fillStyle = "#dc2626";
+                    ctx.font = "bold 20px monospace";
+                    ctx.fillText(`ID TERMINAL: ${activeStore.storeId} • ${activeStore.centralName || "CENTRAL C4"}`, canvas.width / 2, textY);
+
+                    textY += 22;
+                    ctx.strokeStyle = "#cbd5e1";
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(70, textY);
+                    ctx.lineTo(canvas.width - 70, textY);
+                    ctx.stroke();
+
+                    // Address with Word Wrap
+                    textY += 40;
+                    ctx.fillStyle = "#334155";
+                    ctx.font = "bold 22px system-ui, sans-serif";
+                    const fullAddress = `${activeStore.address || ""}${activeStore.city ? " • " + activeStore.city : ""}`;
+                    const words = fullAddress.split(" ");
+                    let line = "";
+                    for (let n = 0; n < words.length; n++) {
+                      const testLine = line + words[n] + " ";
+                      const metrics = ctx.measureText(testLine);
+                      if (metrics.width > 740 && n > 0) {
+                        ctx.fillText(line.trim(), canvas.width / 2, textY);
+                        line = words[n] + " ";
+                        textY += 32;
+                      } else {
+                        line = testLine;
+                      }
+                    }
+                    ctx.fillText(line.trim(), canvas.width / 2, textY);
+
+                    if (activeStore.phone) {
+                      textY += 34;
+                      ctx.fillStyle = "#64748b";
+                      ctx.font = "18px system-ui, sans-serif";
+                      ctx.fillText(`📞 Contacto: ${activeStore.phone} • Titular: ${activeStore.ownerName || "Comercio"}`, canvas.width / 2, textY);
+                    }
+
+                    // Instructions box at bottom
+                    ctx.fillStyle = "#f8fafc";
+                    ctx.fillRect(40, canvas.height - 125, canvas.width - 80, 85);
+                    ctx.strokeStyle = "#e2e8f0";
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(40, canvas.height - 125, canvas.width - 80, 85);
+
+                    ctx.fillStyle = "#0284c7";
+                    ctx.font = "bold 18px system-ui, sans-serif";
+                    ctx.fillText("📲 INSTRUCCIONES PARA EL OFICIAL DE GUARDIA:", canvas.width / 2, canvas.height - 88);
+                    ctx.fillStyle = "#475569";
+                    ctx.font = "15px system-ui, sans-serif";
+                    ctx.fillText("Escanea con tu celular para identificarte y atender incidentes de este local.", canvas.width / 2, canvas.height - 60);
+
+                    const dataUrl = canvas.toDataURL("image/png");
+                    const link = document.createElement("a");
+                    link.download = `QR_Guardia_${activeStore.storeId}_${activeStore.storeName.replace(/[^a-zA-Z0-9]/g, "_")}.png`;
+                    link.href = dataUrl;
+                    link.click();
+                  } catch (e) {
+                    console.error("Error generating QR download:", e);
+                  } finally {
+                    setIsDownloadingQr(false);
+                  }
+                }}
+                disabled={isDownloadingQr}
+                className="py-3 px-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 active:scale-95 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg shadow-emerald-950/60"
+              >
+                <Download className="w-4 h-4 text-emerald-200" />
+                <span>{isDownloadingQr ? "Generando..." : "Descargar QR (PNG Imprimible)"}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const targetUrl = `${window.location.origin}/#guard?storeId=${encodeURIComponent(activeStore.storeId)}&storeName=${encodeURIComponent(activeStore.storeName)}`;
+                  navigator.clipboard.writeText(targetUrl);
+                  setCopiedStoreQrUrl(true);
+                  setTimeout(() => setCopiedStoreQrUrl(false), 2500);
+                }}
+                className="py-3 px-3 rounded-2xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow"
+              >
+                {copiedStoreQrUrl ? (
+                  <>
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    <span className="text-emerald-300">¡Enlace Copiado!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-4 h-4 text-slate-400" />
+                    <span>Copiar Enlace Web</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

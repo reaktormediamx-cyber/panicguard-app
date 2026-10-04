@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { GeoCoordinates, StoreMetadata, PanicAlert, TriggerMode } from "../types.js";
+import { alarmSound } from "../utils/audio.js";
 
 interface UsePanicCaptureOptions {
   store: StoreMetadata;
@@ -12,7 +13,11 @@ export function usePanicCapture({ store, onAlertSent, isCameraEnabled = true }: 
   const [hasGeoPermission, setHasGeoPermission] = useState<boolean | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [geoError, setGeoError] = useState<string | null>(null);
-  const [currentCoords, setCurrentCoords] = useState<GeoCoordinates>(store.coordinates);
+  const [currentCoords, setCurrentCoords] = useState<GeoCoordinates>(() => {
+    return (store.coordinates && store.coordinates.latitude !== 0)
+      ? store.coordinates
+      : { latitude: 19.432608, longitude: -99.133209 };
+  });
   const [isCapturing, setIsCapturing] = useState<boolean>(false);
   const [capturedFrames, setCapturedFrames] = useState<string[]>([]);
   const [lastSentAlertId, setLastSentAlertId] = useState<string | null>(null);
@@ -20,6 +25,14 @@ export function usePanicCapture({ store, onAlertSent, isCameraEnabled = true }: 
   const [statusMessage, setStatusMessage] = useState<string>("Sistema Operativo - En Guardia");
   const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>("");
+
+  const storeRef = useRef<StoreMetadata>(store);
+  useEffect(() => {
+    storeRef.current = store;
+    if (store.coordinates && store.coordinates.latitude !== 0) {
+      setCurrentCoords(store.coordinates);
+    }
+  }, [store]);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -90,8 +103,13 @@ export function usePanicCapture({ store, onAlertSent, isCameraEnabled = true }: 
     }
   }, [isCameraEnabled, selectedDeviceId, stopCamera]);
 
-  // Request GPS coordinates
+  // Request GPS coordinates (only if store coordinates are not already calibrated)
   const refreshLocation = useCallback(() => {
+    if (storeRef.current.coordinates && storeRef.current.coordinates.latitude !== 0) {
+      setCurrentCoords(storeRef.current.coordinates);
+      return;
+    }
+
     if (!navigator.geolocation) {
       setHasGeoPermission(false);
       setGeoError("Geolocalización no soportada en este navegador");
@@ -110,7 +128,7 @@ export function usePanicCapture({ store, onAlertSent, isCameraEnabled = true }: 
         });
       },
       (err) => {
-        console.warn("GPS error, falling back to calibrated store coords:", err);
+        console.warn("GPS notice, using configured establishment coords:", err);
         setHasGeoPermission(false);
         setGeoError(err.message);
       },
@@ -131,6 +149,7 @@ export function usePanicCapture({ store, onAlertSent, isCameraEnabled = true }: 
 
   // Capture a single frame from video stream to base64
   const captureFrame = useCallback((): string => {
+    const activeStore = storeRef.current;
     const video = videoRef.current;
     if (!video || !video.videoWidth || !video.videoHeight) {
       // Fallback synthetic high-contrast security frame if video stream is unattached
@@ -143,10 +162,10 @@ export function usePanicCapture({ store, onAlertSent, isCameraEnabled = true }: 
         ctx.fillRect(0, 0, 640, 480);
         ctx.fillStyle = "#ef4444";
         ctx.font = "bold 22px monospace";
-        ctx.fillText(`EMERGENCIA EN TIENDA: ${store.storeName}`, 30, 80);
+        ctx.fillText(`EMERGENCIA EN TIENDA: ${activeStore.storeName}`, 30, 80);
         ctx.fillStyle = "#94a3b8";
         ctx.font = "16px monospace";
-        ctx.fillText(`ID: ${store.storeId} | GPS: ${currentCoords.latitude.toFixed(4)}, ${currentCoords.longitude.toFixed(4)}`, 30, 130);
+        ctx.fillText(`ID: ${activeStore.storeId} | DIR: ${activeStore.address}`, 30, 130);
         ctx.fillText(`TIMESTAMP: ${new Date().toLocaleTimeString()} - CAPTURA DE SENSOR`, 30, 170);
         ctx.strokeStyle = "#ef4444";
         ctx.lineWidth = 4;
@@ -172,13 +191,13 @@ export function usePanicCapture({ store, onAlertSent, isCameraEnabled = true }: 
     ctx.fillStyle = "#ffffff";
     ctx.font = "bold 16px 'JetBrains Mono', monospace";
     ctx.fillText(
-      `PANICGUARD LIVE | ${store.storeName} | ${new Date().toISOString()} | GPS: [${currentCoords.latitude.toFixed(5)}, ${currentCoords.longitude.toFixed(5)}]`,
+      `PANICGUARD LIVE | ${activeStore.storeName} | ${activeStore.address} | ${new Date().toISOString()}`,
       16,
       canvas.height - 15
     );
 
     return canvas.toDataURL("image/jpeg", 0.85);
-  }, [store, currentCoords]);
+  }, []);
 
   // Execute immediate burst capture of 3 frames with micro-delays
   const executeBurstCapture = useCallback(async (): Promise<string[]> => {
@@ -213,6 +232,7 @@ export function usePanicCapture({ store, onAlertSent, isCameraEnabled = true }: 
   }, [captureFrame, isCameraEnabled]);
 
   const resetAlert = useCallback(async () => {
+    alarmSound.silenceAll();
     if (lastSentAlertId) {
       try {
         await fetch(`/api/alerts/${lastSentAlertId}/status`, {
@@ -233,26 +253,40 @@ export function usePanicCapture({ store, onAlertSent, isCameraEnabled = true }: 
   const triggerPanic = useCallback(
     async (triggerType: TriggerMode = "MANUAL_BUTTON", guardDescription?: string, guardName?: string) => {
       try {
+        const activeStore = storeRef.current;
         setStatusMessage(
           isCameraEnabled
             ? "🚨 TRANSMITIENDO ALERTA CRÍTICA Y VIDEOVERIFICACIÓN A CENTRAL..."
             : "🚨 TRANSMITIENDO ALERTA DE PÁNICO A CENTRAL DE SEGURIDAD..."
         );
 
+        // Start repetitive acoustic siren alarm unless silent trigger
+        if (triggerType !== "SILENT_TRIGGER" && !alarmSound.isMuted()) {
+          alarmSound.startEmergencySiren();
+        }
+
         // 1. Capture 3-frame burst only if camera is enabled
         const frames = isCameraEnabled ? await executeBurstCapture() : [];
 
-        // 2. Determine real coordinates: Prioritize configured/calibrated Store & Terminal Tactical Coordinates
-        const hasStoreCoords = store.coordinates && typeof store.coordinates.latitude === "number" && store.coordinates.latitude !== 0;
-        const validCoords = hasStoreCoords
-          ? store.coordinates
-          : (currentCoords && currentCoords.latitude !== 0 ? currentCoords : store.coordinates);
+        // 2. Determine exact establishment coordinates: Prioritize configured/calibrated Store & Terminal Tactical Coordinates
+        const hasStoreCoords = activeStore.coordinates && typeof activeStore.coordinates.latitude === "number" && activeStore.coordinates.latitude !== 0;
+        const validCoords: GeoCoordinates = hasStoreCoords
+          ? activeStore.coordinates!
+          : (currentCoords && currentCoords.latitude !== 0 ? currentCoords : { latitude: 19.432608, longitude: -99.133209 });
 
-        // 3. Prepare payload
+        // 3. Prepare payload with full registered establishment metadata
         const payload: Partial<PanicAlert> = {
           store: {
-            ...store,
+            storeId: activeStore.storeId,
+            storeName: activeStore.storeName,
+            ownerName: activeStore.ownerName,
+            phone: activeStore.phone,
+            address: activeStore.address,
+            city: activeStore.city,
+            category: activeStore.category,
             coordinates: validCoords,
+            centralId: activeStore.centralId,
+            centralName: activeStore.centralName,
           },
           images: frames,
           cameraEnabled: isCameraEnabled,
@@ -262,7 +296,7 @@ export function usePanicCapture({ store, onAlertSent, isCameraEnabled = true }: 
           guardName: guardName?.trim() || undefined,
         };
 
-        // 3. Send to server via HTTP POST (instant REST delivery)
+        // 4. Send to server via HTTP POST (instant REST delivery)
         const response = await fetch("/api/alerts", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -281,18 +315,13 @@ export function usePanicCapture({ store, onAlertSent, isCameraEnabled = true }: 
           onAlertSent(data.alertId, data.timestamp);
         }
 
-        // Auto return to normal state after 10 seconds
-        setTimeout(() => {
-          resetAlert();
-        }, 10000);
-
         return data;
       } catch (err: any) {
         console.error("Error transmitiendo pánico:", err);
         setStatusMessage(`⚠️ Error de transmisión: ${err.message}. Reintentando enlace.`);
       }
     },
-    [store, currentCoords, executeBurstCapture, onAlertSent, resetAlert, isCameraEnabled]
+    [currentCoords, executeBurstCapture, onAlertSent, isCameraEnabled]
   );
 
   const sendGuardUpdate = useCallback(async (alertId: string, noteText: string, authorName?: string) => {
