@@ -231,6 +231,28 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
 
   const selectedAlert = alerts.find((a) => a.id === selectedAlertId) || filteredAlerts[0] || alerts[0];
 
+  const matchedTerminal = React.useMemo(() => {
+    if (!selectedAlert) return null;
+    return terminals.find(
+      (t) => t.storeId === selectedAlert.store?.storeId || t.id === selectedAlert.store?.storeId
+    );
+  }, [selectedAlert, terminals]);
+
+  const activeStoreData = React.useMemo(() => {
+    if (!selectedAlert) return null;
+    const s = selectedAlert.store;
+    return {
+      storeId: matchedTerminal?.storeId || s.storeId || "STR-001",
+      storeName: matchedTerminal?.storeName || s.storeName || "Establecimiento",
+      ownerName: matchedTerminal?.ownerName || s.ownerName || "Titular Registrado",
+      phone: matchedTerminal?.phone || s.phone || "Sin Teléfono",
+      address: matchedTerminal?.address || s.address || "Dirección no especificada",
+      city: matchedTerminal?.city || s.city || "",
+      category: matchedTerminal?.category || s.category || "Comercio General",
+      coordinates: (matchedTerminal?.coordinates && matchedTerminal.coordinates.latitude !== 0) ? matchedTerminal.coordinates : s.coordinates,
+    };
+  }, [selectedAlert, matchedTerminal]);
+
   const activeCount = alerts.filter((a) => a.status === "ACTIVE").length;
   const dispatchedCount = alerts.filter((a) => a.status === "DISPATCHED").length;
 
@@ -698,6 +720,49 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
                 </div>
               )}
 
+              {/* Ficha Oficial del Establecimiento Registrado (Unificada y sin información duplicada) */}
+              {activeStoreData && (
+                <div className="p-4 rounded-2xl bg-slate-950/90 border border-slate-800 space-y-2.5 shadow-inner">
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                    <div className="flex items-center gap-2">
+                      <Store className="w-4 h-4 text-emerald-400" />
+                      <h4 className="text-xs uppercase tracking-wider font-extrabold text-slate-200">
+                        Ficha Oficial del Establecimiento Registrado
+                      </h4>
+                    </div>
+                    <span className="text-[10px] font-mono font-bold bg-slate-800 text-slate-300 px-2 py-0.5 rounded border border-slate-700">
+                      ID Terminal: {activeStoreData.storeId}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                    <div className="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800/80">
+                      <span className="text-[10px] text-slate-500 font-mono block uppercase font-bold">Comercio / Sucursal</span>
+                      <span className="font-bold text-white text-sm truncate block mt-0.5">{activeStoreData.storeName}</span>
+                    </div>
+
+                    <div className="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800/80">
+                      <span className="text-[10px] text-slate-500 font-mono block uppercase font-bold">Dirección Registrada</span>
+                      <span className="font-semibold text-slate-200 block mt-0.5 leading-snug">
+                        {activeStoreData.address}{activeStoreData.city ? `, ${activeStoreData.city}` : ""}
+                      </span>
+                    </div>
+
+                    <div className="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800/80">
+                      <span className="text-[10px] text-slate-500 font-mono block uppercase font-bold">Nombre del Titular</span>
+                      <span className="font-semibold text-slate-200 block mt-0.5">{activeStoreData.ownerName}</span>
+                    </div>
+
+                    <div className="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800/80">
+                      <span className="text-[10px] text-slate-500 font-mono block uppercase font-bold">Teléfono de Contacto</span>
+                      <a href={`tel:${activeStoreData.phone}`} className="font-mono text-emerald-400 font-bold hover:underline block mt-0.5">
+                        {activeStoreData.phone}
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Grid: 3-Frame Burst Viewer & GPS Map (Solo si la cámara estuvo activa en la terminal) */}
               {selectedAlert.cameraEnabled !== false && Array.isArray(selectedAlert.images) && selectedAlert.images.length > 0 ? (
                 <>
@@ -720,26 +785,12 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
                       </h4>
                       <div className="flex-1 flex flex-col min-h-[320px]">
                         <TacticalMap
-                          coordinates={selectedAlert.store.coordinates}
-                          storeName={selectedAlert.store.storeName}
-                          address={selectedAlert.store.address}
-                          city={selectedAlert.store.city}
+                          coordinates={activeStoreData?.coordinates || selectedAlert.store.coordinates}
+                          storeName={activeStoreData?.storeName || selectedAlert.store.storeName}
+                          address={activeStoreData?.address || selectedAlert.store.address}
+                          city={activeStoreData?.city || selectedAlert.store.city}
                           className="w-full h-full flex-1 min-h-[320px]"
                         />
-                      </div>
-
-                      {/* Store Contact card */}
-                      <div className="p-3 rounded-2xl bg-slate-950/80 border border-slate-800 text-xs space-y-2 shrink-0">
-                        <div className="flex justify-between">
-                          <span className="text-slate-400">Contacto Directo:</span>
-                          <span className="font-semibold text-white">{selectedAlert.store.ownerName}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-400">Teléfono:</span>
-                          <a href={`tel:${selectedAlert.store.phone}`} className="font-mono text-emerald-400 font-bold hover:underline">
-                            {selectedAlert.store.phone}
-                          </a>
-                        </div>
                       </div>
                     </div>
                   </div>
@@ -774,57 +825,25 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-stretch">
-                    <div className="md:col-span-8 rounded-2xl overflow-hidden border border-slate-800 bg-slate-950 flex flex-col min-h-[360px]">
-                      <div className="p-3 bg-slate-900 border-b border-slate-800 text-xs font-bold text-slate-200 flex items-center gap-2">
-                        <MapPin className="w-4 h-4 text-blue-400" />
-                        <span>Despliegue Táctico Oficial y Ubicación Satelital GPS</span>
+                    <div className="md:col-span-12 rounded-2xl overflow-hidden border border-slate-800 bg-slate-950 flex flex-col min-h-[360px]">
+                      <div className="p-3 bg-slate-900 border-b border-slate-800 text-xs font-bold text-slate-200 flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <MapPin className="w-4 h-4 text-blue-400" />
+                          <span>Despliegue Táctico Oficial y Ubicación Satelital GPS</span>
+                        </div>
+                        <span className="text-[11px] text-emerald-400 font-mono font-bold flex items-center gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          Despacho de Auxilio Activo
+                        </span>
                       </div>
                       <div className="flex-1 min-h-[320px]">
                         <TacticalMap
-                          coordinates={selectedAlert.store.coordinates}
-                          storeName={selectedAlert.store.storeName}
-                          address={selectedAlert.store.address}
-                          city={selectedAlert.store.city}
+                          coordinates={activeStoreData?.coordinates || selectedAlert.store.coordinates}
+                          storeName={activeStoreData?.storeName || selectedAlert.store.storeName}
+                          address={activeStoreData?.address || selectedAlert.store.address}
+                          city={activeStoreData?.city || selectedAlert.store.city}
                           className="w-full h-full min-h-[320px]"
                         />
-                      </div>
-                    </div>
-
-                    <div className="md:col-span-4 flex flex-col justify-between gap-3">
-                      <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 text-xs space-y-3">
-                        <h5 className="font-bold text-slate-300 uppercase tracking-wider text-[11px] pb-1 border-b border-slate-800">
-                          Ficha del Establecimiento
-                        </h5>
-                        <div className="space-y-2">
-                          <div>
-                            <span className="text-slate-500 block text-[11px]">Comercio / Sucursal:</span>
-                            <span className="font-semibold text-white text-sm">{selectedAlert.store.storeName}</span>
-                          </div>
-                          <div>
-                            <span className="text-slate-500 block text-[11px]">Titular:</span>
-                            <span className="text-slate-200 font-medium">{selectedAlert.store.ownerName}</span>
-                          </div>
-                          <div>
-                            <span className="text-slate-500 block text-[11px]">Teléfono de Contacto:</span>
-                            <a href={`tel:${selectedAlert.store.phone}`} className="font-mono text-emerald-400 font-bold hover:underline">
-                              {selectedAlert.store.phone}
-                            </a>
-                          </div>
-                          <div>
-                            <span className="text-slate-500 block text-[11px]">Dirección:</span>
-                            <span className="text-slate-300">{selectedAlert.store.address}, {selectedAlert.store.city}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="p-3.5 rounded-2xl bg-emerald-950/40 border border-emerald-500/30 text-xs space-y-1">
-                        <span className="text-emerald-400 font-bold flex items-center gap-1.5 text-[11px]">
-                          <CheckCircle2 className="w-4 h-4" />
-                          Protocolo de Respuesta Inmediata
-                        </span>
-                        <p className="text-[11px] text-emerald-200/80 leading-relaxed">
-                          La señal ha sido despachada a la red de guardias y cuadrante policial correspondiente.
-                        </p>
                       </div>
                     </div>
                   </div>
