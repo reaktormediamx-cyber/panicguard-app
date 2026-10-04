@@ -89,6 +89,15 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
     };
   }, [alert.store?.storeId, mediaMode]);
 
+  const cleanText = (str?: string) => {
+    if (!str) return "";
+    return str
+      .replace(/\s*\(\s*undefined\s*\)/gi, "")
+      .replace(/\bundefined\b/gi, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  };
+
   const { label: triggerLabel, isDrill } = formatTriggerType(alert.triggerType);
   const isCameraActive = alert.cameraEnabled !== false && Array.isArray(alert.images) && alert.images.length > 0;
 
@@ -140,7 +149,7 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
                   {triggerLabel}
                 </span>
                 <h2 className="text-sm sm:text-base font-extrabold tracking-tight truncate max-w-xs sm:max-w-md">
-                  {isDrill ? "SIMULACRO" : "ALERTA"}: {alert.store.storeName}
+                  {isDrill ? "SIMULACRO" : "ALERTA"}: {cleanText(alert.store?.storeName)}
                 </h2>
               </div>
               <p className={`text-[11px] ${isDrill ? "text-amber-950 font-medium" : "text-red-100"} flex items-center gap-1.5 mt-0.5`}>

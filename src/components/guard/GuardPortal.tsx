@@ -760,13 +760,13 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
     if (matchedTerm) {
       targetStore = {
         storeId: matchedTerm.storeId,
-        storeName: `Oficial de Seguridad: ${effectiveGuardName} (${matchedTerm.storeName})`,
-        ownerName: matchedTerm.ownerName || effectiveGuardName,
-        phone: matchedTerm.phone || "55-0000-0000",
-        address: `GPS Oficial: ${effectiveCoords.latitude.toFixed(6)}, ${effectiveCoords.longitude.toFixed(6)} • ${matchedTerm.address || "En Patrullaje"}`,
+        storeName: matchedTerm.storeName || "Establecimiento",
+        ownerName: matchedTerm.ownerName || "Titular Registrado",
+        phone: matchedTerm.phone || "Sin Teléfono",
+        address: matchedTerm.address || "Dirección Registrada",
         city: matchedTerm.city || "Ciudad de México",
-        category: `SOS Guardia • ${matchedTerm.storeName}`,
-        coordinates: effectiveCoords,
+        category: matchedTerm.category || "Comercio General",
+        coordinates: effectiveCoords || matchedTerm.coordinates,
         centralId: matchedTerm.centralId || appUser?.centralId || "CEN-CDMX-01",
         centralName: matchedTerm.centralName || appUser?.centralName || "C4 Centro de Comando Poniente - CDMX",
       };

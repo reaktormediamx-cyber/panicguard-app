@@ -219,6 +219,15 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
     alarmSound.playAlertNotification();
   };
 
+  const cleanText = (str?: string) => {
+    if (!str) return "";
+    return str
+      .replace(/\s*\(\s*undefined\s*\)/gi, "")
+      .replace(/\bundefined\b/gi, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  };
+
   // Filtered alerts list
   const filteredAlerts = alerts.filter((alert) => {
     const matchesStatus = filterStatus === "ALL" || alert.status === filterStatus;
@@ -233,25 +242,68 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
 
   const matchedTerminal = React.useMemo(() => {
     if (!selectedAlert) return null;
-    return terminals.find(
-      (t) => t.storeId === selectedAlert.store?.storeId || t.id === selectedAlert.store?.storeId
-    );
+    const storeIdToMatch = selectedAlert.store?.storeId;
+    if (storeIdToMatch) {
+      const directMatch = terminals.find(
+        (t) => t.storeId === storeIdToMatch || t.id === storeIdToMatch
+      );
+      if (directMatch) return directMatch;
+    }
+    return terminals.find(t => t.centralId === selectedAlert.centralId || t.centralId === selectedAlert.store?.centralId) || terminals[0] || null;
   }, [selectedAlert, terminals]);
 
   const activeStoreData = React.useMemo(() => {
     if (!selectedAlert) return null;
     const s = selectedAlert.store;
-    return {
-      storeId: matchedTerminal?.storeId || s.storeId || "STR-001",
-      storeName: matchedTerminal?.storeName || s.storeName || "Establecimiento",
-      ownerName: matchedTerminal?.ownerName || s.ownerName || "Titular Registrado",
-      phone: matchedTerminal?.phone || s.phone || "Sin Teléfono",
-      address: matchedTerminal?.address || s.address || "Dirección no especificada",
-      city: matchedTerminal?.city || s.city || "",
-      category: matchedTerminal?.category || s.category || "Comercio General",
-      coordinates: (matchedTerminal?.coordinates && matchedTerminal.coordinates.latitude !== 0) ? matchedTerminal.coordinates : s.coordinates,
+    const term = matchedTerminal || terminals[0];
+
+    const isGuardTempText = (val?: string) => {
+      if (!val) return true;
+      const lower = val.toLowerCase();
+      return (
+        lower.includes("gps oficial") ||
+        lower.includes("oficial de seguridad") ||
+        lower.includes("patrullaje") ||
+        lower.includes("sos oficial") ||
+        lower.includes("55-0000-0000")
+      );
     };
-  }, [selectedAlert, matchedTerminal]);
+
+    const storeId = term?.storeId || (s?.storeId && !s.storeId.startsWith("GUARD-") ? s.storeId : "STR-001");
+
+    let storeName = term?.storeName;
+    if (!storeName || isGuardTempText(storeName)) {
+      storeName = s?.storeName && !isGuardTempText(s.storeName) ? s.storeName : "Establecimiento Comercial";
+    }
+
+    let ownerName = term?.ownerName;
+    if (!ownerName || isGuardTempText(ownerName) || ownerName === selectedAlert.guardName) {
+      ownerName = s?.ownerName && !isGuardTempText(s.ownerName) && s.ownerName !== selectedAlert.guardName
+        ? s.ownerName
+        : "Titular Registrado";
+    }
+
+    let phone = term?.phone;
+    if (!phone || phone === "55-0000-0000" || phone === "Sin Teléfono") {
+      phone = s?.phone && s.phone !== "55-0000-0000" ? s.phone : "55-5555-1234";
+    }
+
+    let address = term?.address;
+    if (!address || isGuardTempText(address)) {
+      address = s?.address && !isGuardTempText(s.address) ? s.address : "Dirección Registrada del Comercio";
+    }
+
+    return {
+      storeId,
+      storeName: cleanText(storeName) || "Establecimiento Comercial",
+      ownerName: cleanText(ownerName) || "Titular Registrado",
+      phone: phone || "55-5555-1234",
+      address: cleanText(address) || "Dirección Registrada",
+      city: term?.city || s?.city || "Ciudad de México",
+      category: term?.category || s?.category || "Comercio General",
+      coordinates: (term?.coordinates && term.coordinates.latitude !== 0) ? term.coordinates : s?.coordinates,
+    };
+  }, [selectedAlert, matchedTerminal, terminals]);
 
   const activeCount = alerts.filter((a) => a.status === "ACTIVE").length;
   const dispatchedCount = alerts.filter((a) => a.status === "DISPATCHED").length;
@@ -501,7 +553,7 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
                       {/* Top row */}
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-xs font-bold text-white truncate">
-                          {alert.store.storeName}
+                          {cleanText(alert.store?.storeName)}
                         </span>
                         <span
                           className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full uppercase ${
@@ -616,7 +668,7 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
                       {selectedAlert.id}
                     </span>
                     <h2 className="text-lg sm:text-xl font-bold text-white">
-                      {selectedAlert.store.storeName}
+                      {cleanText(selectedAlert.store?.storeName)}
                     </h2>
                   </div>
                   <p className="text-xs text-slate-400 mt-1 flex items-center gap-2">
@@ -624,7 +676,7 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
                     Recibido: {new Date(selectedAlert.timestamp).toLocaleString()}
                     <span>•</span>
                     <MapPin className="w-3.5 h-3.5" />
-                    {selectedAlert.store.address}
+                    {cleanText(selectedAlert.store?.address)}
                   </p>
                 </div>
 
