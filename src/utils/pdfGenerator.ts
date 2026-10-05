@@ -38,7 +38,7 @@ export async function downloadAlertPdfReport(alert: PanicAlert) {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   doc.setTextColor(148, 163, 184); // slate-400
-  doc.text("SISTEMA TÁCTICO DE SEGURIDAD & VIDEOVERIFICACIÓN C4/C5", margin + 8, currentY + 16);
+  doc.text("SISTEMA TÁCTICO DE SEGURIDAD & VIDEOVERIFICACIÓN CENTRAL DE MONITOREO", margin + 8, currentY + 16);
   doc.text("INFORME OFICIAL & BITÁCORA DE EMERGENCIA", margin + 8, currentY + 20);
 
   // Folio Badge on right
@@ -74,7 +74,7 @@ export async function downloadAlertPdfReport(alert: PanicAlert) {
   doc.text(triggerLabel, margin + 4, currentY + 11);
   doc.text(new Date(alert.timestamp).toLocaleString("es-MX"), margin + 62, currentY + 11);
   doc.text(isCameraActive ? "CON CÁMARA (HD)" : "SOLO BOTÓN", margin + 115, currentY + 11);
-  const centralText = alert.centralName || alert.store?.centralName || "Central C4/C5";
+  const centralText = alert.centralName || alert.store?.centralName || "Central de Monitoreo";
   doc.text(centralText.length > 18 ? centralText.substring(0, 16) + "..." : centralText, margin + 145, currentY + 11);
 
   currentY += 18;
@@ -283,7 +283,7 @@ export async function downloadAlertPdfReport(alert: PanicAlert) {
     doc.setTextColor(148, 163, 184);
     doc.line(margin, pageHeight - 10, pageWidth - margin, pageHeight - 10);
     doc.text(
-      `PanicGuard Tactical C4/C5 Monitoreo - Alerta ${alert.id} | Generado: ${new Date().toLocaleString("es-MX")}`,
+      `PanicGuard Tactical Monitoreo - Alerta ${alert.id} | Generado: ${new Date().toLocaleString("es-MX")}`,
       margin,
       pageHeight - 6
     );

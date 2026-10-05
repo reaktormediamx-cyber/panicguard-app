@@ -106,29 +106,31 @@ export const AuthModal: React.FC = () => {
 
   return (
     <div className="relative min-h-screen bg-[#121215] flex flex-col items-center justify-center p-4 selection:bg-[#dc2626] selection:text-white overflow-hidden">
-      {/* Pure Diffused 2-Color Pulsing Glow Lights (No Circular Lines) */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+      {/* Pure Diffused 2-Color Pulsing Glow Lights (No Circular Lines / Banding) */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none bg-[#121215]">
         {/* Color 1: #DC2626 (Rojo Primario) - Soft Pulsing Glow Top */}
-        <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-[700px] h-[550px] bg-gradient-to-br from-[#dc2626]/30 to-transparent blur-[140px] rounded-full animate-pulse-rhythm-1" />
+        <div className="absolute top-0 inset-x-0 h-1/2 bg-gradient-to-b from-[#dc2626]/20 to-transparent opacity-70 animate-pulse-rhythm-1 blur-[110px]" />
         {/* Color 2: #BE123C (Rojo Carmesí) - Soft Pulsing Glow Bottom */}
-        <div className="absolute -bottom-32 left-1/2 -translate-x-1/2 w-[750px] h-[600px] bg-gradient-to-tl from-[#be123c]/35 to-transparent blur-[150px] rounded-full animate-pulse-rhythm-2" />
+        <div className="absolute bottom-0 inset-x-0 h-1/2 bg-gradient-to-t from-[#be123c]/25 to-transparent opacity-70 animate-pulse-rhythm-2 blur-[110px]" />
         {/* Central Ambient Pulsing Glow Wave */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[radial-gradient(circle_at_center,_rgba(220,38,38,0.3)_0%,_rgba(190,18,60,0.2)_45%,_transparent_75%)] blur-[110px] rounded-full animate-pulse-heartbeat" />
+        <div className="absolute inset-x-10 top-1/4 bottom-1/4 bg-gradient-to-r from-[#dc2626]/10 via-[#be123c]/15 to-[#dc2626]/10 blur-[130px] animate-pulse-heartbeat" />
       </div>
 
       {/* Ambient Gradient Glow Directly Behind Central Panel */}
-      <div className="absolute w-full max-w-lg h-[520px] bg-gradient-to-r from-[#dc2626]/25 via-[#be123c]/30 to-[#dc2626]/25 blur-3xl rounded-3xl animate-pulse-heartbeat pointer-events-none" />
+      <div className="absolute w-full max-w-lg h-[520px] bg-gradient-to-r from-[#dc2626]/15 via-[#be123c]/20 to-[#dc2626]/15 blur-[100px] animate-pulse-heartbeat pointer-events-none" />
 
       <div className="relative w-full max-w-lg bg-[#18181b]/95 backdrop-blur-xl border border-[#27272a] hover:border-[#881337]/60 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-black/95 space-y-5 transition-all duration-500">
-        {/* Brand Header */}
-        <div className="text-center space-y-1.5">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#dc2626] to-[#be123c] border border-[#881337] mx-auto flex items-center justify-center text-white shadow-xl shadow-[#4c0519]/60">
-            <ShieldAlert className="w-7 h-7" />
+        {/* Brand Header (Premium Splash Logo Asset) */}
+        <div className="text-center space-y-3">
+          <div className="relative max-w-[280px] mx-auto overflow-hidden rounded-2xl border border-[#27272a] shadow-2xl bg-[#121215]">
+            <img 
+              src="/panicguard-splash-logo.png" 
+              alt="PANICGUARD" 
+              referrerPolicy="no-referrer"
+              className="w-full h-auto object-cover transform hover:scale-102 transition-transform duration-500" 
+            />
           </div>
-          <h1 className="text-2xl font-black text-white tracking-tight">
-            PANIC<span className="text-[#dc2626]">GUARD</span>
-          </h1>
-          <p className="text-xs text-[#a1a1aa] max-w-sm mx-auto">
+          <p className="text-xs text-[#a1a1aa] max-w-sm mx-auto font-mono">
             Plataforma de video vigilancia y alertas de pánico por Rol
           </p>
         </div>
@@ -146,7 +148,7 @@ export const AuthModal: React.FC = () => {
               }`}
             >
               <Building2 className="w-3.5 h-3.5 shrink-0 text-white" />
-              <span className="truncate">Central C4/C5</span>
+              <span className="truncate">Central</span>
             </button>
 
             <button
@@ -250,7 +252,7 @@ export const AuthModal: React.FC = () => {
                 Acceso a Consola de Central
               </span>
               <span className="font-mono text-[10px] px-2 py-0.5 rounded-lg bg-[#4c0519] text-[#fda4af] font-bold border border-[#9f1239]">
-                ROL: CENTRAL / C4-C5
+                ROL: CENTRAL
               </span>
             </div>
 
@@ -376,7 +378,7 @@ export const AuthModal: React.FC = () => {
             <>
               <span className="flex items-center gap-1">
                 <Building2 className="w-3 h-3 text-[#ef4444]" />
-                Central: C4/C5
+                Central
               </span>
               <span>•</span>
               <span className="flex items-center gap-1">

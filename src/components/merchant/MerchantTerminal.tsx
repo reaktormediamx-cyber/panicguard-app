@@ -504,7 +504,7 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
             </div>
 
             <span className="px-3 py-1 rounded-xl bg-red-900/80 border border-red-500/60 text-white font-mono text-xs font-bold animate-pulse">
-              EN CURSO EN CENTRAL C4
+              EN CURSO EN CENTRAL
             </span>
           </div>
 
@@ -594,7 +594,7 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
                     {lastSentAlertId && (
                       <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-950 border border-emerald-500/50 text-emerald-300 flex items-center gap-1">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                        Enlace C4 Activo
+                        Enlace Central Activo
                       </span>
                     )}
                   </div>
@@ -935,7 +935,7 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
                 <div className="space-y-2 pt-3 border-t border-slate-800 text-xs">
                   <div className="flex items-center gap-2 text-slate-300">
                     <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <span>Transmisión instantánea de alerta a Central C4/C5 (&lt; 1s)</span>
+                    <span>Transmisión instantánea de alerta a Central de Monitoreo (&lt; 1s)</span>
                   </div>
                   <div className="flex items-center gap-2 text-slate-300">
                     <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />

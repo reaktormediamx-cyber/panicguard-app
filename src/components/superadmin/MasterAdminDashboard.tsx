@@ -469,7 +469,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
       <div className="bg-slate-900/90 backdrop-blur border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-red-600 via-red-700 to-slate-950 border border-red-500/40 flex items-center justify-center text-white shadow-xl shadow-red-950/60">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#dc2626] to-[#be123c] border border-[#881337] flex items-center justify-center text-white shadow-xl shadow-[#4c0519]/60">
               <ShieldAlert className="w-7 h-7 text-white" />
             </div>
             <div>
@@ -496,7 +496,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-1">
-                Monitoreo consolidado de todas las Centrales (C4/C5), registro y baja de terminales, e identificación de origen de pánico.
+                Monitoreo consolidado de todas las Centrales de Monitoreo, registro y baja de terminales, e identificación de origen de pánico.
               </p>
             </div>
           </div>
@@ -904,7 +904,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                                 <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0 mt-0.5" />
                                 <div>
                                   <span className="text-slate-400">Dirección: </span>
-                                  <span className="text-white">{central.address || "Sede C4/C5"}</span>
+                                  <span className="text-white">{central.address || "Sede de Monitoreo"}</span>
                                 </div>
                               </div>
                             </div>
@@ -1630,7 +1630,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                 <div>
                   <h3 className="text-base font-bold text-white">Dar de Alta Central de Monitoreo</h3>
                   <p className="text-xs text-slate-400">
-                    Registra una nueva sede u organismo de respuesta (C4, C5, Policía, Privada).
+                    Registra una nueva sede u organismo de respuesta (Policía, Privada, etc.).
                   </p>
                 </div>
               </div>
@@ -1984,7 +1984,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                 <div>
                   <h3 className="text-base font-bold text-white">Editar Central de Monitoreo</h3>
                   <p className="text-xs text-slate-400">
-                    Modifica los datos registrados de la sede (C4, C5, Policía, Privada).
+                    Modifica los datos registrados de la sede (Policía, Privada, etc.).
                   </p>
                 </div>
               </div>

@@ -349,7 +349,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const newUser: AppUser = {
           uid: user.uid,
           email: userEmail,
-          displayName: user.displayName || (isMaster ? "Comando Matriz & Super Admin" : (assignedRole === "CENTRAL" ? `Operador C4/C5 (${assignedCentralName})` : userEmail.split("@")[0] || "Operador")),
+          displayName: user.displayName || (isMaster ? "Comando Matriz & Super Admin" : (assignedRole === "CENTRAL" ? `Operador Central (${assignedCentralName})` : userEmail.split("@")[0] || "Operador")),
           role: assignedRole,
           storeId: assignedStoreId,
           storeName: assignedStoreName,
@@ -476,13 +476,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     const selectedCentral = centralMatch || centrales[0] || DEFAULT_CENTRALES[0];
-    const centralName = selectedCentral?.name || "C4 Centro de Comando y Control Poniente - CDMX";
+    const centralName = selectedCentral?.name || "Centro de Comando y Control Poniente - CDMX";
     const cId = selectedCentral?.id || "CEN-CDMX-01";
 
     const centralUser: AppUser = {
       uid: "central-" + btoa(rawEmail).replace(/=/g, ""),
       email: rawEmail,
-      displayName: `Operador C4/C5 (${centralName})`,
+      displayName: `Operador Central (${centralName})`,
       role: "CENTRAL",
       storeId: cId,
       storeName: centralName,
@@ -686,7 +686,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await setDoc(doc(db, "users", userUid), {
         uid: userUid,
         email: cleanEmail,
-        displayName: `Operador C4/C5 (${data.name})`,
+        displayName: `Operador Central (${data.name})`,
         role: "CENTRAL",
         storeId: centralId,
         storeName: data.name,
@@ -712,7 +712,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await setDoc(doc(db, "users", userUid), {
           uid: userUid,
           email: cleanEmail,
-          displayName: updatedCentral.name ? `Operador C4/C5 (${updatedCentral.name})` : undefined,
+          displayName: updatedCentral.name ? `Operador Central (${updatedCentral.name})` : undefined,
           role: "CENTRAL",
           storeId: id,
           centralId: id,

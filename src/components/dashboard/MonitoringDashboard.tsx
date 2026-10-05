@@ -395,10 +395,10 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => setIsGuardQrModalOpen(true)}
-            className="px-3.5 py-2 rounded-xl bg-[#022c22] hover:bg-[#022c22]/80 border border-[#065f46] text-[#6ee7b7] text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm"
+            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#022c22] border border-[#065f46] hover:border-[#34d399] text-[#6ee7b7] text-xs font-bold shadow-inner transition-all cursor-pointer group"
             title="Mostrar código QR para celulares de los guardias"
           >
-            <Smartphone className="w-4 h-4 text-[#34d399]" />
+            <Smartphone className="w-4 h-4 text-[#34d399] group-hover:scale-110 transition-transform" />
             <span>QR Guardias</span>
           </button>
 
@@ -1408,7 +1408,7 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
               <X className="w-4 h-4" />
             </button>
 
-            <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mx-auto shadow-lg">
+            <div className="w-14 h-14 rounded-2xl bg-[#4c0519]/60 border border-[#881337] flex items-center justify-center text-[#fda4af] mx-auto shadow-lg">
               <Shield className="w-7 h-7" />
             </div>
 
@@ -1424,7 +1424,7 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
             {/* QR Code */}
             <div className="p-4 bg-white rounded-2xl inline-block shadow-xl mx-auto">
               <QRCodeSVG
-                value={`${window.location.origin}/?guard=1#guard`}
+                value={`${window.location.origin}/?guard=1&role=SUPERVISOR&centralId=${appUser?.centralId || "ALL"}#guard`}
                 size={200}
                 level="H"
                 includeMargin={false}
@@ -1432,12 +1432,8 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
             </div>
 
             <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-[11px] text-slate-300 font-mono text-left space-y-1">
-              <div className="flex items-center gap-1.5 text-emerald-400 font-bold">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>0 Créditos • Sin Costo por Notificación</span>
-              </div>
-              <p className="text-slate-400 text-[10px]">
-                Sonará sirena de emergencia con vibración instantánea y fotos de evidencia en los celulares de los guardias.
+              <p className="text-[#a1a1aa] text-[10px] leading-relaxed">
+                Sonará sirena de emergencia con vibración instantánea y fotos de evidencia en los celulares de los supervisores y oficiales de seguridad.
               </p>
             </div>
 
@@ -1451,12 +1447,12 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
             >
               {copiedGuardUrl ? (
                 <>
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                  <span className="text-emerald-300">¡Enlace de Guardia Copiado!</span>
+                  <CheckCircle2 className="w-4 h-4 text-[#fda4af]" />
+                  <span className="text-[#fda4af]">¡Enlace de Guardia Copiado!</span>
                 </>
               ) : (
                 <>
-                  <Copy className="w-4 h-4 text-emerald-400" />
+                  <Copy className="w-4 h-4 text-[#fda4af]" />
                   <span>Copiar Enlace de Guardia</span>
                 </>
               )}

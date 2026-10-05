@@ -273,7 +273,7 @@ export default function App() {
                     : currentView === "GUARD"
                     ? "GUARDIA MÓVIL"
                     : currentView === "CENTRAL"
-                    ? "CENTRAL C4/C5"
+                    ? "CENTRAL"
                     : "TERMINAL"}
                 </span>
 
@@ -321,7 +321,7 @@ export default function App() {
                       : "text-[#a1a1aa] hover:text-white hover:bg-[#18181b]"
                   }`}
                 >
-                  Central C4
+                  Central
                 </button>
                 <button
                   onClick={() => setCurrentView("TERMINAL")}
@@ -473,7 +473,7 @@ export default function App() {
       <footer className="border-t border-[#27272a] bg-[#18181b]/95 py-3.5 px-6 flex flex-col sm:flex-row items-center justify-between text-xs text-[#a1a1aa] font-mono gap-2">
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-[#34d399]" />
-          <span>Base de Datos PanicGuard Firebase Firestore Conectada (panic-guard-e858d)</span>
+          <span>Base de Datos Conectada.</span>
         </div>
         <div>
           Rol: <span className="text-[#f4f4f5] font-bold">{appUser.role}</span> | Vista: <span className="text-[#a1a1aa] font-bold">{currentView}</span> | Usuario: <span className="text-[#a1a1aa]">{appUser.email}</span>

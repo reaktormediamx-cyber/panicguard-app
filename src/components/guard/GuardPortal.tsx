@@ -37,11 +37,13 @@ import { AudioSettingsModal } from "../audio/AudioSettingsModal.js";
 
 // Function to extract store binding from window URL (search or hash)
 const extractStoreParamsFromUrl = () => {
-  if (typeof window === "undefined") return { sid: "", sname: "" };
+  if (typeof window === "undefined") return { sid: "", sname: "", role: "", centralId: "" };
   try {
     const url = new URL(window.location.href);
     let sid = url.searchParams.get("storeId") || url.searchParams.get("storeid") || url.searchParams.get("store_id") || url.searchParams.get("sid") || "";
     let sname = url.searchParams.get("storeName") || url.searchParams.get("storename") || url.searchParams.get("store_name") || url.searchParams.get("sname") || "";
+    let role = url.searchParams.get("role") || "";
+    let centralId = url.searchParams.get("centralId") || url.searchParams.get("centralid") || "";
 
     if (!sid && window.location.hash) {
       const hash = window.location.hash;
@@ -55,15 +57,19 @@ const extractStoreParamsFromUrl = () => {
         const hashParams = new URLSearchParams(queryPart);
         if (!sid) sid = hashParams.get("storeId") || hashParams.get("storeid") || hashParams.get("store_id") || hashParams.get("sid") || "";
         if (!sname) sname = hashParams.get("storeName") || hashParams.get("storename") || hashParams.get("store_name") || hashParams.get("sname") || "";
+        if (!role) role = hashParams.get("role") || "";
+        if (!centralId) centralId = hashParams.get("centralId") || hashParams.get("centralid") || "";
       }
     }
 
     return {
       sid: sid.trim(),
-      sname: sname ? decodeURIComponent(sname.trim()) : ""
+      sname: sname ? decodeURIComponent(sname.trim()) : "",
+      role: role.trim(),
+      centralId: centralId.trim()
     };
   } catch {
-    return { sid: "", sname: "" };
+    return { sid: "", sname: "", role: "", centralId: "" };
   }
 };
 
@@ -111,6 +117,10 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
   });
   const [bluetoothPressCount, setBluetoothPressCount] = useState<number>(0);
   const [lastBluetoothPressTime, setLastBluetoothPressTime] = useState<number>(0);
+  const [isBluetoothEnabled, setIsBluetoothEnabled] = useState<boolean>(() => {
+    const saved = localStorage.getItem("pg_guard_bluetooth_enabled");
+    return saved !== "false"; // Default to true if not set
+  });
   const [sosFeedbackMessage, setSosFeedbackMessage] = useState<string | null>(null);
 
   // Guard Real-time GPS Location - Read cached real coordinates from localStorage if available
@@ -219,6 +229,24 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
     const fromUrl = extractStoreParamsFromUrl();
     if (fromUrl.sname) return fromUrl.sname;
     return localStorage.getItem("pg_guard_store_name") || "";
+  });
+
+  const [guardRole, setGuardRole] = useState<string>(() => {
+    const fromUrl = extractStoreParamsFromUrl();
+    if (fromUrl.role) {
+      localStorage.setItem("pg_guard_role", fromUrl.role);
+      return fromUrl.role;
+    }
+    return localStorage.getItem("pg_guard_role") || "GUARD";
+  });
+
+  const [guardCentralId, setGuardCentralId] = useState<string>(() => {
+    const fromUrl = extractStoreParamsFromUrl();
+    if (fromUrl.centralId) {
+      localStorage.setItem("pg_guard_central_id", fromUrl.centralId);
+      return fromUrl.centralId;
+    }
+    return localStorage.getItem("pg_guard_central_id") || "";
   });
 
   // State for alert viewing & actions
@@ -343,7 +371,7 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
   // Read and react to URL query parameters for store binding from QR
   useEffect(() => {
     const syncFromUrl = () => {
-      const { sid, sname } = extractStoreParamsFromUrl();
+      const { sid, sname, role, centralId } = extractStoreParamsFromUrl();
       if (sid) {
         setAssignedStoreId(sid);
         localStorage.setItem("pg_guard_store_id", sid);
@@ -355,6 +383,14 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
         if (!localStorage.getItem(`pg_guard_checked_in_${sid}`)) {
           setIsNameModalOpen(true);
         }
+      }
+      if (role) {
+        setGuardRole(role);
+        localStorage.setItem("pg_guard_role", role);
+      }
+      if (centralId) {
+        setGuardCentralId(centralId);
+        localStorage.setItem("pg_guard_central_id", centralId);
       }
     };
 
@@ -371,6 +407,20 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
   // Filter alerts: only show for assigned store if bound via QR, or all if general
   // (Always includes alerts triggered by this guard so they stay visible)
   const relevantAlerts = useMemo(() => {
+    if (guardRole === "SUPERVISOR") {
+      if (guardCentralId && guardCentralId !== "ALL") {
+        // Supervisors receive all alerts from terminals registered to that specific central
+        return alerts.filter(
+          (a) =>
+            a.centralId === guardCentralId ||
+            a.store?.centralId === guardCentralId ||
+            a.id === lastSentSosAlertId ||
+            (a.guardName && a.guardName.toLowerCase() === guardName.toLowerCase())
+        );
+      }
+      return alerts;
+    }
+
     if (assignedStoreId && assignedStoreId.trim() !== "" && assignedStoreId !== "ALL") {
       return alerts.filter(
         (a) =>
@@ -381,7 +431,7 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
       );
     }
     return alerts;
-  }, [alerts, assignedStoreId, assignedStoreName, lastSentSosAlertId, guardName]);
+  }, [alerts, assignedStoreId, assignedStoreName, lastSentSosAlertId, guardName, guardRole, guardCentralId]);
 
   // Specific check if the guard's own SOS alert is currently active
   const myActiveSosAlert = useMemo(() => {
@@ -846,6 +896,8 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
   // Bluetooth Panic Button / Wireless Clicker & External Key Listener
   useEffect(() => {
     const handleBluetoothKeyEvent = (e: KeyboardEvent) => {
+      if (!isBluetoothEnabled) return;
+
       // Common keys sent by Bluetooth panic clickers, smart rings, wireless fobs, and hardware buttons
       const isBluetoothClickerKey =
         e.key === "Enter" ||
@@ -891,7 +943,7 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
     return () => {
       window.removeEventListener("keydown", handleBluetoothKeyEvent, { capture: true });
     };
-  }, [guardName, assignedStoreId, assignedStoreName, boundTerminalInfo, terminals, appUser, isEmittingSos, guardLocation]);
+  }, [guardName, assignedStoreId, assignedStoreName, boundTerminalInfo, terminals, appUser, isEmittingSos, guardLocation, isBluetoothEnabled]);
 
   // Lockscreen & Headset MediaSession SOS Trigger Handler
   useEffect(() => {
@@ -933,9 +985,15 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
                 <span className="font-black text-white text-xs tracking-wider uppercase font-sans">
                   PANIC<span className="text-[#dc2626]">GUARD</span>
                 </span>
-                <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-[#4c0519] text-[#fda4af] font-bold border border-[#9f1239]">
-                  TÁCTICO
-                </span>
+                {guardRole === "SUPERVISOR" ? (
+                  <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-amber-950 border border-amber-800 text-amber-300 font-bold animate-pulse">
+                    SUPERVISOR
+                  </span>
+                ) : (
+                  <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-[#4c0519] text-[#fda4af] font-bold border border-[#9f1239]">
+                    TÁCTICO
+                  </span>
+                )}
               </div>
               <div className="flex items-center gap-1.5 text-[10px] text-[#a1a1aa] font-mono">
                 <span className={`w-2 h-2 rounded-full flex-shrink-0 ${isConnected ? "bg-[#34d399] animate-pulse" : "bg-[#ef4444]"}`} />
@@ -1144,8 +1202,8 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
 
               {/* Status Pill for Bluetooth & Manual Trigger */}
               <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-red-950/70 border border-red-700/70 text-[10px] font-mono font-bold text-red-300 shrink-0">
-                <Bluetooth className="w-3.5 h-3.5 text-slate-300" />
-                <span>Táctil / Bluetooth</span>
+                <Bluetooth className={`w-3.5 h-3.5 ${isBluetoothEnabled ? "text-red-400" : "text-slate-500"}`} />
+                <span>Táctil {isBluetoothEnabled ? "/ Bluetooth" : ""}</span>
               </div>
             </div>
 
@@ -1155,10 +1213,23 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
                 <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
                 <span>1 Toque Botón Rojo</span>
               </span>
-              <span className="px-2.5 py-1 rounded-lg bg-[#161823] border border-[#282e42] text-slate-300 flex items-center gap-1.5">
-                <Bluetooth className="w-3 h-3 text-slate-300" />
-                <span>Pulsador Bluetooth</span>
-              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  const newState = !isBluetoothEnabled;
+                  setIsBluetoothEnabled(newState);
+                  localStorage.setItem("pg_guard_bluetooth_enabled", String(newState));
+                }}
+                className={`px-2.5 py-1 rounded-lg border flex items-center gap-1.5 cursor-pointer transition-all shadow-sm active:scale-95 ${
+                  isBluetoothEnabled
+                    ? "bg-[#022c22] border-[#065f46] text-[#6ee7b7]"
+                    : "bg-slate-800/80 border-slate-700 text-slate-400"
+                }`}
+                title={isBluetoothEnabled ? "Desactivar detección de botón Bluetooth" : "Activar detección de botón Bluetooth"}
+              >
+                <Bluetooth className={`w-3 h-3 ${isBluetoothEnabled ? "text-[#34d399] animate-pulse" : "text-slate-500"}`} />
+                <span>Pulsador Bluetooth: <strong className={isBluetoothEnabled ? "text-white" : "text-slate-400"}>{isBluetoothEnabled ? "ACTIVO" : "APAGADO"}</strong></span>
+              </button>
             </div>
 
             {/* Giant One-Tap SOS Panic Button */}
@@ -1233,7 +1304,7 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
             <div
               className={`p-3.5 text-white flex items-center justify-between gap-2 ${
                 currentEmergency.status === "ACTIVE"
-                  ? "bg-gradient-to-r from-red-600 via-red-700 to-red-800 animate-pulse"
+                  ? "bg-gradient-to-r from-[#dc2626] to-[#be123c] animate-pulse"
                   : currentEmergency.status === "DISPATCHED"
                   ? "bg-gradient-to-r from-amber-600 to-amber-800"
                   : currentEmergency.status === "RESOLVED"

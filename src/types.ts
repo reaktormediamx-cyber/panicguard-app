@@ -162,8 +162,8 @@ export interface SocketAlertEvent {
 export const DEFAULT_CENTRALES: CentralStation[] = [
   {
     id: "CEN-CDMX-01",
-    name: "C4 Centro de Comando y Control Poniente - CDMX",
-    code: "C4-CDMX-PONIENTE",
+    name: "Centro de Comando y Control Poniente - CDMX",
+    code: "CEN-CDMX-PONIENTE",
     responsibleName: "Inspector General de Guardia",
     email: "central.operador@panicguard.mx",
     phone: "+52 55 5200 9000",
