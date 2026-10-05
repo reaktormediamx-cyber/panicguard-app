@@ -120,17 +120,15 @@ export const AuthModal: React.FC = () => {
       <div className="absolute w-full max-w-lg h-[520px] bg-gradient-to-r from-[#dc2626]/15 via-[#be123c]/20 to-[#dc2626]/15 blur-[100px] animate-pulse-heartbeat pointer-events-none" />
 
       <div className="relative w-full max-w-lg bg-[#18181b]/95 backdrop-blur-xl border border-[#27272a] hover:border-[#881337]/60 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-black/95 space-y-5 transition-all duration-500">
-        {/* Brand Header (Premium Splash Logo Asset) */}
-        <div className="text-center space-y-3">
-          <div className="relative max-w-[280px] mx-auto overflow-hidden rounded-2xl border border-[#27272a] shadow-2xl bg-[#121215]">
-            <img 
-              src="/panicguard-splash-logo.png" 
-              alt="PANICGUARD" 
-              referrerPolicy="no-referrer"
-              className="w-full h-auto object-cover transform hover:scale-102 transition-transform duration-500" 
-            />
+        {/* Brand Header */}
+        <div className="text-center space-y-1.5">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#dc2626] to-[#be123c] border border-[#881337] mx-auto flex items-center justify-center text-white shadow-xl shadow-[#4c0519]/60">
+            <ShieldAlert className="w-7 h-7" />
           </div>
-          <p className="text-xs text-[#a1a1aa] max-w-sm mx-auto font-mono">
+          <h1 className="text-2xl font-black text-white tracking-tight">
+            PANIC<span className="text-[#dc2626]">GUARD</span>
+          </h1>
+          <p className="text-xs text-[#a1a1aa] max-w-sm mx-auto">
             Plataforma de video vigilancia y alertas de pánico por Rol
           </p>
         </div>
