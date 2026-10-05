@@ -115,7 +115,7 @@ export const AudioSettingsModal: React.FC<AudioSettingsModalProps> = ({
       case "MEDIA":
         return "bg-amber-950/80 text-amber-400 border border-amber-800/80";
       case "SUAVE":
-        return "bg-blue-950/80 text-blue-400 border border-blue-800/80";
+        return "bg-emerald-950/80 text-emerald-400 border border-emerald-800/80";
     }
   };
 
@@ -319,7 +319,7 @@ export const AudioSettingsModal: React.FC<AudioSettingsModalProps> = ({
               alarmSound.stopAlarm();
               onClose();
             }}
-            className="px-5 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs cursor-pointer shadow-lg transition-all"
+            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#e11d48] to-[#be123c] hover:from-[#f43f5e] hover:to-[#e11d48] text-white font-bold text-xs cursor-pointer shadow-md shadow-rose-950/40 transition-all active:scale-95"
           >
             Guardar y Cerrar
           </button>

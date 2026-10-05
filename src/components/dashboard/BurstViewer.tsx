@@ -122,7 +122,7 @@ export const BurstViewer: React.FC<BurstViewerProps> = ({
         <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-3 text-xs space-y-1.5">
           <div className="flex items-center justify-between">
             <span className="font-semibold text-slate-300 flex items-center gap-1.5">
-              <Eye className="w-3.5 h-3.5 text-blue-400" />
+              <Eye className="w-3.5 h-3.5 text-[#f43f5e]" />
               Observación en Cuadro #{currentTimeline.frameIndex}:
             </span>
           </div>

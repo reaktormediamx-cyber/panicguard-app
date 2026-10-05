@@ -200,7 +200,7 @@ export const TerminalManagerModal: React.FC<{ isOpen: boolean; onClose: () => vo
                         navigator.clipboard.writeText(createdCredentials.email);
                         alert("Correo copiado al portapapeles");
                       }}
-                      className="text-blue-400 hover:text-blue-300 font-bold text-[10px] underline cursor-pointer shrink-0"
+                      className="text-[#f43f5e] hover:text-[#fb7185] font-bold text-[10px] underline cursor-pointer shrink-0"
                     >
                       Copiar
                     </button>
@@ -246,7 +246,7 @@ export const TerminalManagerModal: React.FC<{ isOpen: boolean; onClose: () => vo
             <button
               type="button"
               onClick={() => setShowAddForm(!showAddForm)}
-              className="w-full sm:w-auto px-4 py-2 rounded-xl bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white text-xs font-bold flex items-center justify-center gap-2 shadow cursor-pointer transition-all"
+              className="w-full sm:w-auto px-4 py-2 rounded-xl bg-gradient-to-r from-[#e11d48] to-[#be123c] hover:from-[#f43f5e] hover:to-[#e11d48] text-white text-xs font-bold flex items-center justify-center gap-2 shadow-md shadow-rose-950/40 cursor-pointer transition-all active:scale-95"
             >
               <UserPlus className="w-4 h-4" />
               <span>{showAddForm ? "Cerrar Formulario" : "Dar de Alta Nueva Terminal con Google"}</span>
@@ -404,7 +404,7 @@ export const TerminalManagerModal: React.FC<{ isOpen: boolean; onClose: () => vo
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-4 py-1.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow"
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#e11d48] to-[#be123c] hover:from-[#f43f5e] hover:to-[#e11d48] text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-md shadow-rose-950/40 transition-all active:scale-95 disabled:opacity-50"
                 >
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   <span>{isSubmitting ? "Guardando en Firebase..." : "Guardar y Habilitar Acceso"}</span>
@@ -443,7 +443,7 @@ export const TerminalManagerModal: React.FC<{ isOpen: boolean; onClose: () => vo
                           className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold ${
                             t.assignedRole === "CENTRAL"
                               ? "bg-red-600/20 text-red-400 border border-red-500/30"
-                              : "bg-blue-600/20 text-blue-400 border border-blue-500/30"
+                              : "bg-[#161823] text-emerald-400 border border-emerald-500/30"
                           }`}
                         >
                           {t.assignedRole === "CENTRAL" ? <Shield className="w-4 h-4" /> : <Store className="w-4 h-4" />}
@@ -460,7 +460,7 @@ export const TerminalManagerModal: React.FC<{ isOpen: boolean; onClose: () => vo
                         className={`text-[9px] px-2 py-0.5 rounded-full font-bold font-mono ${
                           t.assignedRole === "CENTRAL"
                             ? "bg-red-950 text-red-400 border border-red-800"
-                            : "bg-blue-950 text-blue-400 border border-blue-800"
+                            : "bg-emerald-950/80 text-emerald-300 border border-emerald-800"
                         }`}
                       >
                         {t.assignedRole}
@@ -529,10 +529,10 @@ export const TerminalManagerModal: React.FC<{ isOpen: boolean; onClose: () => vo
                         <button
                           type="button"
                           onClick={() => setPreviewTerminalMap(t)}
-                          className="px-2 py-0.5 rounded text-[10px] bg-slate-900 hover:bg-slate-800 border border-slate-800 text-blue-400 hover:text-blue-300 font-mono flex items-center gap-1 cursor-pointer transition-colors"
+                          className="px-2 py-0.5 rounded text-[10px] bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-200 hover:text-white font-mono flex items-center gap-1 cursor-pointer transition-colors"
                           title="Ver ubicación en el Mapa Táctico según dirección registrada"
                         >
-                          <MapPin className="w-3 h-3 text-red-500" />
+                          <MapPin className="w-3 h-3 text-[#f43f5e]" />
                           <span>Mapa Táctico</span>
                         </button>
 

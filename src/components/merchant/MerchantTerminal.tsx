@@ -355,8 +355,8 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
       {/* Top Header Card */}
       <div className="bg-slate-900/90 backdrop-blur border border-slate-800 rounded-2xl p-4 sm:p-6 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-red-600/20 border border-red-500/40 flex items-center justify-center text-red-400">
-            <Radio className="w-6 h-6 animate-pulse" />
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#dc2626] to-[#be123c] border border-[#881337] flex items-center justify-center text-white shadow-lg shadow-[#4c0519]/60 shrink-0">
+            <ShieldAlert className="w-6 h-6 text-white stroke-[2.2]" />
           </div>
           <div>
             <div className="flex flex-col gap-1">
@@ -364,24 +364,24 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
                 <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
                   {activeStore.storeName}
                 </h1>
-                <span className="text-xs px-2.5 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-slate-300 font-mono">
+                <span className="text-xs px-2.5 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-[#a1a1aa] font-mono">
                   {activeStore.storeId}
                 </span>
-                <span className="text-[11px] font-mono px-2.5 py-0.5 rounded bg-amber-950/80 border border-amber-500/40 text-amber-300 font-semibold">
+                <span className="text-[11px] font-mono px-2.5 py-0.5 rounded bg-[#451a03] border border-[#92400e] text-[#fcd34d] font-semibold">
                   Central: {activeStore.centralName || "Central de Monitoreo"}
                 </span>
               </div>
-              <p className="text-sm text-slate-400 flex items-center gap-1.5">
-                <Store className="w-3.5 h-3.5 text-slate-500" />
+              <p className="text-sm text-[#a1a1aa] flex items-center gap-1.5">
+                <Store className="w-3.5 h-3.5 text-[#71717a]" />
                 {activeStore.address}{activeStore.city ? `, ${activeStore.city}` : ""}
               </p>
               {availableTerminals.length > 1 && (appUser?.role === "CENTRAL" || appUser?.role === "SUPER_ADMIN" || appUser?.role === "ADMIN") && (
                 <div className="flex items-center gap-2 mt-1">
-                  <span className="text-[11px] text-slate-400 font-semibold">Terminal activa:</span>
+                  <span className="text-[11px] text-[#a1a1aa] font-semibold">Terminal activa:</span>
                   <select
                     value={selectedTerminalId}
                     onChange={(e) => setSelectedTerminalId(e.target.value)}
-                    className="bg-slate-950 border border-slate-700 text-amber-400 rounded-lg px-2 py-0.5 text-xs font-semibold focus:outline-none focus:border-red-500 cursor-pointer"
+                    className="bg-[#14070c] border border-[#27272a] text-[#fbbf24] rounded-lg px-2 py-0.5 text-xs font-semibold focus:outline-none focus:border-[#dc2626] cursor-pointer"
                   >
                     {availableTerminals.map((t) => (
                       <option key={t.id} value={t.id}>
@@ -403,31 +403,31 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
               setTempGuardName(guardName);
               setIsGuardModalOpen(true);
             }}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-blue-950/80 border border-blue-500/40 hover:border-blue-400 text-blue-200 text-xs font-medium shadow-inner transition-all cursor-pointer group"
+            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#18181b] border border-[#27272a] hover:border-[#3f3f46] text-slate-200 text-xs font-medium shadow-inner transition-all cursor-pointer group"
             title="Clic para cambiar el oficial en turno"
           >
-            <UserCheck className="w-4 h-4 text-blue-400 group-hover:scale-110 transition-transform" />
+            <UserCheck className="w-4 h-4 text-[#34d399] group-hover:scale-110 transition-transform" />
             <div className="flex flex-col text-left leading-tight">
-              <span className="text-[10px] text-blue-400 uppercase tracking-wider font-mono">Guardia en Turno:</span>
+              <span className="text-[10px] text-[#71717a] uppercase tracking-wider font-mono">Guardia en Turno:</span>
               <span className="font-bold text-white max-w-[130px] truncate">{guardName || "Sin Asignar"}</span>
             </div>
-            <Edit3 className="w-3 h-3 text-blue-400 opacity-60 group-hover:opacity-100 ml-0.5" />
+            <Edit3 className="w-3 h-3 text-[#a1a1aa] opacity-60 group-hover:opacity-100 ml-0.5" />
           </button>
 
           {/* Botón para abrir QR exclusivo de esta tienda para los guardias */}
           <button
             onClick={() => setIsStoreQrModalOpen(true)}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-950/80 border border-emerald-500/40 hover:border-emerald-400 text-emerald-300 text-xs font-bold shadow-inner transition-all cursor-pointer group"
-            title="Mostrar código QR exclusivo para los guardias asignados a esta tienda"
+            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#022c22] border border-[#065f46] hover:border-[#34d399] text-[#6ee7b7] text-xs font-bold shadow-inner transition-all cursor-pointer group"
+            title="Mostrar código QR exclusivo para los guardias"
           >
-            <Smartphone className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform" />
-            <span>QR Guardia de Esta Tienda</span>
+            <Smartphone className="w-4 h-4 text-[#34d399] group-hover:scale-110 transition-transform" />
+            <span>QR Guardias</span>
           </button>
 
-          <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-emerald-950/80 border border-emerald-500/30 text-emerald-400 text-sm font-medium shadow-inner">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
+          <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-[#022c22] border border-[#065f46] text-[#34d399] text-sm font-medium shadow-inner">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#34d399] animate-ping" />
             <ShieldCheck className="w-4 h-4" />
-            <span>SISTEMA OPERATIVO</span>
+            <span className="text-[#6ee7b7] font-bold">SISTEMA OPERATIVO</span>
           </div>
 
           <button
@@ -435,7 +435,7 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
             className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl border text-sm font-medium transition-colors cursor-pointer ${
               isMuted 
                 ? "bg-amber-950/40 border-amber-500/40 text-amber-300 hover:bg-amber-900/50" 
-                : "bg-blue-950/80 border-blue-500/30 text-blue-400 hover:bg-blue-900/80"
+                : "bg-[#181920] border border-[#262833] text-slate-200 hover:bg-[#22242e]"
             }`}
             title={
               isMuted
@@ -443,7 +443,7 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
                 : "Silenciar terminal local para activar alertas silenciosas (sonará en el celular del guardia)"
             }
           >
-            {isMuted ? <VolumeX className="w-4 h-4 text-amber-400" /> : <Volume2 className="w-4 h-4" />}
+            {isMuted ? <VolumeX className="w-4 h-4 text-amber-400" /> : <Volume2 className="w-4 h-4 text-slate-300" />}
             <span>{isMuted ? "Terminal Silenciosa" : "Sonido Activo"}</span>
           </button>
 
@@ -555,8 +555,8 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
             <div className="relative group my-2">
               {/* Pulsing halo */}
               <div
-                className={`absolute -inset-4 rounded-full bg-red-600/30 blur-xl transition-all duration-300 ${
-                  isCapturing ? "bg-red-500/70 scale-110 animate-pulse" : "group-hover:bg-red-600/50"
+                className={`absolute -inset-4 rounded-full bg-[#dc2626]/40 blur-2xl transition-all duration-300 ${
+                  isCapturing ? "bg-[#ef4444]/80 scale-110 animate-pulse" : "group-hover:bg-[#ef4444]/60"
                 }`}
               />
 
@@ -564,19 +564,19 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
                 id="main-panic-button"
                 disabled={isCapturing}
                 onClick={() => handleInstantPanic(testDrillMode ? "DRILL_TEST" : "MANUAL_BUTTON")}
-                className={`relative w-48 h-48 sm:w-56 sm:h-56 rounded-full border-4 flex flex-col items-center justify-center transition-all duration-200 cursor-pointer shadow-2xl active:scale-95 ${
+                className={`relative w-52 h-52 sm:w-60 sm:h-60 rounded-full border-[3px] flex flex-col items-center justify-center transition-all duration-200 cursor-pointer shadow-[0_0_60px_rgba(220,38,38,0.65)] active:scale-95 ${
                   isCapturing
-                    ? "bg-red-700 border-red-400 ring-8 ring-red-500/40 animate-pulse"
-                    : "bg-gradient-to-br from-red-600 via-red-700 to-red-900 hover:from-red-500 hover:to-red-800 border-red-400/60 ring-4 ring-red-900/40"
+                    ? "bg-[#be123c] border-[#ef4444] ring-8 ring-[#dc2626]/50 animate-pulse"
+                    : "bg-[radial-gradient(circle_at_35%_30%,_#ef4444_0%,_#dc2626_35%,_#be123c_65%,_#881337_100%)] hover:bg-[radial-gradient(circle_at_35%_30%,_#f87171_0%,_#ef4444_35%,_#dc2626_65%,_#be123c_100%)] border-[#ef4444]/90 ring-8 ring-[#dc2626]/30"
                 }`}
               >
-                <div className="w-16 h-16 rounded-full bg-red-950/60 flex items-center justify-center mb-2 border border-red-400/30 shadow-inner">
-                  <AlertTriangle className="w-9 h-9 text-white animate-bounce" />
+                <div className="w-16 h-16 rounded-full bg-[#4c0519] flex items-center justify-center mb-2.5 border border-[#9f1239] shadow-inner">
+                  <AlertTriangle className="w-9 h-9 text-white animate-bounce stroke-[2.4]" />
                 </div>
-                <span className="text-xl sm:text-2xl font-black text-white tracking-wider uppercase drop-shadow">
+                <span className="text-2xl sm:text-3xl font-black text-white tracking-wider uppercase drop-shadow-md">
                   {isCapturing ? "CAPTURANDO..." : "EMERGENCIA"}
                 </span>
-                <span className="text-[11px] font-mono tracking-tight text-red-200/90 uppercase mt-0.5">
+                <span className="text-[10px] sm:text-xs font-semibold tracking-wider text-[#fda4af] uppercase mt-0.5">
                   {testDrillMode ? "[MODO SIMULACRO]" : "PULSAR PARA ACTIVAR"}
                 </span>
               </button>
@@ -743,7 +743,7 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
                     : "bg-slate-800/90 hover:bg-slate-700 border-slate-700 text-slate-300"
                 }`}
               >
-                <ShieldCheck className="w-3.5 h-3.5 text-blue-400" />
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
                 {testDrillMode ? "Modo Simulacro: ACTIVO" : "Probar Simulacro"}
               </button>
             </div>
@@ -793,7 +793,7 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
                   <select
                     value={selectedDeviceId}
                     onChange={(e) => startCamera(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500 truncate"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-rose-500 truncate"
                   >
                     <option value="">Cámara Predeterminada / Principal</option>
                     {videoDevices.map((dev, idx) => (
@@ -907,7 +907,7 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
             <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#10b981]" />
                   <h3 className="text-sm font-bold text-white uppercase tracking-wider">
                     Modo Solo Botón de Emergencia
                   </h3>
@@ -946,7 +946,7 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
                     <span>Geolocalización GPS exacta y trazabilidad en bitácora</span>
                   </div>
                   <div className="flex items-center gap-2 text-slate-400">
-                    <CheckCircle2 className="w-4 h-4 text-blue-400 shrink-0" />
+                    <CheckCircle2 className="w-4 h-4 text-[#f43f5e] shrink-0" />
                     <span>No se envían fotogramas ni aparece visor de cámara en Central ni Guardia</span>
                   </div>
                 </div>
@@ -997,9 +997,9 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
       {/* Ventana Modal: Registro de Guardia en Turno al acceder a la Terminal */}
       {isGuardModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-slate-900 border-2 border-blue-500/50 rounded-3xl p-6 sm:p-7 shadow-2xl space-y-5 relative">
+          <div className="w-full max-w-md bg-slate-900 border-2 border-[#262833] rounded-3xl p-6 sm:p-7 shadow-2xl space-y-5 relative">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-blue-600/20 border border-blue-500/50 flex items-center justify-center text-blue-400 shrink-0 shadow-inner">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#10b981]/20 to-emerald-900/30 border border-emerald-500/40 flex items-center justify-center text-[#10b981] shrink-0 shadow-inner">
                 <UserCheck className="w-6 h-6" />
               </div>
               <div>
@@ -1041,9 +1041,9 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
                     value={tempGuardName}
                     onChange={(e) => setTempGuardName(e.target.value)}
                     placeholder="Ej. Of. Roberto Martínez Mendoza"
-                    className="w-full bg-slate-950 border-2 border-slate-700 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 rounded-2xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none transition-all shadow-inner font-medium"
+                    className="w-full bg-slate-950 border-2 border-slate-700 focus:border-[#f43f5e] focus:ring-4 focus:ring-[#f43f5e]/20 rounded-2xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none transition-all shadow-inner font-medium"
                   />
-                  <BadgeCheck className="w-5 h-5 text-blue-400 absolute right-3.5 top-3.5 pointer-events-none" />
+                  <BadgeCheck className="w-5 h-5 text-[#10b981] absolute right-3.5 top-3.5 pointer-events-none" />
                 </div>
               </div>
 
@@ -1060,7 +1060,7 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
                 <button
                   type="submit"
                   disabled={!tempGuardName.trim()}
-                  className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold tracking-wide shadow-lg shadow-blue-600/30 transition-all cursor-pointer flex items-center justify-center gap-2"
+                  className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-[#e11d48] to-[#be123c] hover:from-[#f43f5e] hover:to-[#e11d48] disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold tracking-wide shadow-lg shadow-rose-950/40 transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-95"
                 >
                   <UserCheck className="w-4 h-4" />
                   <span>Confirmar & Registrar en Bitácora</span>

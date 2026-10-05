@@ -348,12 +348,15 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
       <div className="bg-slate-900/90 backdrop-blur border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         {/* Left: View Identity & Quick Metrics */}
         <div className="flex flex-wrap items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#dc2626] to-[#be123c] border border-[#881337] flex items-center justify-center text-white shadow-lg shadow-[#4c0519]/60 shrink-0">
+            <ShieldAlert className="w-5 h-5 text-white stroke-[2.2]" />
+          </div>
           <div>
             <h1 className="text-base sm:text-lg font-black text-white flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="w-2.5 h-2.5 rounded-full bg-[#34d399] animate-pulse" />
               Consola Operativa de Monitoreo & Despacho
             </h1>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-[#a1a1aa]">
               Videoverificación en tiempo real, ráfagas fotográficas y trazabilidad oficial.
             </p>
           </div>
@@ -362,26 +365,26 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
           <div className="flex items-center gap-2 flex-wrap pt-1 lg:pt-0">
             <div className={`px-2.5 py-1 rounded-xl text-xs font-mono font-bold flex items-center gap-1.5 border ${
               activeCount > 0 
-                ? "bg-red-950/80 border-red-500/60 text-red-300 animate-pulse ring-1 ring-red-500/30" 
-                : "bg-slate-950 border-slate-800 text-slate-400"
+                ? "bg-[#4c0519] border-[#9f1239] text-[#fda4af] animate-pulse ring-1 ring-[#dc2626]/40" 
+                : "bg-[#121215] border-[#27272a] text-[#71717a]"
             }`}>
-              <AlertTriangle className={`w-3.5 h-3.5 ${activeCount > 0 ? "text-red-400" : "text-slate-500"}`} />
+              <AlertTriangle className={`w-3.5 h-3.5 ${activeCount > 0 ? "text-[#fb7185]" : "text-[#71717a]"}`} />
               <span>Activas: <strong className="text-white">{activeCount}</strong></span>
             </div>
 
-            <div className="px-2.5 py-1 rounded-xl bg-slate-950 border border-slate-800 text-xs font-mono font-bold flex items-center gap-1.5 text-blue-300">
-              <Shield className="w-3.5 h-3.5 text-blue-400" />
+            <div className="px-2.5 py-1 rounded-xl bg-[#121215] border border-[#27272a] text-xs font-mono font-bold flex items-center gap-1.5 text-slate-300">
+              <Shield className="w-3.5 h-3.5 text-[#a1a1aa]" />
               <span>Despachadas: <strong className="text-white">{dispatchedCount}</strong></span>
             </div>
 
-            <div className="px-2.5 py-1 rounded-xl bg-slate-950 border border-slate-800 text-xs font-mono font-bold flex items-center gap-1.5 text-emerald-300">
-              <Activity className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
+            <div className="px-2.5 py-1 rounded-xl bg-[#022c22] border border-[#065f46] text-xs font-mono font-bold flex items-center gap-1.5 text-[#6ee7b7]">
+              <Activity className="w-3.5 h-3.5 text-[#34d399] animate-pulse" />
               <span>Latencia: <strong className="text-white">{latencyMs}ms</strong></span>
             </div>
 
             {systemSettings?.aiEnabled && (
-              <div className="px-2.5 py-1 rounded-xl bg-purple-950/50 border border-purple-800/40 text-xs font-mono font-bold flex items-center gap-1.5 text-purple-300">
-                <Brain className="w-3.5 h-3.5 text-purple-400" />
+              <div className="px-2.5 py-1 rounded-xl bg-[#18181b] border border-[#27272a] text-xs font-mono font-bold flex items-center gap-1.5 text-slate-300">
+                <Brain className="w-3.5 h-3.5 text-[#fb7185]" />
                 <span>IA Activa</span>
               </div>
             )}
@@ -392,11 +395,11 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => setIsGuardQrModalOpen(true)}
-            className="px-3.5 py-2 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm"
+            className="px-3.5 py-2 rounded-xl bg-[#022c22] hover:bg-[#022c22]/80 border border-[#065f46] text-[#6ee7b7] text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm"
             title="Mostrar código QR para celulares de los guardias"
           >
-            <Smartphone className="w-4 h-4 text-emerald-400" />
-            <span>QR Guardias en Celular</span>
+            <Smartphone className="w-4 h-4 text-[#34d399]" />
+            <span>QR Guardias</span>
           </button>
 
           <button
@@ -404,7 +407,7 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
             className={`px-3 py-2 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
               isMuted
                 ? "bg-slate-800 border-slate-700 text-slate-400"
-                : "bg-blue-950/60 border-blue-500/30 text-blue-300"
+                : "bg-[#161823] border border-emerald-500/40 text-emerald-300"
             }`}
             title="Silenciar / Activar sonido de alarma"
           >
@@ -454,11 +457,11 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
           onClick={() => setActiveTab("TERMINALS")}
           className={`pb-3 text-sm font-bold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
             activeTab === "TERMINALS"
-              ? "border-blue-500 text-white"
+              ? "border-[#f43f5e] text-white"
               : "border-transparent text-slate-400 hover:text-slate-200"
           }`}
         >
-          <Building2 className="w-4 h-4 text-blue-400" />
+          <Building2 className="w-4 h-4 text-[#f43f5e]" />
           <span>🏪 Terminales Registradas</span>
           <span className="bg-slate-800 text-slate-300 text-[10px] px-1.5 py-0.5 rounded-full font-mono font-bold">
             {myTerminals.length}
@@ -542,9 +545,9 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
                           setSelectedAlertId(alert.id);
                         }
                       }}
-                      className={`w-full text-left p-3 rounded-2xl border transition-all cursor-pointer relative overflow-hidden space-y-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      className={`w-full text-left p-3 rounded-2xl border transition-all cursor-pointer relative overflow-hidden space-y-1.5 focus:outline-none focus:ring-2 focus:ring-rose-500 ${
                         isSelected
-                          ? "bg-slate-800/90 border-blue-500/80 shadow-md ring-1 ring-blue-500/50"
+                          ? "bg-slate-800/90 border-[#f43f5e]/80 shadow-md ring-1 ring-rose-500/50"
                           : alert.status === "ACTIVE"
                           ? "bg-red-950/30 border-red-900/60 hover:bg-slate-800/60"
                           : "bg-slate-950/60 border-slate-800 hover:bg-slate-800/40"
@@ -560,7 +563,7 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
                             alert.status === "ACTIVE"
                               ? "bg-red-500/20 text-red-300 border border-red-500/40 animate-pulse"
                               : alert.status === "DISPATCHED"
-                              ? "bg-blue-500/20 text-blue-300 border border-blue-500/40"
+                              ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
                               : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
                           }`}
                         >
@@ -578,8 +581,8 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
                       {(alert.guardName || alert.guardDescription) && (
                         <div className="flex flex-col gap-1 text-[10px] text-amber-200 bg-amber-950/70 border border-amber-500/50 p-1.5 rounded-md font-semibold">
                           {alert.guardName && (
-                            <div className="flex items-center gap-1.5 text-blue-300 font-mono text-[9.5px]">
-                              <User className="w-3 h-3 text-blue-400 shrink-0" />
+                            <div className="flex items-center gap-1.5 text-slate-300 font-mono text-[9.5px]">
+                              <User className="w-3 h-3 text-slate-400 shrink-0" />
                               <span className="truncate">Oficial: <strong>{alert.guardName}</strong></span>
                             </div>
                           )}
@@ -696,7 +699,7 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
                           acknowledgeAlarmSound();
                         }
                       }}
-                      className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 border border-blue-400 text-xs font-bold text-white flex items-center gap-1.5 transition-all shadow-md shadow-blue-950 cursor-pointer"
+                      className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-xs font-bold text-white flex items-center gap-1.5 transition-all shadow-md shadow-amber-950/40 cursor-pointer active:scale-95"
                       title="Despachar unidad y notificar al guardia para volver a estado normal"
                     >
                       <Shield className="w-4 h-4 text-white" />
@@ -718,10 +721,10 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
                           acknowledgeAlarmSound();
                         }
                       }}
-                      className="px-3 py-2 rounded-xl bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/40 text-xs font-bold text-emerald-300 flex items-center gap-1.5 transition-colors cursor-pointer"
+                      className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-xs font-bold text-white flex items-center gap-1.5 transition-all shadow-md shadow-emerald-950/40 cursor-pointer active:scale-95"
                       title="Cerrar y concluir este incidente"
                     >
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                      <CheckCircle2 className="w-4 h-4 text-white" />
                       <span>Cerrar</span>
                     </button>
                   )}
@@ -729,7 +732,7 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
                   <button
                     type="button"
                     onClick={() => downloadAlertPdfReport(selectedAlert)}
-                    className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-blue-700 to-indigo-700 hover:from-blue-600 hover:to-indigo-600 border border-blue-400/40 text-xs font-bold text-white flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
+                    className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-[#dc2626] to-[#b91c1c] hover:from-[#ef4444] hover:to-[#dc2626] text-xs font-bold text-white flex items-center gap-1.5 transition-all shadow-md shadow-red-950/60 cursor-pointer active:scale-95"
                     title="Descargar informe oficial con fotos y bitácora completa en PDF"
                   >
                     <Download className="w-4 h-4 text-white" />
@@ -738,9 +741,9 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
 
                   <button
                     onClick={() => setActiveEmergencyModalAlert(selectedAlert)}
-                    className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold text-white flex items-center gap-1.5 transition-colors cursor-pointer"
+                    className="px-3.5 py-2 rounded-xl bg-[#161823] hover:bg-[#1f2333] border border-[#282e42] text-xs font-semibold text-white flex items-center gap-1.5 transition-colors cursor-pointer"
                   >
-                    <Eye className="w-4 h-4 text-blue-400" />
+                    <Eye className="w-4 h-4 text-slate-400" />
                     Pantalla Completa
                   </button>
                 </div>
@@ -758,7 +761,7 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
                         REPORTE Y OFICIAL EN GUARDIA
                       </span>
                       {selectedAlert.guardName && (
-                        <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded bg-blue-900/80 text-blue-200 border border-blue-400/50">
+                        <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded bg-[#161823] text-emerald-300 border border-emerald-500/40">
                           Oficial en Turno: {selectedAlert.guardName}
                         </span>
                       )}
@@ -880,7 +883,7 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
                     <div className="md:col-span-12 rounded-2xl overflow-hidden border border-slate-800 bg-slate-950 flex flex-col min-h-[360px]">
                       <div className="p-3 bg-slate-900 border-b border-slate-800 text-xs font-bold text-slate-200 flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
-                          <MapPin className="w-4 h-4 text-blue-400" />
+                          <MapPin className="w-4 h-4 text-[#f43f5e]" />
                           <span>Despliegue Táctico Oficial y Ubicación Satelital GPS</span>
                         </div>
                         <span className="text-[11px] text-emerald-400 font-mono font-bold flex items-center gap-1">
@@ -906,7 +909,7 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
               <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-3">
                 <div className="flex items-center justify-between">
                   <h4 className="text-xs uppercase tracking-wider font-bold text-slate-300 flex items-center gap-1.5">
-                    <FileText className="w-3.5 h-3.5 text-blue-400" />
+                    <FileText className="w-3.5 h-3.5 text-[#f43f5e]" />
                     Bitácora de Eventos y Trazabilidad en Tiempo Real:
                   </h4>
                 </div>
@@ -924,13 +927,13 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
                       }
                     }}
                     placeholder="Registrar proceso o actualización en la bitácora de esta alarma..."
-                    className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
+                    className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-rose-500 transition-colors"
                   />
                   <button
                     type="button"
                     disabled={isSavingCentralNote || !centralInspectionNote.trim()}
                     onClick={() => handleAddCentralNote(selectedAlert.id)}
-                    className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold text-xs flex items-center gap-1 shadow cursor-pointer transition-all shrink-0"
+                    className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#dc2626] to-[#b91c1c] hover:from-[#ef4444] hover:to-[#dc2626] disabled:opacity-50 text-white font-bold text-xs flex items-center gap-1 shadow-md shadow-red-950/60 cursor-pointer transition-all shrink-0 active:scale-95"
                   >
                     <Send className="w-3.5 h-3.5" />
                     <span>Registrar</span>
@@ -948,7 +951,7 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
                         <div className="flex-1 text-slate-300">
                           <span className="font-medium text-slate-200">{log.action}</span>
                           {log.operator && (
-                            <span className="text-blue-400 ml-1.5 font-bold">[{log.operator}]</span>
+                            <span className="text-[#f43f5e] ml-1.5 font-bold">[{log.operator}]</span>
                           )}
                           {log.details && log.details !== log.action && (
                             <div className="text-[11px] text-slate-400 mt-0.5">{log.details}</div>
@@ -971,7 +974,7 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
           {/* Controls Bar */}
           <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-4 shadow-xl flex flex-col md:flex-row items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <Building2 className="w-4 h-4 text-blue-450" />
+              <Building2 className="w-4 h-4 text-[#f43f5e]" />
               <span className="text-xs font-bold text-white uppercase tracking-wider">
                 Terminales de tu Central ({filteredTerminals.length})
               </span>
@@ -995,7 +998,7 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
                   const btn = document.getElementById("btn-admin-terminals");
                   if (btn) btn.click();
                 }}
-                className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold flex items-center gap-1.5 shadow cursor-pointer whitespace-nowrap"
+                className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#dc2626] to-[#b91c1c] hover:from-[#ef4444] hover:to-[#dc2626] text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-red-950/60 cursor-pointer whitespace-nowrap active:scale-95 transition-all"
               >
                 <PlusCircle className="w-3.5 h-3.5" />
                 <span>Dar de Alta Terminal</span>
@@ -1030,7 +1033,7 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
                       {/* Top Row: Store & Role */}
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-2.5">
-                          <div className="w-9 h-9 rounded-xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400">
+                          <div className="w-9 h-9 rounded-xl bg-[#161823] border border-[#282e42] flex items-center justify-center text-[#f43f5e]">
                             <Store className="w-4 h-4" />
                           </div>
                           <div>
@@ -1099,21 +1102,21 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
                       <div className="flex items-center gap-1.5">
                         <button
                           onClick={() => setPreviewTerminalMap(t)}
-                          className="px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-blue-400 font-bold text-[10px] cursor-pointer flex items-center gap-1 transition-colors"
+                          className="px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-200 font-bold text-[10px] cursor-pointer flex items-center gap-1 transition-colors"
                           title="Ver mapa táctico de la terminal según dirección registrada"
                           type="button"
                         >
-                          <MapPin className="w-3 h-3 text-red-500" />
+                          <MapPin className="w-3 h-3 text-[#f43f5e]" />
                           <span>Mapa Táctico</span>
                         </button>
 
                         <button
                           onClick={() => startEditTerminal(t)}
-                          className="px-2 py-1 rounded-lg bg-blue-950/80 hover:bg-blue-900 border border-blue-800/60 text-blue-300 font-bold text-[10px] cursor-pointer flex items-center gap-1 transition-colors"
+                          className="px-2 py-1 rounded-lg bg-[#181920] hover:bg-[#22242e] border border-[#262833] text-slate-200 font-bold text-[10px] cursor-pointer flex items-center gap-1 transition-colors"
                           title="Editar información de la terminal"
                           type="button"
                         >
-                          <Pencil className="w-3 h-3 text-blue-400" />
+                          <Pencil className="w-3 h-3 text-slate-400" />
                           <span>Editar</span>
                         </button>
 
@@ -1202,7 +1205,7 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
           <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
             <div className="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-900/90">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400">
+                <div className="w-10 h-10 rounded-2xl bg-[#161823] border border-[#282e42] flex items-center justify-center text-[#f43f5e]">
                   <Store className="w-5 h-5" />
                 </div>
                 <div>
@@ -1383,7 +1386,7 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
                 <button
                   type="submit"
                   disabled={isSubmittingEditTerminal}
-                  className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold flex items-center gap-2 cursor-pointer shadow"
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#dc2626] to-[#b91c1c] hover:from-[#ef4444] hover:to-[#dc2626] text-white font-bold flex items-center gap-2 cursor-pointer shadow-md shadow-red-950/60 transition-all active:scale-95 disabled:opacity-50"
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   <span>{isSubmittingEditTerminal ? "Guardando..." : "Guardar Cambios"}</span>

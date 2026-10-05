@@ -518,23 +518,25 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
     currentEmergency?.store?.storeName?.includes("Oficial")
   );
 
-  // Effective store with tactical metadata - never overwrite live guard coordinates with static store coordinates
+  // Effective store with tactical metadata - strictly uses assigned or matched terminal data
   const effectiveStore = useMemo(() => {
     if (!currentEmergency) return null;
+    const term = matchedTerminal || boundTerminalInfo;
     return {
       ...currentEmergency.store,
-      ...(matchedTerminal && !isGuardEmergency ? {
-        storeName: matchedTerminal.storeName || currentEmergency.store.storeName,
-        address: matchedTerminal.address || currentEmergency.store.address,
-        city: matchedTerminal.city || currentEmergency.store.city,
-        phone: matchedTerminal.phone || currentEmergency.store.phone,
-        category: matchedTerminal.category || currentEmergency.store.category,
-        coordinates: (matchedTerminal.coordinates && matchedTerminal.coordinates.latitude !== 0)
-          ? matchedTerminal.coordinates
+      ...(term ? {
+        storeName: term.storeName || currentEmergency.store.storeName,
+        address: term.address || currentEmergency.store.address,
+        city: term.city || currentEmergency.store.city,
+        phone: term.phone || currentEmergency.store.phone,
+        ownerName: term.ownerName || currentEmergency.store.ownerName,
+        category: term.category || currentEmergency.store.category,
+        coordinates: (term.coordinates && term.coordinates.latitude !== 0)
+          ? term.coordinates
           : currentEmergency.store.coordinates,
       } : {}),
     };
-  }, [currentEmergency, matchedTerminal, isGuardEmergency]);
+  }, [currentEmergency, matchedTerminal, boundTerminalInfo]);
 
   // Precise Google Maps destination URL matching the tactical map - always prioritizes exact coordinates
   const gpsDirectionsUrl = useMemo(() => {
@@ -916,31 +918,27 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
   };
 
   return (
-    <div className="w-full max-w-lg mx-auto min-h-[100dvh] bg-slate-950 text-slate-100 flex flex-col justify-between selection:bg-red-500 selection:text-white pb-6 sm:pb-8 font-sans">
+    <div className="w-full max-w-lg mx-auto min-h-[100dvh] bg-[#121215] text-[#f4f4f5] flex flex-col justify-between selection:bg-[#dc2626] selection:text-white pb-6 sm:pb-8 font-sans">
       {/* ================= MOBILE TACTICAL TOP BAR ================= */}
-      <header className="sticky top-0 z-30 bg-slate-900/95 backdrop-blur-md border-b border-slate-800/90 px-3.5 py-2.5 shadow-lg">
+      <header className="sticky top-0 z-30 bg-[#18181b]/95 backdrop-blur-md border-b border-[#27272a] px-3.5 py-2.5 shadow-lg">
         <div className="flex items-center justify-between gap-2">
           {/* Brand & Tactical Channel Indicator */}
           <div className="flex items-center gap-2.5 min-w-0">
-            <div
-              className={`w-9 h-9 rounded-xl flex items-center justify-center text-white flex-shrink-0 transition-all ${
-                isOnDuty
-                  ? "bg-emerald-600 shadow-md shadow-emerald-950 ring-2 ring-emerald-400/40"
-                  : "bg-slate-800 text-slate-400"
-              }`}
-            >
-              <Shield className="w-5 h-5" />
+            <div className="w-9 h-9 rounded-2xl flex items-center justify-center text-white bg-gradient-to-br from-[#dc2626] to-[#be123c] border border-[#881337] shadow-md shadow-[#4c0519]/60 flex-shrink-0">
+              <ShieldAlert className="w-5 h-5 text-white stroke-[2.2]" />
             </div>
 
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
-                <span className="font-black text-white text-xs tracking-wider uppercase">PANICGUARD</span>
-                <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-red-600/30 text-red-300 font-bold border border-red-500/40">
+                <span className="font-black text-white text-xs tracking-wider uppercase font-sans">
+                  PANIC<span className="text-[#dc2626]">GUARD</span>
+                </span>
+                <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-[#4c0519] text-[#fda4af] font-bold border border-[#9f1239]">
                   TÁCTICO
                 </span>
               </div>
-              <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-mono">
-                <span className={`w-2 h-2 rounded-full flex-shrink-0 ${isConnected ? "bg-emerald-400 animate-pulse" : "bg-red-400"}`} />
+              <div className="flex items-center gap-1.5 text-[10px] text-[#a1a1aa] font-mono">
+                <span className={`w-2 h-2 rounded-full flex-shrink-0 ${isConnected ? "bg-[#34d399] animate-pulse" : "bg-[#ef4444]"}`} />
                 <span className="truncate">{isConnected ? "Canal Activo en Vivo" : "Reconectando..."}</span>
               </div>
             </div>
@@ -950,7 +948,7 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
           <div className="flex items-center gap-1.5 flex-shrink-0">
             <button
               onClick={() => setIsAudioSettingsModalOpen(true)}
-              className="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 border border-slate-700/80 text-amber-400 hover:text-amber-300 transition-all cursor-pointer active:scale-95 shadow-sm"
+              className="p-2 rounded-xl bg-[#18181b] hover:bg-[#27272a] border border-[#27272a] text-[#fbbf24] hover:text-[#fcd34d] transition-all cursor-pointer active:scale-95 shadow-sm"
               title="Ajustes de Tonos y Sonido de Alerta"
             >
               <Sliders className="w-4 h-4" />
@@ -960,18 +958,18 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
               onClick={() => setIsOnDuty(!isOnDuty)}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold font-mono transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 shadow-sm ${
                 isOnDuty
-                  ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 hover:bg-emerald-500/30"
-                  : "bg-slate-800 text-slate-400 border border-slate-700 hover:bg-slate-750"
+                  ? "bg-[#022c22] text-[#6ee7b7] border border-[#065f46] hover:bg-[#022c22]/80"
+                  : "bg-[#18181b] text-[#a1a1aa] border border-[#27272a] hover:bg-[#27272a]"
               }`}
               title="Cambiar estado de guardia"
             >
-              <span className={`w-2 h-2 rounded-full ${isOnDuty ? "bg-emerald-400 animate-ping" : "bg-slate-500"}`} />
+              <span className={`w-2 h-2 rounded-full ${isOnDuty ? "bg-[#34d399] animate-ping" : "bg-slate-500"}`} />
               <span>{isOnDuty ? "EN TURNO" : "PAUSA"}</span>
             </button>
 
             <button
               onClick={handleGuardExit}
-              className="p-2 rounded-xl bg-slate-800/80 hover:bg-red-950 hover:text-red-400 hover:border-red-800/80 border border-slate-700/80 text-slate-400 transition-all cursor-pointer active:scale-95"
+              className="p-2 rounded-xl bg-[#18181b] hover:bg-[#4c0519] hover:text-[#fda4af] hover:border-[#9f1239] border border-[#27272a] text-[#a1a1aa] transition-all cursor-pointer active:scale-95"
               title="Cerrar sesión / Salir"
             >
               <LogOut className="w-4 h-4" />
@@ -984,9 +982,9 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
       <section className="px-3.5 pt-3 pb-1 space-y-2">
         {/* Puesto Asignado por QR si existe */}
         {(assignedStoreId || boundTerminalInfo) && (
-          <div className="bg-emerald-950/70 border border-emerald-500/50 rounded-2xl p-2.5 px-3 flex items-center justify-between gap-2 text-xs shadow-md">
+          <div className="bg-[#12141c] border border-emerald-500/40 rounded-2xl p-2.5 px-3 flex items-center justify-between gap-2 text-xs shadow-md">
             <div className="flex items-center gap-2 min-w-0">
-              <div className="w-7 h-7 rounded-lg bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-300 shrink-0">
+              <div className="w-7 h-7 rounded-lg bg-emerald-500/15 border border-emerald-400/30 flex items-center justify-center text-emerald-400 shrink-0">
                 <Store className="w-4 h-4" />
               </div>
               <div className="min-w-0">
@@ -1005,7 +1003,7 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
                 setTempGuardInput(guardName !== "Oficial de Seguridad" ? guardName : "");
                 setIsNameModalOpen(true);
               }}
-              className="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-200 text-[10px] font-mono font-bold shrink-0 flex items-center gap-1 cursor-pointer active:scale-95 transition-all"
+              className="px-2.5 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-400/30 text-emerald-200 text-[10px] font-mono font-bold shrink-0 flex items-center gap-1 cursor-pointer active:scale-95 transition-all"
             >
               <Edit3 className="w-3 h-3 text-emerald-400" />
               <span>Cambiar Guardia</span>
@@ -1013,7 +1011,7 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
           </div>
         )}
 
-        <div className="bg-slate-900/95 border border-slate-800 rounded-2xl p-3 shadow-md space-y-2.5">
+        <div className="bg-[#181920] border border-[#262833] rounded-2xl p-3 shadow-md space-y-2.5">
           {/* Officer Name Field (Integrated inline) */}
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
@@ -1025,7 +1023,7 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
                 value={guardName}
                 onChange={(e) => setGuardName(e.target.value)}
                 placeholder="Nombre del Guardia en Turno"
-                className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 rounded-xl px-3 py-1.5 text-white text-xs font-semibold placeholder:text-slate-600 transition-all outline-none"
+                className="w-full bg-[#111215] border border-[#262833] focus:border-[#f43f5e] rounded-xl px-3 py-1.5 text-white text-xs font-semibold placeholder:text-slate-600 transition-all outline-none"
               />
             </div>
             <button
@@ -1034,18 +1032,18 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
                 setTempGuardInput(guardName !== "Oficial de Seguridad" ? guardName : "");
                 setIsNameModalOpen(true);
               }}
-              className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 px-2 py-1 rounded-lg border border-emerald-500/20 shrink-0 cursor-pointer"
+              className="text-[10px] font-mono text-[#f43f5e] bg-[#241015] hover:bg-[#38161d] px-2 py-1 rounded-lg border border-[#e11d48]/40 shrink-0 cursor-pointer"
             >
               Registro
             </button>
           </div>
 
           {/* Real-time GPS status line with live coordinates */}
-          <div className="flex items-center justify-between gap-2 p-2.5 bg-slate-950 rounded-xl border border-slate-800/80 text-[11px] font-mono">
+          <div className="flex items-center justify-between gap-2 p-2.5 bg-[#111215] rounded-xl border border-[#262833] text-[11px] font-mono">
             <div className="flex items-center gap-2 min-w-0">
-              <MapPin className="w-4 h-4 text-emerald-400 shrink-0 animate-pulse" />
+              <MapPin className="w-4 h-4 text-[#10b981] shrink-0 animate-pulse" />
               <div className="truncate">
-                <span className="text-slate-400 text-[10px] block leading-tight">
+                <span className="text-[#9ca3af] text-[10px] block leading-tight">
                   {locationStatus}
                 </span>
                 <span className="text-slate-200 font-bold">
@@ -1146,7 +1144,7 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
 
               {/* Status Pill for Bluetooth & Manual Trigger */}
               <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-red-950/70 border border-red-700/70 text-[10px] font-mono font-bold text-red-300 shrink-0">
-                <Bluetooth className="w-3.5 h-3.5 text-blue-400" />
+                <Bluetooth className="w-3.5 h-3.5 text-slate-300" />
                 <span>Táctil / Bluetooth</span>
               </div>
             </div>
@@ -1157,8 +1155,8 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
                 <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
                 <span>1 Toque Botón Rojo</span>
               </span>
-              <span className="px-2.5 py-1 rounded-lg bg-blue-950/60 border border-blue-800/80 text-blue-200 flex items-center gap-1.5">
-                <Bluetooth className="w-3 h-3 text-blue-400" />
+              <span className="px-2.5 py-1 rounded-lg bg-[#161823] border border-[#282e42] text-slate-300 flex items-center gap-1.5">
+                <Bluetooth className="w-3 h-3 text-slate-300" />
                 <span>Pulsador Bluetooth</span>
               </span>
             </div>
@@ -1168,7 +1166,7 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
               type="button"
               onClick={() => triggerGuardSos("MANUAL_BUTTON")}
               disabled={isEmittingSos}
-              className="w-full py-4 px-4 rounded-2xl bg-gradient-to-r from-red-600 via-red-700 to-red-800 hover:from-red-500 hover:to-red-700 active:scale-95 text-white font-black text-sm sm:text-base flex items-center justify-center gap-3 shadow-2xl shadow-red-950/90 border-2 border-red-400/50 cursor-pointer transition-all disabled:opacity-50"
+              className="w-full py-4 px-4 rounded-2xl bg-gradient-to-r from-[#dc2626] to-[#be123c] hover:from-[#ef4444] hover:to-[#dc2626] active:scale-95 text-white font-black text-sm sm:text-base flex items-center justify-center gap-3 shadow-2xl shadow-[#4c0519]/90 border-2 border-[#881337] cursor-pointer transition-all disabled:opacity-50"
             >
               {isEmittingSos ? (
                 <>
@@ -1182,7 +1180,7 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
                     <div className="tracking-wider uppercase font-black text-sm sm:text-base">
                       🚨 EMITIR PÁNICO SOS A CENTRAL C4
                     </div>
-                    <div className="text-[10px] text-red-100 font-normal font-sans opacity-95">
+                    <div className="text-[10px] text-[#fda4af] font-normal font-sans opacity-95">
                       Toca aquí • O presiona tu botón Bluetooth vinculado
                     </div>
                   </div>
@@ -1313,7 +1311,7 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
                     href={gpsDirectionsUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="py-3 px-3 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer"
+                    className="py-3 px-3 rounded-xl bg-gradient-to-r from-[#e11d48] to-[#be123c] hover:from-[#f43f5e] hover:to-[#e11d48] active:scale-95 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md shadow-rose-950/40 transition-all cursor-pointer"
                   >
                     <Navigation className="w-4 h-4 text-white" />
                     <span>Ruta GPS</span>
@@ -1332,7 +1330,7 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
                     <MapPin className="w-4 h-4 text-red-400" />
                     <span>Mapa Táctico de Ubicación</span>
                   </div>
-                  <span className="text-[10px] text-blue-400 font-mono">
+                  <span className="text-[10px] text-rose-400 font-mono font-bold">
                     {showTacticalMap ? "Ocultar ▲" : "Ver Mapa ▼"}
                   </span>
                 </button>
@@ -1425,7 +1423,7 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
                   {/* 2. En el sitio */}
                   <button
                     onClick={() => handleArrivedOnSite(currentEmergency)}
-                    className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 active:scale-95 text-white font-black text-sm flex items-center justify-center gap-2.5 shadow-lg shadow-blue-950/60 cursor-pointer transition-all"
+                    className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-[#dc2626] to-[#be123c] hover:from-[#ef4444] hover:to-[#dc2626] active:scale-95 text-white font-black text-sm flex items-center justify-center gap-2.5 shadow-lg shadow-[#4c0519]/60 cursor-pointer transition-all"
                   >
                     <MapPin className="w-4 h-4" />
                     <span>2. EN EL SITIO (Verificando)</span>
@@ -1434,7 +1432,7 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
                   {/* 3. Asegurado */}
                   <button
                     onClick={() => handlePerimeterSecured(currentEmergency)}
-                    className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-700 active:scale-95 text-white font-black text-sm flex items-center justify-center gap-2.5 shadow-lg shadow-emerald-950/60 cursor-pointer transition-all"
+                    className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-[#059669] to-[#065f46] hover:from-[#10b981] hover:to-[#059669] active:scale-95 text-white font-black text-sm flex items-center justify-center gap-2.5 shadow-lg shadow-[#022c22]/60 cursor-pointer transition-all"
                   >
                     <ShieldCheck className="w-5 h-5" />
                     <span>3. PERÍMETRO ASEGURADO</span>
@@ -1524,45 +1522,45 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
 
       {/* MODAL: REGISTRO DE IDENTIFICACIÓN DEL GUARDIA EN TURNO */}
       {isNameModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-slate-900 border-2 border-emerald-500/60 rounded-3xl p-6 sm:p-7 shadow-2xl space-y-5 relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#111215]/85 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-[#181920] border-2 border-[#262833] rounded-3xl p-6 sm:p-7 shadow-2xl space-y-5 relative">
             <button
               type="button"
               onClick={() => setIsNameModalOpen(false)}
-              className="absolute top-4 right-4 p-2 rounded-xl bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 cursor-pointer transition-colors"
+              className="absolute top-4 right-4 p-2 rounded-xl bg-[#181920] text-slate-400 hover:text-white hover:bg-[#22242e] border border-[#262833] cursor-pointer transition-colors"
               title="Cerrar ventana"
             >
               <X className="w-5 h-5" />
             </button>
 
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-emerald-600/20 border border-emerald-500/50 flex items-center justify-center text-emerald-400 shrink-0 shadow-inner">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#10b981]/20 to-emerald-900/30 border border-emerald-500/40 flex items-center justify-center text-[#10b981] shrink-0 shadow-inner">
                 <UserCheck className="w-6 h-6" />
               </div>
               <div>
                 <h3 className="text-lg font-bold text-white tracking-tight">
                   Registro de Guardia en Turno
                 </h3>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-[#9ca3af]">
                   Identificación oficial para Central C4 y Bitácora
                 </p>
               </div>
             </div>
 
-            <div className="bg-slate-950/90 border border-slate-800 rounded-2xl p-4 text-xs space-y-2 text-slate-300">
-              <div className="flex justify-between items-center pb-2 border-b border-slate-800/80">
-                <span className="text-slate-400">Puesto / Terminal Vinculada:</span>
-                <span className="font-bold text-emerald-400">
+            <div className="bg-[#111215] border border-[#262833] rounded-2xl p-4 text-xs space-y-2 text-slate-300">
+              <div className="flex justify-between items-center pb-2 border-b border-[#262833]">
+                <span className="text-[#9ca3af]">Puesto / Terminal Vinculada:</span>
+                <span className="font-bold text-[#10b981]">
                   {assignedStoreName || boundTerminalInfo?.storeName || (assignedStoreId ? `Terminal ${assignedStoreId}` : "Terminal de Seguridad")}
                 </span>
               </div>
               {boundTerminalInfo?.address && (
-                <div className="flex items-start gap-1.5 text-[11px] text-slate-400 pt-0.5">
-                  <MapPin className="w-3.5 h-3.5 text-red-400 shrink-0 mt-0.5" />
+                <div className="flex items-start gap-1.5 text-[11px] text-slate-300 pt-0.5">
+                  <MapPin className="w-3.5 h-3.5 text-[#f43f5e] shrink-0 mt-0.5" />
                   <span>{boundTerminalInfo.address}</span>
                 </div>
               )}
-              <p className="text-slate-400 text-[11px] leading-relaxed pt-1">
+              <p className="text-[#9ca3af] text-[11px] leading-relaxed pt-1">
                 Por protocolo de seguridad, tu nombre se registrará en cada auxilio, ruta GPS y reporte de pánico emitido a la Central C4.
               </p>
             </div>
@@ -1585,9 +1583,9 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
                     value={tempGuardInput}
                     onChange={(e) => setTempGuardInput(e.target.value)}
                     placeholder="Ej. Oficial Carlos Mendoza"
-                    className="w-full bg-slate-950 border-2 border-slate-700 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/20 rounded-2xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none transition-all shadow-inner font-medium"
+                    className="w-full bg-[#121215] border border-[#27272a] focus:border-[#dc2626] focus:ring-2 focus:ring-[#dc2626]/20 rounded-2xl px-4 py-3 text-sm text-white placeholder:text-[#71717a] focus:outline-none transition-all shadow-inner font-medium"
                   />
-                  <BadgeCheck className="w-5 h-5 text-emerald-400 absolute right-3.5 top-3.5 pointer-events-none" />
+                  <BadgeCheck className="w-5 h-5 text-[#34d399] absolute right-3.5 top-3.5 pointer-events-none" />
                 </div>
               </div>
 
@@ -1597,13 +1595,13 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
                   onClick={() => {
                     handleConfirmGuardName("Oficial en Turno");
                   }}
-                  className="flex-1 py-3.5 rounded-2xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-bold transition-all cursor-pointer"
+                  className="flex-1 py-3.5 rounded-2xl bg-[#18181b] hover:bg-[#27272a] border border-[#27272a] text-slate-200 text-xs font-bold transition-all cursor-pointer"
                 >
                   Entrar Directo
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold tracking-wide shadow-lg shadow-emerald-600/30 transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-95"
+                  className="flex-1 py-3.5 rounded-2xl bg-gradient-to-r from-[#dc2626] to-[#be123c] hover:from-[#ef4444] hover:to-[#dc2626] text-white text-xs font-bold tracking-wide shadow-lg shadow-[#4c0519]/60 transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-95"
                 >
                   <UserCheck className="w-4 h-4" />
                   <span>Confirmar</span>

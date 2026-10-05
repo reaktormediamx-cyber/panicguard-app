@@ -51,8 +51,8 @@ export const AiVerdictPanel: React.FC<AiVerdictPanelProps> = ({
         };
       case "LOW":
         return {
-          bg: "bg-blue-950/80 border-blue-500/60 text-blue-300",
-          icon: <ShieldCheck className="w-5 h-5 text-blue-400" />,
+          bg: "bg-slate-900 border-slate-700 text-slate-300",
+          icon: <ShieldCheck className="w-5 h-5 text-emerald-400" />,
           label: "RIESGO BAJO - PREVENTIVO",
         };
       case "FALSE_ALARM":

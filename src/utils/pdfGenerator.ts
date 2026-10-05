@@ -32,7 +32,7 @@ export async function downloadAlertPdfReport(alert: PanicAlert) {
   doc.setTextColor(255, 255, 255);
   doc.text("PANIC", margin + 8, currentY + 10);
 
-  doc.setTextColor(239, 68, 68);
+  doc.setTextColor(220, 38, 38);
   doc.text("GUARD", margin + 28, currentY + 10);
 
   doc.setFont("helvetica", "normal");

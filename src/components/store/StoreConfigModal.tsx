@@ -53,7 +53,7 @@ export const StoreConfigModal: React.FC<StoreConfigModalProps> = ({
       <div className="relative w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-5">
         <div className="flex items-center justify-between pb-3 border-b border-slate-800">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-xl bg-[#f43f5e]/15 text-[#f43f5e] border border-[#e11d48]/30 flex items-center justify-center">
               <Store className="w-4 h-4" />
             </div>
             <div>
@@ -74,7 +74,7 @@ export const StoreConfigModal: React.FC<StoreConfigModalProps> = ({
               value={storeData.storeName}
               onChange={(e) => setStoreData({ ...storeData, storeName: e.target.value })}
               required
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500"
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-rose-500"
             />
           </div>
 
@@ -86,7 +86,7 @@ export const StoreConfigModal: React.FC<StoreConfigModalProps> = ({
                 value={storeData.storeId}
                 onChange={(e) => setStoreData({ ...storeData, storeId: e.target.value })}
                 required
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-blue-500"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-rose-500"
               />
             </div>
             <div>
@@ -95,7 +95,7 @@ export const StoreConfigModal: React.FC<StoreConfigModalProps> = ({
                 type="text"
                 value={storeData.category}
                 onChange={(e) => setStoreData({ ...storeData, category: e.target.value })}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-rose-500"
               />
             </div>
           </div>
@@ -108,7 +108,7 @@ export const StoreConfigModal: React.FC<StoreConfigModalProps> = ({
                 value={storeData.ownerName}
                 onChange={(e) => setStoreData({ ...storeData, ownerName: e.target.value })}
                 required
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-rose-500"
               />
             </div>
             <div>
@@ -118,7 +118,7 @@ export const StoreConfigModal: React.FC<StoreConfigModalProps> = ({
                 value={storeData.phone}
                 onChange={(e) => setStoreData({ ...storeData, phone: e.target.value })}
                 required
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-blue-500"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-rose-500"
               />
             </div>
           </div>
@@ -130,7 +130,7 @@ export const StoreConfigModal: React.FC<StoreConfigModalProps> = ({
               value={storeData.address}
               onChange={(e) => setStoreData({ ...storeData, address: e.target.value })}
               required
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500"
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-rose-500"
             />
           </div>
 
@@ -140,7 +140,7 @@ export const StoreConfigModal: React.FC<StoreConfigModalProps> = ({
               <button
                 type="button"
                 onClick={handleAutoGPS}
-                className="text-[11px] text-blue-400 hover:text-blue-300 flex items-center gap-1 cursor-pointer"
+                className="text-[11px] text-rose-400 hover:text-rose-300 flex items-center gap-1 cursor-pointer"
               >
                 <Navigation className="w-3 h-3" />
                 {isLocating ? "Detectando..." : "Calibrar con GPS Actual"}
@@ -158,7 +158,7 @@ export const StoreConfigModal: React.FC<StoreConfigModalProps> = ({
                   })
                 }
                 placeholder="Latitud"
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-blue-500"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-rose-500"
               />
               <input
                 type="number"
@@ -171,7 +171,7 @@ export const StoreConfigModal: React.FC<StoreConfigModalProps> = ({
                   })
                 }
                 placeholder="Longitud"
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-blue-500"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-rose-500"
               />
             </div>
           </div>
@@ -188,7 +188,7 @@ export const StoreConfigModal: React.FC<StoreConfigModalProps> = ({
                   value={storeData.panicHotkey || "p"}
                   onChange={(e) => setStoreData({ ...storeData, panicHotkey: e.target.value })}
                   placeholder="Ej. p, space, f9"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono uppercase focus:outline-none focus:border-blue-500"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono uppercase focus:outline-none focus:border-rose-500"
                 />
               </div>
               <div>
@@ -196,7 +196,7 @@ export const StoreConfigModal: React.FC<StoreConfigModalProps> = ({
                 <select
                   value={storeData.panicHotkeyMode || "DIRECT"}
                   onChange={(e) => setStoreData({ ...storeData, panicHotkeyMode: e.target.value as any })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white text-xs focus:outline-none focus:border-blue-500"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white text-xs focus:outline-none focus:border-rose-500"
                 >
                   <option value="DIRECT">Directa (Ej. Presionar tecla)</option>
                   <option value="ALT_COMBINATION">Combinación (ALT + Tecla)</option>
@@ -218,7 +218,7 @@ export const StoreConfigModal: React.FC<StoreConfigModalProps> = ({
             </button>
             <button
               type="submit"
-              className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold flex items-center gap-1.5 shadow cursor-pointer"
+              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#e11d48] to-[#be123c] hover:from-[#f43f5e] hover:to-[#e11d48] text-white font-bold flex items-center gap-1.5 shadow-md shadow-rose-950/40 transition-all cursor-pointer active:scale-95"
             >
               <Save className="w-4 h-4" />
               Guardar Cambios

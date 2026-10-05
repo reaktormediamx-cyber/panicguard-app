@@ -228,7 +228,7 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
                     REPORTE EN VIVO DEL GUARDIA EN SITIO
                   </span>
                   {alert.guardName && (
-                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-blue-900/80 text-blue-200 border border-blue-400/50">
+                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-[#161823] text-emerald-300 border border-emerald-500/40">
                       Oficial en Turno: {alert.guardName}
                     </span>
                   )}
@@ -342,7 +342,7 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
               <div className="lg:col-span-6 space-y-2 flex flex-col justify-between">
                 <div className="flex items-center justify-between">
                   <h3 className="text-[11px] uppercase tracking-wider font-bold text-slate-400 flex items-center gap-1.5">
-                    <MapPin className="w-3.5 h-3.5 text-blue-400" />
+                    <MapPin className="w-3.5 h-3.5 text-[#f43f5e]" />
                     Geolocalización & Mapa Táctico Oficial
                   </h3>
                 </div>
@@ -365,7 +365,7 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
                         alert.status === "ACTIVE"
                           ? "bg-red-500/20 text-red-300 border border-red-500/40 animate-pulse"
                           : alert.status === "DISPATCHED"
-                          ? "bg-blue-500/20 text-blue-300 border border-blue-500/40"
+                          ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
                           : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
                       }`}
                     >
@@ -375,7 +375,7 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
                   {alert.dispatchedUnit && (
                     <div className="flex items-center justify-between">
                       <span className="text-slate-400">Patrulla Asignada:</span>
-                      <span className="font-mono text-blue-400 font-semibold">{alert.dispatchedUnit}</span>
+                      <span className="font-mono text-amber-300 font-semibold">{alert.dispatchedUnit}</span>
                     </div>
                   )}
                 </div>
@@ -409,7 +409,7 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
                       alert.status === "ACTIVE"
                         ? "bg-red-500/20 text-red-300 border border-red-500/40 animate-pulse"
                         : alert.status === "DISPATCHED"
-                        ? "bg-blue-500/20 text-blue-300 border border-blue-500/40"
+                        ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
                         : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
                     }`}
                   >
@@ -422,11 +422,11 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
               <div className="rounded-2xl overflow-hidden border border-slate-800 bg-slate-950 min-h-[360px] sm:min-h-[420px] flex flex-col">
                 <div className="p-2.5 bg-slate-900 border-b border-slate-800 flex items-center justify-between text-xs">
                   <span className="font-bold text-slate-200 flex items-center gap-1.5">
-                    <MapPin className="w-4 h-4 text-blue-400" />
+                    <MapPin className="w-4 h-4 text-[#f43f5e]" />
                     Ubicación y Despliegue Táctico Oficial (GPS Alta Precisión)
                   </span>
                   {alert.dispatchedUnit && (
-                    <span className="font-mono text-xs text-blue-400 font-bold">
+                    <span className="font-mono text-xs text-amber-400 font-bold">
                       Unidad Asignada: {alert.dispatchedUnit}
                     </span>
                   )}
@@ -457,7 +457,7 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
           <div className="p-3 rounded-2xl bg-slate-950/90 border border-slate-800 space-y-2">
             <div className="flex items-center justify-between">
               <h4 className="text-[11px] uppercase tracking-wider font-bold text-slate-300 flex items-center gap-1.5">
-                <FileText className="w-3.5 h-3.5 text-blue-400" />
+                <FileText className="w-3.5 h-3.5 text-[#f43f5e]" />
                 Bitácora de Eventos y Procesos en Tiempo Real ({alert.logs?.length || 0}):
               </h4>
             </div>
@@ -475,7 +475,7 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
                     <div className="flex-1 text-slate-300">
                       <span className="font-medium text-slate-200">{log.action}</span>
                       {log.operator && (
-                        <span className="text-blue-400 ml-1.5 font-bold">[{log.operator}]</span>
+                        <span className="text-[#f43f5e] ml-1.5 font-bold">[{log.operator}]</span>
                       )}
                       {log.details && log.details !== log.action && (
                         <div className="text-[10px] text-slate-400 mt-0.5">{log.details}</div>
@@ -506,7 +506,7 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
                   value={dispatchUnit}
                   onChange={(e) => setDispatchUnit(e.target.value)}
                   placeholder="Ej. Cuadrante Coyoacán #104"
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-blue-500"
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-rose-500"
                 />
               </div>
 
@@ -526,13 +526,13 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
                       }
                     }}
                     placeholder="Ej. Patrulla 911 en arribo al lugar..."
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-blue-500"
+                    className="w-full bg-[#121215] border border-[#27272a] rounded-lg px-2.5 py-1.5 text-xs text-white placeholder:text-[#71717a] focus:outline-none focus:border-[#dc2626]"
                   />
                   <button
                     type="button"
                     disabled={isSubmittingNote || !operatorNote.trim()}
                     onClick={handleAddLiveNote}
-                    className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg text-xs font-semibold shrink-0 cursor-pointer flex items-center gap-1"
+                    className="px-3.5 py-1.5 bg-gradient-to-r from-[#dc2626] to-[#be123c] hover:from-[#ef4444] hover:to-[#dc2626] disabled:opacity-50 text-white rounded-xl text-xs font-bold shrink-0 cursor-pointer flex items-center gap-1 shadow-md shadow-[#4c0519]/40 transition-all active:scale-95"
                     title="Registrar en la bitácora sin cerrar"
                   >
                     <Send className="w-3 h-3" />
@@ -550,7 +550,7 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
                 className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
                 title="Descargar informe oficial con fotos y bitácora forense en PDF"
               >
-                <FileText className="w-3.5 h-3.5 text-blue-400" />
+                <FileText className="w-3.5 h-3.5 text-slate-400" />
                 <span>Exportar Bitácora PDF</span>
               </button>
 
@@ -568,7 +568,7 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
                   <button
                     type="button"
                     onClick={() => handleAction("DISPATCHED")}
-                    className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 border border-blue-400/60 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-md shadow-blue-950 cursor-pointer"
+                    className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-md shadow-amber-950/40 cursor-pointer active:scale-95"
                   >
                     <Shield className="w-3.5 h-3.5 text-white" />
                     <span>Despachar Alerta</span>
@@ -578,10 +578,10 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
                 <button
                   type="button"
                   onClick={() => handleAction("RESOLVED")}
-                  className="px-3 py-1.5 rounded-xl bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-300 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                  className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-md shadow-emerald-950/40 cursor-pointer active:scale-95"
                 >
-                  <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
-                  Cerrar Incidente
+                  <CheckCircle className="w-3.5 h-3.5 text-white" />
+                  <span>Cerrar Incidente</span>
                 </button>
               </div>
             </div>

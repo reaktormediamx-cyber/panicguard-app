@@ -105,40 +105,47 @@ export const AuthModal: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 selection:bg-red-500 selection:text-white">
-      {/* Dynamic Background Accents */}
+    <div className="relative min-h-screen bg-[#121215] flex flex-col items-center justify-center p-4 selection:bg-[#dc2626] selection:text-white overflow-hidden">
+      {/* Pure Diffused 2-Color Pulsing Glow Lights (No Circular Lines) */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[700px] h-[500px] bg-red-900/15 blur-[120px] rounded-full" />
-        <div className="absolute bottom-0 right-10 w-[400px] h-[400px] bg-blue-900/10 blur-[100px] rounded-full" />
+        {/* Color 1: #DC2626 (Rojo Primario) - Soft Pulsing Glow Top */}
+        <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-[700px] h-[550px] bg-gradient-to-br from-[#dc2626]/30 to-transparent blur-[140px] rounded-full animate-pulse-rhythm-1" />
+        {/* Color 2: #BE123C (Rojo Carmesí) - Soft Pulsing Glow Bottom */}
+        <div className="absolute -bottom-32 left-1/2 -translate-x-1/2 w-[750px] h-[600px] bg-gradient-to-tl from-[#be123c]/35 to-transparent blur-[150px] rounded-full animate-pulse-rhythm-2" />
+        {/* Central Ambient Pulsing Glow Wave */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[radial-gradient(circle_at_center,_rgba(220,38,38,0.3)_0%,_rgba(190,18,60,0.2)_45%,_transparent_75%)] blur-[110px] rounded-full animate-pulse-heartbeat" />
       </div>
 
-      <div className="relative w-full max-w-lg bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-black/80 space-y-5">
+      {/* Ambient Gradient Glow Directly Behind Central Panel */}
+      <div className="absolute w-full max-w-lg h-[520px] bg-gradient-to-r from-[#dc2626]/25 via-[#be123c]/30 to-[#dc2626]/25 blur-3xl rounded-3xl animate-pulse-heartbeat pointer-events-none" />
+
+      <div className="relative w-full max-w-lg bg-[#18181b]/95 backdrop-blur-xl border border-[#27272a] hover:border-[#881337]/60 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-black/95 space-y-5 transition-all duration-500">
         {/* Brand Header */}
         <div className="text-center space-y-1.5">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-red-600 via-red-700 to-slate-950 border border-red-500/40 mx-auto flex items-center justify-center text-white shadow-xl shadow-red-950/50">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#dc2626] to-[#be123c] border border-[#881337] mx-auto flex items-center justify-center text-white shadow-xl shadow-[#4c0519]/60">
             <ShieldAlert className="w-7 h-7" />
           </div>
           <h1 className="text-2xl font-black text-white tracking-tight">
-            PANIC<span className="text-red-500">GUARD</span>
+            PANIC<span className="text-[#dc2626]">GUARD</span>
           </h1>
-          <p className="text-xs text-slate-400 max-w-sm mx-auto">
+          <p className="text-xs text-[#a1a1aa] max-w-sm mx-auto">
             Plataforma de video vigilancia y alertas de pánico por Rol
           </p>
         </div>
 
         {/* Tab Selection */}
         {!isAdminRoute && (
-          <div className="grid grid-cols-2 gap-1.5 bg-slate-950 p-1.5 rounded-2xl border border-slate-800 text-xs">
+          <div className="grid grid-cols-2 gap-1.5 bg-[#121215] p-1.5 rounded-2xl border border-[#27272a] text-xs">
             <button
               type="button"
               onClick={() => { setActiveTab("CENTRAL"); setErrorMsg(null); }}
               className={`py-2 px-1.5 rounded-xl font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                 activeTab === "CENTRAL"
-                  ? "bg-gradient-to-r from-red-700 to-slate-800 text-white shadow"
-                  : "text-slate-400 hover:text-slate-200"
+                  ? "bg-gradient-to-r from-[#dc2626] to-[#be123c] text-white shadow-md shadow-[#4c0519]/60"
+                  : "text-[#a1a1aa] hover:text-white"
               }`}
             >
-              <Building2 className="w-3.5 h-3.5 shrink-0 text-red-400" />
+              <Building2 className="w-3.5 h-3.5 shrink-0 text-white" />
               <span className="truncate">Central C4/C5</span>
             </button>
 
@@ -147,11 +154,11 @@ export const AuthModal: React.FC = () => {
               onClick={() => { setActiveTab("EMAIL"); setErrorMsg(null); }}
               className={`py-2 px-1.5 rounded-xl font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                 activeTab === "EMAIL"
-                  ? "bg-blue-600 text-white shadow"
-                  : "text-slate-400 hover:text-slate-200"
+                  ? "bg-gradient-to-r from-[#dc2626] to-[#be123c] text-white shadow-md shadow-[#4c0519]/60"
+                  : "text-[#a1a1aa] hover:text-white"
               }`}
             >
-              <Store className="w-3.5 h-3.5 shrink-0" />
+              <Store className="w-3.5 h-3.5 shrink-0 text-white" />
               <span className="truncate">Terminal Tienda</span>
             </button>
           </div>
@@ -159,8 +166,8 @@ export const AuthModal: React.FC = () => {
 
         {/* Error Alert Box */}
         {errorMsg && (
-          <div className="p-3 rounded-xl bg-red-950/80 border border-red-500/50 text-red-300 text-xs flex items-start gap-2 animate-shake">
-            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+          <div className="p-3 rounded-xl bg-[#4c0519] border border-[#9f1239] text-[#fda4af] text-xs flex items-start gap-2 animate-shake">
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-[#fb7185]" />
             <span>{errorMsg}</span>
           </div>
         )}
@@ -168,12 +175,12 @@ export const AuthModal: React.FC = () => {
         {/* Tab 1: Super Admin Master Login */}
         {activeTab === "MASTER" && (
           <form onSubmit={handleMasterLogin} className="space-y-3.5 text-xs">
-            <div className="flex items-center justify-between px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800">
+            <div className="flex items-center justify-between px-3.5 py-2 rounded-xl bg-[#121215] border border-[#27272a]">
               <span className="font-semibold text-slate-300 flex items-center gap-1.5">
-                <Shield className="w-3.5 h-3.5 text-red-400" />
+                <Shield className="w-3.5 h-3.5 text-[#ef4444]" />
                 Acceso a Comando Matriz
               </span>
-              <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-red-950 text-red-300 font-bold border border-red-900/60">
+              <span className="font-mono text-[10px] px-2 py-0.5 rounded-lg bg-[#4c0519] text-[#fda4af] font-bold border border-[#9f1239]">
                 ROL: SUPER_ADMIN
               </span>
             </div>
@@ -183,13 +190,13 @@ export const AuthModal: React.FC = () => {
                 Cuenta de Super Admin:
               </label>
               <div className="relative">
-                <Mail className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Mail className="w-3.5 h-3.5 text-[#71717a] absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="email"
                   value={masterEmail}
                   onChange={(e) => setMasterEmail(e.target.value)}
                   placeholder="panicguardmx@gmail.com"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3.5 py-2.5 text-white font-mono text-xs focus:outline-none focus:border-red-500 transition-colors"
+                  className="w-full bg-[#121215] border border-[#27272a] rounded-xl pl-9 pr-3.5 py-2.5 text-white font-mono text-xs focus:outline-none focus:border-[#dc2626] transition-colors"
                 />
               </div>
             </div>
@@ -199,18 +206,18 @@ export const AuthModal: React.FC = () => {
                 Clave de Seguridad:
               </label>
               <div className="relative">
-                <Lock className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Lock className="w-3.5 h-3.5 text-[#71717a] absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type={showMasterPassword ? "text" : "password"}
                   value={masterPassword}
                   onChange={(e) => setMasterPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-10 py-2.5 text-white font-mono text-xs focus:outline-none focus:border-red-500 transition-colors"
+                  className="w-full bg-[#121215] border border-[#27272a] rounded-xl pl-9 pr-10 py-2.5 text-white font-mono text-xs focus:outline-none focus:border-[#dc2626] transition-colors"
                 />
                 <button
                   type="button"
                   onClick={() => setShowMasterPassword(!showMasterPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 cursor-pointer transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#71717a] hover:text-slate-300 cursor-pointer transition-colors"
                 >
                   {showMasterPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -220,7 +227,7 @@ export const AuthModal: React.FC = () => {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full py-3 rounded-xl bg-gradient-to-r from-red-600 via-red-700 to-red-800 hover:from-red-500 hover:to-red-700 text-white font-bold flex items-center justify-center gap-2 shadow-lg shadow-red-950 transition-all cursor-pointer disabled:opacity-50"
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-[#dc2626] to-[#be123c] hover:from-[#ef4444] hover:to-[#dc2626] text-white font-bold flex items-center justify-center gap-2 shadow-lg shadow-[#4c0519]/60 transition-all cursor-pointer disabled:opacity-50"
             >
               {isSubmitting ? (
                 <span>Verificando Credenciales...</span>
@@ -237,12 +244,12 @@ export const AuthModal: React.FC = () => {
         {/* Tab 2: Central de Monitoreo Login */}
         {activeTab === "CENTRAL" && (
           <form onSubmit={handleCentralLogin} className="space-y-3.5 text-xs">
-            <div className="flex items-center justify-between px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800">
+            <div className="flex items-center justify-between px-3.5 py-2 rounded-xl bg-[#121215] border border-[#27272a]">
               <span className="font-semibold text-slate-300 flex items-center gap-1.5">
-                <Building2 className="w-3.5 h-3.5 text-red-400" />
+                <Building2 className="w-3.5 h-3.5 text-[#ef4444]" />
                 Acceso a Consola de Central
               </span>
-              <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-red-950/80 text-red-300 font-bold border border-red-900/50">
+              <span className="font-mono text-[10px] px-2 py-0.5 rounded-lg bg-[#4c0519] text-[#fda4af] font-bold border border-[#9f1239]">
                 ROL: CENTRAL / C4-C5
               </span>
             </div>
@@ -252,13 +259,13 @@ export const AuthModal: React.FC = () => {
                 Usuario / Correo de Despachador:
               </label>
               <div className="relative">
-                <Mail className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Mail className="w-3.5 h-3.5 text-[#71717a] absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="email"
                   value={centralEmail}
                   onChange={(e) => setCentralEmail(e.target.value)}
                   placeholder="operador.c4@cdmx.gob.mx"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3.5 py-2.5 text-white text-xs focus:outline-none focus:border-red-500 transition-colors"
+                  className="w-full bg-[#121215] border border-[#27272a] rounded-xl pl-9 pr-3.5 py-2.5 text-white text-xs focus:outline-none focus:border-[#dc2626] transition-colors"
                 />
               </div>
             </div>
@@ -268,18 +275,18 @@ export const AuthModal: React.FC = () => {
                 Clave de Despacho / Contraseña:
               </label>
               <div className="relative">
-                <Lock className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Lock className="w-3.5 h-3.5 text-[#71717a] absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type={showCentralPassword ? "text" : "password"}
                   value={centralPassword}
                   onChange={(e) => setCentralPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-10 py-2.5 text-white font-mono text-xs focus:outline-none focus:border-red-500 transition-colors"
+                  className="w-full bg-[#121215] border border-[#27272a] rounded-xl pl-9 pr-10 py-2.5 text-white font-mono text-xs focus:outline-none focus:border-[#dc2626] transition-colors"
                 />
                 <button
                   type="button"
                   onClick={() => setShowCentralPassword(!showCentralPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 cursor-pointer transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#71717a] hover:text-slate-300 cursor-pointer transition-colors"
                 >
                   {showCentralPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -289,7 +296,7 @@ export const AuthModal: React.FC = () => {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full py-3 rounded-xl bg-gradient-to-r from-red-600 to-red-800 hover:from-red-500 hover:to-red-700 text-white font-bold flex items-center justify-center gap-2 shadow-lg shadow-red-950 transition-all cursor-pointer disabled:opacity-50"
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-[#dc2626] to-[#be123c] hover:from-[#ef4444] hover:to-[#dc2626] text-white font-bold flex items-center justify-center gap-2 shadow-lg shadow-[#4c0519]/60 transition-all cursor-pointer disabled:opacity-50"
             >
               {isSubmitting ? (
                 <span>Validando Operador...</span>
@@ -312,14 +319,14 @@ export const AuthModal: React.FC = () => {
                 Correo Registrado:
               </label>
               <div className="relative">
-                <Mail className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Mail className="w-3.5 h-3.5 text-[#71717a] absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="email"
                   value={emailInput}
                   onChange={(e) => setEmailInput(e.target.value)}
                   placeholder="tienda@comercio.com"
                   required
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3.5 py-2.5 text-white text-xs focus:outline-none focus:border-blue-500"
+                  className="w-full bg-[#121215] border border-[#27272a] rounded-xl pl-9 pr-3.5 py-2.5 text-white text-xs focus:outline-none focus:border-[#dc2626]"
                 />
               </div>
             </div>
@@ -329,19 +336,19 @@ export const AuthModal: React.FC = () => {
                 Clave / PIN de Comercio:
               </label>
               <div className="relative">
-                <Lock className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Lock className="w-3.5 h-3.5 text-[#71717a] absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type={showTerminalPassword ? "text" : "password"}
                   value={passwordInput}
                   onChange={(e) => setPasswordInput(e.target.value)}
                   placeholder="••••••••"
                   required
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-10 py-2.5 text-white font-mono text-xs focus:outline-none focus:border-blue-500"
+                  className="w-full bg-[#121215] border border-[#27272a] rounded-xl pl-9 pr-10 py-2.5 text-white font-mono text-xs focus:outline-none focus:border-[#dc2626]"
                 />
                 <button
                   type="button"
                   onClick={() => setShowTerminalPassword(!showTerminalPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 cursor-pointer transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#71717a] hover:text-slate-300 cursor-pointer transition-colors"
                 >
                   {showTerminalPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -351,7 +358,7 @@ export const AuthModal: React.FC = () => {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold flex items-center justify-center gap-2 shadow transition-all cursor-pointer disabled:opacity-50"
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-[#dc2626] to-[#be123c] hover:from-[#ef4444] hover:to-[#dc2626] text-white font-bold flex items-center justify-center gap-2 shadow-lg shadow-[#4c0519]/60 transition-all cursor-pointer disabled:opacity-50"
             >
               {isSubmitting ? "Ingresando..." : "Acceder a Terminal de Comercio"}
             </button>
@@ -359,21 +366,21 @@ export const AuthModal: React.FC = () => {
         )}
 
         {/* Footer Role Segregation Guarantee */}
-        <div className="pt-2 border-t border-slate-800/80 flex items-center justify-center gap-3 text-[10px] text-slate-400 font-mono flex-wrap">
+        <div className="pt-2 border-t border-[#27272a] flex items-center justify-center gap-3 text-[10px] text-[#a1a1aa] font-mono flex-wrap">
           {isAdminRoute ? (
             <span className="flex items-center gap-1">
-              <ShieldAlert className="w-3.5 h-3.5 text-red-500" />
+              <ShieldAlert className="w-3.5 h-3.5 text-[#ef4444]" />
               Consola Exclusiva: Comando Matriz & Super Admin
             </span>
           ) : (
             <>
               <span className="flex items-center gap-1">
-                <Building2 className="w-3 h-3 text-red-400" />
+                <Building2 className="w-3 h-3 text-[#ef4444]" />
                 Central: C4/C5
               </span>
               <span>•</span>
               <span className="flex items-center gap-1">
-                <Store className="w-3 h-3 text-blue-400" />
+                <Store className="w-3 h-3 text-[#a1a1aa]" />
                 Terminal Comercial
               </span>
             </>

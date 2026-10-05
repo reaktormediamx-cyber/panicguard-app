@@ -38,15 +38,15 @@ export const DualViewSimulator: React.FC<DualViewSimulatorProps> = ({
   return (
     <div className="w-full max-w-[1700px] mx-auto p-3 sm:p-5 space-y-6">
       {/* Simulation Info Banner */}
-      <div className="bg-gradient-to-r from-blue-950 via-slate-900 to-purple-950 border border-blue-500/30 rounded-2xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs shadow-lg">
+      <div className="bg-gradient-to-r from-[#181920] via-[#111215] to-[#181920] border border-[#262833] rounded-2xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs shadow-lg">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0">
+          <div className="w-8 h-8 rounded-xl bg-[#f43f5e]/15 text-[#f43f5e] border border-[#e11d48]/30 flex items-center justify-center shrink-0">
             <Zap className="w-4 h-4" />
           </div>
           <div>
             <h3 className="text-sm font-bold text-white flex items-center gap-2">
               Modo de Simulación Split: Comercio ⇄ Central de Monitoreo
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-500/20 text-blue-300">
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#241015] text-[#fb7185] border border-[#e11d48]/40">
                 Latencia &lt; 1s
               </span>
             </h3>
@@ -89,7 +89,7 @@ export const DualViewSimulator: React.FC<DualViewSimulatorProps> = ({
         <div className="xl:col-span-7 bg-slate-950/60 border border-slate-800 rounded-3xl p-3 sm:p-4 shadow-xl flex flex-col">
           <div className="flex items-center justify-between px-3 py-2 border-b border-slate-800 mb-4">
             <div className="flex items-center gap-2 text-xs font-bold text-slate-200">
-              <Shield className="w-4 h-4 text-blue-400" />
+              <Shield className="w-4 h-4 text-[#f43f5e]" />
               <span>CONSOLA CENTRAL DE MONITOREO & POLICÍA</span>
             </div>
             <span className="text-[10px] font-mono text-emerald-400">Recepción Inmediata</span>

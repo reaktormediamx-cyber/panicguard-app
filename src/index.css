@@ -1,1 +1,183 @@
 @import "tailwindcss";
+
+@theme {
+  /* 1. Paleta de Fondos (Gris Carbón & Neutros Oscuros) */
+  --color-slate-950: #121215;
+  --color-slate-900: #18181b;
+  --color-slate-850: #1f1f23;
+  --color-slate-800: #27272a;
+  --color-slate-750: #303036;
+  --color-slate-700: #3f3f46;
+  --color-slate-600: #52525b;
+  --color-slate-500: #71717a;
+  --color-slate-400: #a1a1aa;
+  --color-slate-300: #d4d4d8;
+  --color-slate-200: #e4e4e7;
+  --color-slate-100: #f4f4f5;
+
+  --color-zinc-950: #121215;
+  --color-zinc-900: #18181b;
+  --color-zinc-800: #27272a;
+  --color-zinc-700: #3f3f46;
+  --color-zinc-600: #52525b;
+  --color-zinc-500: #71717a;
+  --color-zinc-400: #a1a1aa;
+  --color-zinc-300: #d4d4d8;
+  --color-zinc-200: #e4e4e7;
+  --color-zinc-100: #f4f4f5;
+
+  /* 2. Paleta Primaria de Identidad (Rojo Carmesí & Guardia) */
+  --color-red-300: #fda4af;
+  --color-red-400: #fb7185;
+  --color-red-500: #ef4444;
+  --color-red-600: #dc2626;
+  --color-red-700: #be123c;
+  --color-red-800: #9f1239;
+  --color-red-900: #881337;
+  --color-red-950: #4c0519;
+
+  --color-rose-300: #fda4af;
+  --color-rose-400: #fb7185;
+  --color-rose-500: #ef4444;
+  --color-rose-600: #dc2626;
+  --color-rose-700: #be123c;
+  --color-rose-800: #9f1239;
+  --color-rose-900: #881337;
+  --color-rose-950: #4c0519;
+
+  /* 4. Paleta de Estados Operativos (Esmeralda) */
+  --color-emerald-300: #6ee7b7;
+  --color-emerald-400: #34d399;
+  --color-emerald-500: #10b981;
+  --color-emerald-600: #059669;
+  --color-emerald-800: #065f46;
+  --color-emerald-950: #022c22;
+
+  /* 4. Paleta de Estados Operativos (Ámbar) */
+  --color-amber-300: #fcd34d;
+  --color-amber-400: #fbbf24;
+  --color-amber-500: #f59e0b;
+  --color-amber-600: #d97706;
+  --color-amber-800: #92400e;
+  --color-amber-950: #451a03;
+
+  /* Mapeo de Blue a paleta para mantener uniformidad */
+  --color-blue-300: #fda4af;
+  --color-blue-400: #fb7185;
+  --color-blue-500: #ef4444;
+  --color-blue-600: #dc2626;
+  --color-blue-700: #be123c;
+  --color-blue-800: #9f1239;
+  --color-blue-900: #881337;
+  --color-blue-950: #4c0519;
+}
+
+@layer base {
+  body {
+    background-color: #121215;
+    color: #f4f4f5;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  /* Fondo de listas desplegables (selects) */
+  select {
+    background-color: #14070c;
+  }
+
+  /* Sleek dark scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #121215;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #27272a;
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #3f3f46;
+  }
+}
+
+@keyframes gradientBg {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes pulseHeartbeat {
+  0% {
+    transform: scale(0.92);
+    opacity: 0.25;
+  }
+  30% {
+    transform: scale(1.15);
+    opacity: 0.65;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.4;
+  }
+  70% {
+    transform: scale(1.22);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(0.92);
+    opacity: 0.25;
+  }
+}
+
+@keyframes pulseRing {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1.25);
+    opacity: 0.25;
+  }
+  100% {
+    transform: scale(1.55);
+    opacity: 0;
+  }
+}
+
+@keyframes pulseColorShift {
+  0%, 100% {
+    opacity: 0.3;
+    transform: scale(0.95);
+  }
+  50% {
+    opacity: 0.75;
+    transform: scale(1.2);
+  }
+}
+
+.animate-pulse-rhythm-1 {
+  animation: pulseColorShift 3.5s ease-in-out infinite;
+}
+
+.animate-pulse-rhythm-2 {
+  animation: pulseColorShift 3.5s ease-in-out infinite 1.75s;
+}
+
+.animate-pulse-ring-1 {
+  animation: pulseRing 4s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
+}
+
+.animate-pulse-ring-2 {
+  animation: pulseRing 4s cubic-bezier(0.2, 0.8, 0.2, 1) infinite 2s;
+}
+
+.animate-pulse-heartbeat {
+  animation: pulseHeartbeat 3.5s ease-in-out infinite;
+}

@@ -220,11 +220,12 @@ export default function App() {
   // Show loading spinner while authenticating
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white space-y-4">
-        <div className="w-12 h-12 rounded-2xl bg-red-600/20 border border-red-500/40 flex items-center justify-center text-red-500 animate-pulse">
-          <ShieldAlert className="w-6 h-6 animate-spin" />
+      <div className="relative min-h-screen bg-[#121215] flex flex-col items-center justify-center text-white space-y-4 overflow-hidden">
+        <div className="absolute w-[450px] h-[450px] bg-gradient-to-r from-[#dc2626]/20 to-[#be123c]/20 blur-[120px] rounded-full animate-pulse" />
+        <div className="relative w-14 h-14 rounded-2xl bg-gradient-to-br from-[#dc2626] to-[#be123c] border border-[#881337] flex items-center justify-center text-white shadow-xl shadow-[#4c0519]/60">
+          <ShieldAlert className="w-7 h-7 animate-pulse" />
         </div>
-        <p className="text-sm font-mono text-slate-400">Verificando sesión en PanicGuard Firebase...</p>
+        <p className="text-sm font-mono text-[#a1a1aa] relative z-10">Iniciando PanicGuard...</p>
       </div>
     );
   }
@@ -232,7 +233,7 @@ export default function App() {
   // Direct instant access for Security Guards accessing via Terminal QR code / Guard URL / Guard role
   if (isGuardUrl() || currentView === "GUARD" || appUser?.role === "GUARD") {
     return (
-      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-red-500 selection:text-white">
+      <div className="min-h-screen bg-[#121215] text-[#f4f4f5] flex flex-col selection:bg-[#dc2626] selection:text-white">
         <GuardPortal
           alerts={alerts}
           isConnected={isConnected}
@@ -252,45 +253,21 @@ export default function App() {
   const isPrivileged = appUser.role === "SUPER_ADMIN" || appUser.role === "CENTRAL" || appUser.role === "ADMIN";
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-red-500 selection:text-white">
+    <div className="min-h-screen bg-[#121215] text-[#f4f4f5] flex flex-col selection:bg-[#dc2626] selection:text-white">
       {/* Top Navigation Bar with View Switcher */}
-      <header className="sticky top-0 z-40 bg-slate-900/90 backdrop-blur-md border-b border-slate-800/80 shadow-md">
+      <header className="sticky top-0 z-40 bg-[#18181b]/95 backdrop-blur-md border-b border-[#27272a] shadow-lg shadow-black/40">
         <div className="max-w-[1700px] mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
           {/* Brand Logo & Current Role Status */}
           <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg ${
-              currentView === "MASTER_ADMIN"
-                ? "bg-gradient-to-br from-red-600 via-red-700 to-slate-950 shadow-red-950"
-                : currentView === "GUARD"
-                ? "bg-gradient-to-br from-emerald-600 to-emerald-800 shadow-emerald-950"
-                : currentView === "CENTRAL" 
-                ? "bg-gradient-to-br from-red-600 to-red-800 shadow-red-950"
-                : "bg-gradient-to-br from-blue-600 to-blue-800 shadow-blue-950"
-            }`}>
-              {currentView === "MASTER_ADMIN" ? (
-                <ShieldAlert className="w-5 h-5" />
-              ) : currentView === "GUARD" ? (
-                <Shield className="w-5 h-5" />
-              ) : currentView === "CENTRAL" ? (
-                <Building2 className="w-5 h-5" />
-              ) : (
-                <Store className="w-5 h-5" />
-              )}
+            <div className="w-10 h-10 rounded-2xl flex items-center justify-center text-white bg-gradient-to-br from-[#dc2626] to-[#be123c] border border-[#881337] shadow-lg shadow-[#4c0519]/60 shrink-0">
+              <ShieldAlert className="w-5 h-5 text-white stroke-[2.2]" />
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-base sm:text-lg font-black tracking-tight text-white font-sans">
-                  PANIC<span className="text-red-500">GUARD</span>
+                  PANIC<span className="text-[#dc2626]">GUARD</span>
                 </span>
-                <span className={`text-[10px] uppercase font-mono px-2 py-0.5 rounded border font-bold ${
-                  currentView === "MASTER_ADMIN"
-                    ? "bg-red-950/90 border-red-700 text-red-300"
-                    : currentView === "GUARD"
-                    ? "bg-emerald-950/90 border-emerald-700 text-emerald-300"
-                    : currentView === "CENTRAL"
-                    ? "bg-red-950/80 border-red-800/50 text-red-300"
-                    : "bg-blue-950/80 border-blue-800/50 text-blue-300"
-                }`}>
+                <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-lg border font-bold bg-[#4c0519] border-[#9f1239] text-[#fda4af]">
                   {currentView === "MASTER_ADMIN"
                     ? "SUPER ADMIN"
                     : currentView === "GUARD"
@@ -301,15 +278,15 @@ export default function App() {
                 </span>
 
                 {/* Account Name Identification Badge */}
-                <div className="flex items-center gap-1.5 bg-slate-950/90 border border-amber-500/30 px-2.5 py-0.5 rounded-lg text-xs shadow-inner">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  <span className="text-[10px] font-mono text-slate-400 uppercase font-semibold">Cuenta:</span>
-                  <span className="text-amber-300 font-bold max-w-[180px] sm:max-w-[320px] truncate">
+                <div className="flex items-center gap-1.5 bg-[#18181b] border border-[#27272a] px-2.5 py-0.5 rounded-lg text-xs shadow-inner">
+                  <span className="w-2 h-2 rounded-full bg-[#34d399] animate-pulse" />
+                  <span className="text-[10px] font-mono text-[#a1a1aa] uppercase font-semibold">Cuenta:</span>
+                  <span className="text-[#f4f4f5] font-bold max-w-[180px] sm:max-w-[320px] truncate">
                     {activeAccountName}
                   </span>
                 </div>
               </div>
-              <p className="text-[11px] text-slate-400 font-medium hidden md:block">
+              <p className="text-[11px] text-[#a1a1aa] font-medium hidden md:block">
                 {currentView === "MASTER_ADMIN"
                   ? "Panel General de Centrales, Terminales en Tiempo Real y Estadísticas"
                   : currentView === "GUARD"
@@ -321,39 +298,47 @@ export default function App() {
             </div>
           </div>
 
-            {/* Right Action Tools */}
+          {/* Right Action Tools */}
           <div className="flex items-center gap-2">
             {/* Super Admin Full View Switcher */}
             {isSuperAdmin && (
-              <div className="hidden xl:flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
+              <div className="hidden xl:flex items-center bg-[#121215] p-1 rounded-xl border border-[#27272a] text-xs">
                 <button
                   onClick={() => setCurrentView("MASTER_ADMIN")}
-                  className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
-                    currentView === "MASTER_ADMIN" ? "bg-red-700 text-white" : "text-slate-400 hover:text-white"
+                  className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                    currentView === "MASTER_ADMIN"
+                      ? "bg-gradient-to-r from-[#dc2626] to-[#be123c] text-white shadow-md shadow-[#4c0519]/60"
+                      : "text-[#a1a1aa] hover:text-white hover:bg-[#18181b]"
                   }`}
                 >
                   Matriz
                 </button>
                 <button
                   onClick={() => setCurrentView("CENTRAL")}
-                  className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
-                    currentView === "CENTRAL" ? "bg-red-700 text-white" : "text-slate-400 hover:text-white"
+                  className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                    currentView === "CENTRAL"
+                      ? "bg-gradient-to-r from-[#dc2626] to-[#be123c] text-white shadow-md shadow-[#4c0519]/60"
+                      : "text-[#a1a1aa] hover:text-white hover:bg-[#18181b]"
                   }`}
                 >
                   Central C4
                 </button>
                 <button
                   onClick={() => setCurrentView("TERMINAL")}
-                  className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
-                    currentView === "TERMINAL" ? "bg-blue-600 text-white" : "text-slate-400 hover:text-white"
+                  className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                    currentView === "TERMINAL"
+                      ? "bg-gradient-to-r from-[#dc2626] to-[#be123c] text-white shadow-md shadow-[#4c0519]/60"
+                      : "text-[#a1a1aa] hover:text-white hover:bg-[#18181b]"
                   }`}
                 >
                   Terminal
                 </button>
                 <button
                   onClick={() => setCurrentView("GUARD")}
-                  className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1 ${
-                    currentView === "GUARD" ? "bg-emerald-600 text-white" : "text-slate-400 hover:text-white"
+                  className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                    currentView === "GUARD"
+                      ? "bg-gradient-to-r from-[#dc2626] to-[#be123c] text-white shadow-md shadow-[#4c0519]/60"
+                      : "text-[#a1a1aa] hover:text-white hover:bg-[#18181b]"
                   }`}
                 >
                   <Shield className="w-3 h-3" />
@@ -366,12 +351,12 @@ export default function App() {
               <button
                 id="btn-admin-terminals"
                 onClick={() => setIsTerminalManagerOpen(true)}
-                className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-xs font-bold flex items-center gap-1.5 shadow cursor-pointer transition-all"
+                className="px-3.5 py-1.5 rounded-xl bg-[#18181b] hover:bg-[#27272a] border border-[#27272a] text-white text-xs font-bold flex items-center gap-1.5 shadow-sm cursor-pointer transition-all"
                 title="Dar de alta roles y terminales con cuentas de Google"
               >
-                <Users className="w-3.5 h-3.5 text-red-400" />
+                <Users className="w-3.5 h-3.5 text-[#ef4444]" />
                 <span className="hidden lg:inline">Gestión Rápida</span>
-                <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-900 text-slate-300">
+                <span className="text-[10px] px-1.5 py-0.2 rounded bg-[#121215] text-[#a1a1aa] border border-[#27272a]">
                   {terminals.length}
                 </span>
               </button>
@@ -380,7 +365,7 @@ export default function App() {
             {currentView === "TERMINAL" && (
               <button
                 onClick={() => setIsStoreConfigOpen(true)}
-                className="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 border border-slate-700 text-slate-300 transition-colors cursor-pointer"
+                className="p-2 rounded-xl bg-[#18181b] hover:bg-[#27272a] border border-[#27272a] text-[#a1a1aa] hover:text-white transition-colors cursor-pointer"
                 title="Configurar Datos de Comercio"
               >
                 <Settings className="w-4 h-4" />
@@ -388,13 +373,13 @@ export default function App() {
             )}
 
             {/* User Profile Pill */}
-            <div className="hidden lg:flex items-center gap-2 px-3 py-1 rounded-xl bg-slate-900/90 border border-slate-800 text-xs shadow-sm">
-              <UserCheck className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+            <div className="hidden lg:flex items-center gap-2 px-3 py-1 rounded-xl bg-[#18181b] border border-[#27272a] text-xs shadow-sm">
+              <UserCheck className="w-3.5 h-3.5 text-[#34d399] flex-shrink-0" />
               <div className="flex flex-col text-left">
-                <span className="font-bold text-amber-300 max-w-[160px] truncate leading-tight">
+                <span className="font-bold text-white max-w-[160px] truncate leading-tight">
                   {activeAccountName}
                 </span>
-                <span className="text-[10px] text-slate-400 max-w-[160px] truncate font-mono">
+                <span className="text-[10px] text-[#71717a] max-w-[160px] truncate font-mono">
                   {appUser.email}
                 </span>
               </div>
@@ -403,7 +388,7 @@ export default function App() {
             {/* Logout Button */}
             <button
               onClick={logout}
-              className="p-2 rounded-xl bg-slate-800 hover:bg-red-950/80 hover:text-red-400 hover:border-red-800 border border-slate-700 text-slate-400 transition-all cursor-pointer"
+              className="p-2 rounded-xl bg-[#18181b] hover:bg-[#4c0519] hover:text-[#fda4af] hover:border-[#9f1239] border border-[#27272a] text-[#a1a1aa] transition-all cursor-pointer"
               title="Cerrar Sesión"
             >
               <LogOut className="w-4 h-4" />
@@ -485,13 +470,13 @@ export default function App() {
       )}
 
       {/* Modern Tactical Footer */}
-      <footer className="border-t border-slate-900 bg-slate-950/80 py-3.5 px-6 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 font-mono gap-2">
+      <footer className="border-t border-[#27272a] bg-[#18181b]/95 py-3.5 px-6 flex flex-col sm:flex-row items-center justify-between text-xs text-[#a1a1aa] font-mono gap-2">
         <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-emerald-500" />
+          <span className="w-2 h-2 rounded-full bg-[#34d399]" />
           <span>Base de Datos PanicGuard Firebase Firestore Conectada (panic-guard-e858d)</span>
         </div>
         <div>
-          Rol: <span className="text-slate-300 font-bold">{appUser.role}</span> | Vista: <span className="text-slate-400 font-bold">{currentView}</span> | Usuario: <span className="text-slate-400">{appUser.email}</span>
+          Rol: <span className="text-[#f4f4f5] font-bold">{appUser.role}</span> | Vista: <span className="text-[#a1a1aa] font-bold">{currentView}</span> | Usuario: <span className="text-[#a1a1aa]">{appUser.email}</span>
         </div>
       </footer>
     </div>

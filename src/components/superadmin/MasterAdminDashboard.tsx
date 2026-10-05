@@ -524,7 +524,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
               onClick={() => setShowAddTerminalModal(true)}
               className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
             >
-              <Store className="w-3.5 h-3.5 text-blue-400" />
+              <Store className="w-3.5 h-3.5 text-[#f43f5e]" />
               <span>+ Alta Terminal</span>
             </button>
 
@@ -583,7 +583,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
               <span className="text-[11px] text-slate-400 font-medium block">Terminales / Comercios</span>
               <div className="flex items-baseline gap-1.5 mt-0.5 flex-wrap">
                 <span className="text-xl sm:text-2xl font-black text-white">{terminals.length}</span>
-                <span className="text-[10px] text-blue-400 font-mono font-bold">
+                <span className="text-[10px] text-slate-300 font-mono font-bold">
                   {activeTerminalsCount} Operativas
                 </span>
                 {inactiveTerminalsCount > 0 && (
@@ -593,7 +593,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                 )}
               </div>
             </div>
-            <div className="w-9 h-9 rounded-xl bg-blue-600/10 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300 shrink-0">
               <Store className="w-4 h-4" />
             </div>
           </div>
@@ -845,7 +845,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                         <div className="flex items-center gap-3 text-xs">
                           <div className="text-right hidden sm:block">
                             <span className="text-[10px] text-slate-400 block">Terminales</span>
-                            <span className="font-mono font-bold text-blue-400">
+                            <span className="font-mono font-bold text-slate-200">
                               {stats.terminalsCount}{" "}
                               <span className="text-[10px] text-emerald-400">
                                 ({stats.activeTerminalsCount} act)
@@ -937,7 +937,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                             <div className="grid grid-cols-2 gap-2 text-center">
                               <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800">
                                 <span className="text-[10px] text-slate-400 block font-medium">Terminales</span>
-                                <span className="text-xl font-black text-blue-400 font-mono">
+                                <span className="text-xl font-black text-slate-200 font-mono">
                                   {stats.terminalsCount}
                                 </span>
                                 <span className="text-[9px] text-emerald-400 block font-mono">
@@ -963,7 +963,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                               }}
                               className="w-full py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
                             >
-                              <BarChart3 className="w-3.5 h-3.5 text-blue-400" />
+                              <BarChart3 className="w-3.5 h-3.5 text-[#f43f5e]" />
                               <span>Ver Estadísticas Completas</span>
                             </button>
                           </div>
@@ -993,7 +993,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                               className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5"
                               title="Editar información registrada de la Central"
                             >
-                              <Edit2 className="w-3.5 h-3.5 text-blue-400" />
+                              <Edit2 className="w-3.5 h-3.5 text-[#f43f5e]" />
                               <span>Editar</span>
                             </button>
 
@@ -1102,7 +1102,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
           {/* Controls Bar */}
           <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-4 shadow-xl flex flex-col md:flex-row items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <Store className="w-4 h-4 text-blue-400" />
+              <Store className="w-4 h-4 text-[#f43f5e]" />
               <span className="text-xs font-bold text-white uppercase tracking-wider">
                 Terminales en Tiempo Real ({filteredTerminals.length})
               </span>
@@ -1137,7 +1137,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
 
               <button
                 onClick={() => setShowAddTerminalModal(true)}
-                className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold flex items-center gap-1.5 shadow cursor-pointer whitespace-nowrap"
+                className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#e11d48] to-[#be123c] hover:from-[#f43f5e] hover:to-[#e11d48] text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-rose-950/40 cursor-pointer whitespace-nowrap active:scale-95 transition-all"
               >
                 <PlusCircle className="w-3.5 h-3.5" />
                 <span>Dar de Alta Terminal</span>
@@ -1173,7 +1173,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                       {/* Top Row: Store & Role */}
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-2.5">
-                          <div className="w-9 h-9 rounded-xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400">
+                          <div className="w-9 h-9 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300">
                             <Store className="w-4 h-4" />
                           </div>
                           <div>
@@ -1280,7 +1280,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
 
                         <button
                           onClick={() => startEditTerminal(t)}
-                          className="p-1 text-slate-500 hover:text-blue-400 cursor-pointer transition-colors"
+                          className="p-1 text-slate-500 hover:text-white cursor-pointer transition-colors"
                           title="Editar información de la terminal"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
@@ -1398,7 +1398,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                         onClick={() => setSelectedAlertId(alert.id)}
                         className={`w-full text-left p-3.5 rounded-2xl border transition-all cursor-pointer relative space-y-2 ${
                           isSelected
-                            ? "bg-slate-800/90 border-blue-500 shadow-md ring-1 ring-blue-500/50"
+                            ? "bg-slate-800/90 border-[#f43f5e] shadow-md ring-1 ring-rose-500/50"
                             : alert.status === "ACTIVE"
                             ? "bg-red-950/30 border-red-900/60 hover:bg-slate-800/60"
                             : "bg-slate-950/60 border-slate-800 hover:bg-slate-800/40"
@@ -1413,7 +1413,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                               alert.status === "ACTIVE"
                                 ? "bg-red-500/20 text-red-400 border border-red-500/30 animate-pulse"
                                 : alert.status === "DISPATCHED"
-                                ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
+                                ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
                                 : "bg-slate-800 text-slate-400"
                             }`}
                           >
@@ -1479,7 +1479,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                                 "UNIDAD-MATRIZ-01"
                               )
                             }
-                            className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow cursor-pointer"
+                            className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shadow-md shadow-amber-950/40 cursor-pointer active:scale-95 transition-all"
                           >
                             🚓 Despachar Patrulla
                           </button>
@@ -1581,7 +1581,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                         </td>
                         <td className="py-3.5 px-2 font-mono text-slate-400">{c.code}</td>
                         <td className="py-3.5 px-2 text-slate-300">{c.city}, {c.state}</td>
-                        <td className="py-3.5 px-2 text-center font-mono font-bold text-blue-400">
+                        <td className="py-3.5 px-2 text-center font-mono font-bold text-slate-200">
                           {st.terminalsCount} ({st.activeTerminalsCount} act.)
                         </td>
                         <td className="py-3.5 px-2 text-center font-mono font-bold text-red-400">
@@ -1808,7 +1808,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
           <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
             <div className="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-900/90">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400">
+                <div className="w-10 h-10 rounded-2xl bg-[#e11d48]/10 border border-[#f43f5e]/30 flex items-center justify-center text-[#f43f5e]">
                   <Store className="w-5 h-5" />
                 </div>
                 <div>
@@ -1840,7 +1840,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                       value={termGoogleEmail}
                       onChange={(e) => setTermGoogleEmail(e.target.value)}
                       placeholder="tienda@gmail.com"
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-8 pr-3 py-2 text-white focus:outline-none focus:border-blue-500"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-8 pr-3 py-2 text-white focus:outline-none focus:border-rose-500"
                     />
                   </div>
                 </div>
@@ -1855,7 +1855,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                     value={termPassword}
                     onChange={(e) => setTermPassword(e.target.value)}
                     placeholder="Contraseña (ej. rockomx83)"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500 font-mono text-xs"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-rose-500 font-mono text-xs"
                   />
                 </div>
 
@@ -1867,7 +1867,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                   <select
                     value={termCentralId}
                     onChange={(e) => setTermCentralId(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500 font-mono"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-rose-500 font-mono"
                   >
                     {centrales.map((c) => (
                       <option key={c.id} value={c.id}>
@@ -1887,7 +1887,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                     value={termStoreName}
                     onChange={(e) => setTermStoreName(e.target.value)}
                     placeholder="Ej: Joyería Oro Real Polanco"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-rose-500"
                   />
                 </div>
 
@@ -1900,7 +1900,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                     value={termOwnerName}
                     onChange={(e) => setTermOwnerName(e.target.value)}
                     placeholder="Ej: Lic. Mauricio Morales"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-rose-500"
                   />
                 </div>
 
@@ -1913,7 +1913,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                     value={termPhone}
                     onChange={(e) => setTermPhone(e.target.value)}
                     placeholder="+52 55 1234 5678"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500 font-mono"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-rose-500 font-mono"
                   />
                 </div>
 
@@ -1924,7 +1924,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                   <select
                     value={termCategory}
                     onChange={(e) => setTermCategory(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-rose-500"
                   >
                     <option value="Joyería y Artículos de Lujo">Joyería y Artículos de Lujo</option>
                     <option value="Casa de Cambio y Divisas">Casa de Cambio y Divisas</option>
@@ -1943,7 +1943,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                     value={termAddress}
                     onChange={(e) => setTermAddress(e.target.value)}
                     placeholder="Av. Presidente Masaryk #340, Polanco"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-rose-500"
                   />
                 </div>
               </div>
@@ -1959,7 +1959,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                 <button
                   type="submit"
                   disabled={isSubmittingTerminal}
-                  className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold flex items-center gap-2 cursor-pointer shadow"
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#e11d48] to-[#be123c] hover:from-[#f43f5e] hover:to-[#e11d48] text-white font-bold flex items-center gap-2 cursor-pointer shadow-md shadow-rose-950/40 transition-all active:scale-95 disabled:opacity-50"
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   <span>{isSubmittingTerminal ? "Guardando..." : "Vincular y Habilitar"}</span>
@@ -1978,7 +1978,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
           <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
             <div className="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-900/90">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400">
+                <div className="w-10 h-10 rounded-2xl bg-[#e11d48]/10 border border-[#f43f5e]/30 flex items-center justify-center text-[#f43f5e]">
                   <Building2 className="w-5 h-5" />
                 </div>
                 <div>
@@ -2142,7 +2142,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                 <button
                   type="submit"
                   disabled={isSubmittingEditCentral}
-                  className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold flex items-center gap-2 cursor-pointer shadow"
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#e11d48] to-[#be123c] hover:from-[#f43f5e] hover:to-[#e11d48] text-white font-bold flex items-center gap-2 cursor-pointer shadow-md shadow-rose-950/40 transition-all active:scale-95 disabled:opacity-50"
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   <span>{isSubmittingEditCentral ? "Guardando..." : "Guardar Cambios"}</span>
@@ -2161,7 +2161,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
           <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
             <div className="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-900/90">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400">
+                <div className="w-10 h-10 rounded-2xl bg-[#e11d48]/10 border border-[#f43f5e]/30 flex items-center justify-center text-[#f43f5e]">
                   <Store className="w-5 h-5" />
                 </div>
                 <div>
@@ -2326,7 +2326,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                 <button
                   type="submit"
                   disabled={isSubmittingEditTerminal}
-                  className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold flex items-center gap-2 cursor-pointer shadow"
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#e11d48] to-[#be123c] hover:from-[#f43f5e] hover:to-[#e11d48] text-white font-bold flex items-center gap-2 cursor-pointer shadow-md shadow-rose-950/40 transition-all active:scale-95 disabled:opacity-50"
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   <span>{isSubmittingEditTerminal ? "Guardando..." : "Guardar Cambios"}</span>
@@ -2374,7 +2374,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                     <div className="grid grid-cols-3 gap-3">
                       <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 text-center">
                         <span className="text-[10px] text-slate-400 font-medium">Terminales Asignadas</span>
-                        <div className="text-xl font-black text-blue-400 font-mono mt-1">
+                        <div className="text-xl font-black text-slate-200 font-mono mt-1">
                           {st.terminalsCount}
                         </div>
                         <span className="text-[9px] text-emerald-400 block mt-0.5">
@@ -2403,7 +2403,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                     {/* Assigned Terminals List */}
                     <div className="space-y-2">
                       <h4 className="font-bold text-white uppercase tracking-wider text-[11px] flex items-center gap-1.5">
-                        <Store className="w-3.5 h-3.5 text-blue-400" />
+                        <Store className="w-3.5 h-3.5 text-[#f43f5e]" />
                         Terminales Vinculadas a esta Central ({st.terminals.length})
                       </h4>
 
