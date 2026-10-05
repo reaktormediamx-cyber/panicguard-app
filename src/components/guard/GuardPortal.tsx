@@ -914,7 +914,12 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
         (e as any).which === 25 ||
         e.key === "+" ||
         e.code === "NumpadAdd" ||
-        e.key === "=";
+        e.key === "=" ||
+        e.key === "MediaPlayPause" ||
+        e.key === "MediaTrackNext" ||
+        e.key === "MediaTrackPrevious" ||
+        e.code === "MediaPlayPause" ||
+        e.code === "MediaTrackNext";
 
       const target = e.target as HTMLElement | null;
       if (target) {
