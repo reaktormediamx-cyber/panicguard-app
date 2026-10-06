@@ -249,13 +249,14 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
       );
       if (directMatch) return directMatch;
     }
-    return terminals.find(t => t.centralId === selectedAlert.centralId || t.centralId === selectedAlert.store?.centralId) || terminals[0] || null;
+    return null;
   }, [selectedAlert, terminals]);
 
   const activeStoreData = React.useMemo(() => {
     if (!selectedAlert) return null;
     const s = selectedAlert.store;
-    const term = matchedTerminal || terminals[0];
+    const isGuardAlert = selectedAlert.store?.storeId?.startsWith("GUARD-") || !!selectedAlert.guardName;
+    const term = isGuardAlert ? null : matchedTerminal;
 
     const isGuardTempText = (val?: string) => {
       if (!val) return true;
@@ -269,7 +270,7 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
       );
     };
 
-    const storeId = term?.storeId || (s?.storeId && !s.storeId.startsWith("GUARD-") ? s.storeId : "STR-001");
+    const storeId = term?.storeId || s?.storeId || "STR-001";
 
     let storeName = term?.storeName;
     if (!storeName || isGuardTempText(storeName)) {
@@ -293,6 +294,9 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
       address = s?.address && !isGuardTempText(s.address) ? s.address : "Dirección Registrada del Comercio";
     }
 
+    // Always prioritize the alert's custom coordinates (essential for Guards and live panic locations!)
+    const coordinates = (s?.coordinates && s.coordinates.latitude !== 0) ? s.coordinates : term?.coordinates;
+
     return {
       storeId,
       storeName: cleanText(storeName) || "Establecimiento Comercial",
@@ -301,7 +305,7 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
       address: cleanText(address) || "Dirección Registrada",
       city: term?.city || s?.city || "Ciudad de México",
       category: term?.category || s?.category || "Comercio General",
-      coordinates: (term?.coordinates && term.coordinates.latitude !== 0) ? term.coordinates : s?.coordinates,
+      coordinates,
     };
   }, [selectedAlert, matchedTerminal, terminals]);
 
@@ -380,6 +384,11 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
             <div className="px-2.5 py-1 rounded-xl bg-[#022c22] border border-[#065f46] text-xs font-mono font-bold flex items-center gap-1.5 text-[#6ee7b7]">
               <Activity className="w-3.5 h-3.5 text-[#34d399] animate-pulse" />
               <span>Latencia: <strong className="text-white">{latencyMs}ms</strong></span>
+            </div>
+
+            <div className="px-2.5 py-1 rounded-xl bg-[#121215] border border-[#27272a] text-xs font-mono font-bold flex items-center gap-1.5 text-[#34d399]">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#34d399] animate-pulse" />
+              <span>Base de Datos Conectada.</span>
             </div>
 
             {systemSettings?.aiEnabled && (

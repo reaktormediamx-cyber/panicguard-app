@@ -987,7 +987,7 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
                   <Clock className="w-3.5 h-3.5 text-slate-500" />
                   Enlace Central:
                 </span>
-                <span className="text-emerald-400 font-medium">Socket Activo (0 ms latencia)</span>
+                <span className="text-emerald-400 font-medium">Base de Datos Conectada.</span>
               </div>
             </div>
           </div>

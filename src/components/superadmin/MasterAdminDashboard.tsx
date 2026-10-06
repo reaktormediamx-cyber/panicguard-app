@@ -492,7 +492,7 @@ export const MasterAdminDashboard: React.FC<MasterAdminDashboardProps> = ({
                       isConnected ? "bg-emerald-500 animate-pulse" : "bg-red-500"
                     }`}
                   />
-                  {isConnected ? "Socket Multi-Nodo Activo" : "Reconectando..."}
+                  {isConnected ? "Base de Datos Conectada." : "Reconectando..."}
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-1">
