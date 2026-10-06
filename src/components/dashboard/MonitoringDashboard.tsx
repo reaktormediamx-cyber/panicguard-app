@@ -1292,6 +1292,10 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
                     onChange={(e) => setEditTermCategory(e.target.value)}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-red-500 font-sans"
                   >
+                    <option value="Escuela">Escuela</option>
+                    <option value="Fraccionamiento">Fraccionamiento</option>
+                    <option value="Condominio">Condominio</option>
+                    <option value="Empresa">Empresa</option>
                     <option value="Joyería y Artículos de Lujo">Joyería y Artículos de Lujo</option>
                     <option value="Casa de Cambio y Divisas">Casa de Cambio y Divisas</option>
                     <option value="Tienda Departamental / Retail">Tienda Departamental / Retail</option>
