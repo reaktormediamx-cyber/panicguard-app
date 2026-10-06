@@ -33,18 +33,18 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
   const [mapType, setMapType] = useState<"m" | "k">("m"); // "m" = callejero, "k" = satélite
   const hasCleanAddress = Boolean(cleanAddress && cleanAddress.trim().length > 3);
 
-  // Default to ADDRESS mode whenever a registered establishment address is available
+  // Default to COORDS mode whenever valid GPS coordinates are provided (essential for exact Guard & Store GPS pin)
   const [targetMode, setTargetMode] = useState<"ADDRESS" | "COORDS">(() => {
-    return hasCleanAddress ? "ADDRESS" : hasValidCoords ? "COORDS" : "ADDRESS";
+    return hasValidCoords ? "COORDS" : "ADDRESS";
   });
   const [copied, setCopied] = useState<boolean>(false);
 
-  // Keep targetMode set to ADDRESS when address is present, unless manually toggled
+  // Prioritize exact GPS coordinates whenever available
   useEffect(() => {
-    if (hasCleanAddress) {
-      setTargetMode("ADDRESS");
-    } else if (hasValidCoords) {
+    if (hasValidCoords) {
       setTargetMode("COORDS");
+    } else if (hasCleanAddress) {
+      setTargetMode("ADDRESS");
     }
   }, [cleanAddress, coordinates?.latitude, coordinates?.longitude, hasValidCoords, hasCleanAddress]);
 

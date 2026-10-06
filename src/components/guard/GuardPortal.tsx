@@ -135,6 +135,10 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
     }
   });
 
+  const [isBackgroundGuideOpen, setIsBackgroundGuideOpen] = useState<boolean>(false);
+  const clickCountRef = useRef<number>(0);
+  const lastClickTimeRef = useRef<number>(0);
+
   // Guard Real-time GPS Location - Read cached real coordinates from localStorage if available
   const [guardLocation, setGuardLocation] = useState<GeoCoordinates | null>(() => {
     try {
@@ -968,15 +972,40 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
 
       if (isBluetoothClickerKey) {
         const now = Date.now();
-        setBluetoothPressCount((prev) => prev + 1);
+        const timeDiff = now - lastClickTimeRef.current;
+
+        // If more than 2.2 seconds have passed between clicks, reset the consecutive count
+        if (timeDiff > 2200) {
+          clickCountRef.current = 1;
+        } else {
+          clickCountRef.current += 1;
+        }
+        lastClickTimeRef.current = now;
+
+        const currentCount = clickCountRef.current;
+        setBluetoothPressCount(currentCount);
         setLastBluetoothPressTime(now);
 
+        // Responsive vibration feedback
         if (typeof navigator !== "undefined" && navigator.vibrate) {
-          navigator.vibrate([100, 50, 150]);
+          navigator.vibrate(60 * currentCount); // progressively stronger vibration
         }
 
-        // Trigger immediate SOS panic via Bluetooth button
-        triggerGuardSos("VOLUME_BUTTON");
+        try {
+          if (currentCount < 3) {
+            // Friendly chirp/beep to acknowledge the registration of intermediate clicks
+            alarmSound.playTone("SUCCESS_TONE");
+            setSosFeedbackMessage(`🚨 ¡PULSADOR BLUETOOTH DETECTADO! (${currentCount}/3 presiones) - Pulsa rápido ${3 - currentCount} veces más para pánico.`);
+          }
+        } catch {}
+
+        if (currentCount >= 3) {
+          // Reset count immediately and trigger the SOS alarm
+          clickCountRef.current = 0;
+          setBluetoothPressCount(0);
+          setSosFeedbackMessage("🚨 ¡BOTÓN BLUETOOTH PULSADO 3 VECES! Transmitiendo emergencia SOS...");
+          triggerGuardSos("VOLUME_BUTTON");
+        }
       }
     };
 
@@ -1190,6 +1219,10 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
                 <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
                 <span>1 Toque Botón Rojo</span>
               </span>
+              <span className="px-2.5 py-1 rounded-lg bg-red-950/60 border border-red-800/80 text-red-200 flex items-center gap-1.5">
+                <Bluetooth className="w-3.5 h-3.5 text-red-400" />
+                <span>3 Clics Pulsador Ext.</span>
+              </span>
               <button
                 type="button"
                 onClick={() => {
@@ -1238,7 +1271,7 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
                       🚨 EMITIR PÁNICO SOS A CENTRAL C4
                     </div>
                     <div className="text-[10px] text-[#fda4af] font-normal font-sans opacity-95">
-                      Toca aquí • O presiona tu botón Bluetooth vinculado
+                      Toca aquí • O pulsa tu botón Bluetooth vinculado (3 clics rápidos)
                     </div>
                   </div>
                 </>
@@ -1257,7 +1290,7 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
                 </span>
               </div>
               <p className="text-[9px] text-slate-500 leading-snug">
-                💡 Activa tocando el botón rojo en pantalla o presionando un botón de pánico Bluetooth / pulsador inalámbrico vinculado.
+                💡 Activa tocando el botón rojo en pantalla o presionando un botón de pánico Bluetooth / pulsador inalámbrico vinculado <strong>3 veces consecutivas de forma rápida</strong>.
               </p>
             </div>
           </div>
@@ -1573,6 +1606,13 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
                 <span>🔔 Permitir Alertas con Pantalla Bloqueada</span>
               </button>
             )}
+
+            <button
+              onClick={() => setIsBackgroundGuideOpen(true)}
+              className="w-full p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 text-[#a1a1aa] hover:text-white text-xs font-bold font-mono flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm"
+            >
+              <span>❓ Guía de Alertas con Pantalla Bloqueada</span>
+            </button>
           </div>
         )}
       </main>
@@ -1764,7 +1804,96 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
         </div>
       )}
 
-      {/* FULLSCREEN IMAGE MODAL (FOR MOBILE ZOOM) */}
+      {/* MODAL: GUÍA DE CONFIGURACIÓN PARA ALERTAS EN PANTALLA BLOQUEADA */}
+      {isBackgroundGuideOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#111215]/90 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="w-full max-w-lg bg-[#181920] border-2 border-[#262833] rounded-3xl p-6 sm:p-7 shadow-2xl space-y-4 relative text-left max-h-[85vh] overflow-y-auto">
+            <button
+              type="button"
+              onClick={() => setIsBackgroundGuideOpen(false)}
+              className="absolute top-4 right-4 p-2 rounded-xl bg-[#18181b] text-slate-400 hover:text-white hover:bg-[#27272a] border border-[#27272a] cursor-pointer transition-colors"
+              title="Cerrar"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#ef4444]/20 to-red-900/30 border border-[#f43f5e]/40 flex items-center justify-center text-[#f43f5e] shrink-0 shadow-inner">
+                <BellRing className="w-6 h-6 animate-bounce" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-white tracking-tight uppercase">
+                  Alertas con Pantalla Bloqueada
+                </h3>
+                <p className="text-xs text-[#9ca3af]">
+                  Guía de configuración para que la sirena suene en segundo plano
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-[#111215] border border-[#262833] rounded-2xl p-4 text-xs space-y-3.5 text-slate-300 leading-relaxed">
+              <p className="font-semibold text-white text-xs">⚠️ ¿Por qué los celulares bloquean el sonido al suspenderse?</p>
+              <p className="text-[11px] text-slate-400">
+                Los sistemas operativos móviles (Android e iOS) tienen políticas muy agresivas de ahorro de energía. Al bloquear la pantalla, el teléfono pone a dormir el motor de JavaScript de los navegadores (como Chrome o Safari), lo que desconecta la comunicación en vivo (WebSockets) e impide reproducir audio de forma programática (Autoplay Block).
+              </p>
+
+              <div className="border-t border-[#262833] pt-3 space-y-3">
+                <p className="font-bold text-[#10b981] flex items-center gap-1.5">
+                  <span>📱</span>
+                  <span>Solución para Celulares ANDROID:</span>
+                </p>
+                <ol className="list-decimal list-inside pl-1 text-[11px] text-slate-300 space-y-2">
+                  <li>
+                    <strong className="text-white">Instala la App (PWA):</strong> Abre la app en Chrome, toca los tres puntos arriba a la derecha y selecciona <strong className="text-[#34d399] underline">"Instalar aplicación"</strong> o "Agregar a la pantalla principal". Las apps instaladas reciben prioridad del sistema operativo en segundo plano.
+                  </li>
+                  <li>
+                    <strong className="text-white">Desactiva la optimización de batería:</strong> Ve a los Ajustes de tu celular &gt; Aplicaciones &gt; selecciona <strong className="text-white">PanicGuard</strong> (o Chrome) &gt; Batería &gt; selecciona la opción <strong className="text-[#fbbf24] underline">"Sin Restricciones"</strong> o "No Optimizar". Esto evita que Android duerma la conexión WebSocket de la app cuando bloquees el teléfono.
+                  </li>
+                  <li>
+                    <strong className="text-white">Concede permiso de Notificaciones:</strong> Toca el botón de permitir notificaciones de pantalla bloqueada.
+                  </li>
+                </ol>
+              </div>
+
+              <div className="border-t border-[#262833] pt-3 space-y-3">
+                <p className="font-bold text-[#38bdf8] flex items-center gap-1.5">
+                  <span>🍎</span>
+                  <span>Solución para iPhone (iOS):</span>
+                </p>
+                <ol className="list-decimal list-inside pl-1 text-[11px] text-slate-300 space-y-2">
+                  <li>
+                    <strong className="text-white">Instala en Pantalla de Inicio:</strong> Abre el enlace en <strong className="text-white">Safari</strong>, pulsa el botón de compartir (el cuadrado con la flecha hacia arriba) y selecciona <strong className="text-[#38bdf8] underline">"Agregar a la pantalla de inicio"</strong>. Ábrela y úsala desde el icono instalado.
+                  </li>
+                  <li>
+                    <strong className="text-white">Permite Notificaciones Banners:</strong> Al abrir el icono instalado por primera vez, te pedirá permiso de notificaciones; presiona "Permitir".
+                  </li>
+                  <li>
+                    <strong className="text-white">No cierres la Pestaña:</strong> Mantén la aplicación abierta de fondo para que la sesión de sonido siga enlazada.
+                  </li>
+                </ol>
+              </div>
+
+              <div className="border-t border-[#262833] pt-3 space-y-2">
+                <p className="font-bold text-white text-[11px]">⚡ Reglas de Oro Importantes:</p>
+                <ul className="list-disc list-inside text-[11px] text-slate-400 space-y-1">
+                  <li><strong className="text-white">Toque obligatorio:</strong> Al cargar o abrir la app, debes tocar la pantalla al menos una vez para otorgar al navegador permiso legal de reproducir audio (Autoplay).</li>
+                  <li><strong className="text-white">Perfil Sonoro:</strong> Asegúrate de que el teléfono no esté en modo silencio (DND/No molestar) y que el volumen de Multimedia esté al máximo.</li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => setIsBackgroundGuideOpen(false)}
+                className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white text-xs font-bold tracking-wide shadow-lg shadow-emerald-950 transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-95"
+              >
+                <span>Entendido y Configurado</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {isZoomImageOpen && currentEmergency && currentEmergency.cameraEnabled !== false && currentEmergency.images && currentEmergency.images.length > 0 && (
         <div
           className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex flex-col items-center justify-center p-3"

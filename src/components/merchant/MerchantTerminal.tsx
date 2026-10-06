@@ -30,6 +30,7 @@ import {
   X,
   Sliders,
   Download,
+  ExternalLink,
 } from "lucide-react";
 import { QRCodeSVG, QRCodeCanvas } from "qrcode.react";
 import { StoreMetadata, PanicAlert } from "../../types.js";
@@ -38,6 +39,14 @@ import { alarmSound } from "../../utils/audio.js";
 import { AudioSettingsModal } from "../audio/AudioSettingsModal.js";
 import { db, doc, setDoc } from "../../lib/firebase.js";
 import { useAuth } from "../../context/AuthContext.js";
+
+const getGoogleMapsUrl = (coordinates?: { latitude: number; longitude: number }, address?: string) => {
+  if (coordinates && typeof coordinates.latitude === "number" && coordinates.latitude !== 0 && !isNaN(coordinates.latitude)) {
+    return `https://www.google.com/maps/search/?api=1&query=${coordinates.latitude},${coordinates.longitude}`;
+  }
+  const cleanAddr = address ? address.replace(/^GPS(?:\s*(?:Oficial|Guardia|Sensor|En Terreno|Móvil))?:\s*[\d.-]+,\s*[\d.-]+\s*•\s*/i, "").trim() : "";
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(cleanAddr || "Ciudad de México, México")}`;
+};
 
 interface MerchantTerminalProps {
   store: StoreMetadata;
@@ -512,16 +521,28 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
             <p className="text-red-200 font-bold">
               {activeGuardSosAlert.guardDescription || "El oficial de seguridad ha emitido una señal de auxilio urgente a la Central de Monitoreo."}
             </p>
-            <div className="flex items-center gap-3 text-slate-400 text-[11px] pt-1 border-t border-slate-800">
-              <span className="flex items-center gap-1">
-                <Clock className="w-3 h-3 text-red-400" />
-                {new Date(activeGuardSosAlert.timestamp).toLocaleTimeString()}
-              </span>
-              <span>•</span>
-              <span className="flex items-center gap-1">
-                <MapPin className="w-3 h-3 text-red-400" />
-                {activeGuardSosAlert.store?.address || "Ubicación en Terreno"}
-              </span>
+            <div className="flex flex-wrap items-center justify-between gap-2 text-slate-400 text-[11px] pt-1.5 border-t border-slate-800">
+              <div className="flex items-center gap-2">
+                <span className="flex items-center gap-1">
+                  <Clock className="w-3 h-3 text-red-400" />
+                  {new Date(activeGuardSosAlert.timestamp).toLocaleTimeString()}
+                </span>
+                <span>•</span>
+                <span className="flex items-center gap-1">
+                  <MapPin className="w-3 h-3 text-red-400" />
+                  {activeGuardSosAlert.store?.address || "Ubicación en Terreno"}
+                </span>
+              </div>
+
+              <a
+                href={getGoogleMapsUrl(activeGuardSosAlert.store?.coordinates, activeGuardSosAlert.store?.address)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-2.5 py-1 rounded-lg bg-rose-950/80 hover:bg-rose-900 border border-rose-800 text-rose-200 font-bold text-[11px] flex items-center gap-1.5 transition-all shadow cursor-pointer active:scale-95 shrink-0"
+              >
+                <span>Ubicación GPS (Google Maps)</span>
+                <ExternalLink className="w-3 h-3 text-rose-300" />
+              </a>
             </div>
           </div>
         </div>
@@ -981,6 +1002,22 @@ export const MerchantTerminal: React.FC<MerchantTerminalProps> = ({
                   Contacto:
                 </span>
                 <span className="font-mono text-slate-200">{store.phone}</span>
+              </div>
+              <div className="flex items-center justify-between py-1 border-b border-slate-800">
+                <span className="text-slate-400 flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-slate-500" />
+                  Ubicación GPS:
+                </span>
+                <a
+                  href={getGoogleMapsUrl(store.coordinates, store.address)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-rose-400 hover:text-rose-300 font-bold flex items-center gap-1 hover:underline cursor-pointer"
+                  title="Abrir ubicación registrada del negocio en Google Maps"
+                >
+                  <span>Abrir Google Maps</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
               </div>
               <div className="flex items-center justify-between py-1">
                 <span className="text-slate-400 flex items-center gap-1.5">
