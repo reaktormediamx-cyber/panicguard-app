@@ -42,24 +42,81 @@ export function useSocketAlerts() {
 
     // Initial alert list sync
     socket.on("alerts:sync", (syncedAlerts: PanicAlert[]) => {
-      setAlerts(syncedAlerts);
+      // Deduplicate alert list by ID
+      const seen = new Set<string>();
+      const deduped: PanicAlert[] = [];
+      for (const a of syncedAlerts) {
+        if (a && a.id && !seen.has(a.id)) {
+          seen.add(a.id);
+          deduped.push(a);
+        }
+      }
+      setAlerts(deduped);
     });
 
     // Instant raw alert broadcast from any merchant (<1s)
     socket.on("alert:broadcast", (newAlert: PanicAlert) => {
       console.log("[Socket] 🚨 NUEVA ALERTA RECIBIDA:", newAlert.id);
 
-      setAlerts((prev) => [newAlert, ...prev.filter((a) => a.id !== newAlert.id)]);
+      let isDuplicate = false;
+      setAlerts((prev) => {
+        // Anti-duplicate check: same alert ID, or same store / guard within 10s window and ACTIVE status
+        const dupIndex = prev.findIndex((existing) => {
+          if (existing.id === newAlert.id) return true;
+          const sameStore = Boolean(existing.store?.storeId && newAlert.store?.storeId && existing.store.storeId === newAlert.store.storeId);
+          const sameGuard = Boolean(
+            existing.guardName &&
+            newAlert.guardName &&
+            existing.guardName.toLowerCase().trim() === newAlert.guardName.toLowerCase().trim()
+          );
+          const timeDiff = Math.abs(new Date(existing.timestamp).getTime() - new Date(newAlert.timestamp).getTime());
+          return (sameStore || sameGuard) && timeDiff < 10000 && existing.status === "ACTIVE";
+        });
+
+        if (dupIndex !== -1) {
+          isDuplicate = true;
+          console.warn("[Central Socket] ⚠️ Señal duplicada descartada/consolidada en Central para:", newAlert.id);
+          // Consolidate logs and images into the existing alert
+          return prev.map((item, idx) => {
+            if (idx === dupIndex) {
+              return {
+                ...item,
+                images: item.images.length >= newAlert.images.length ? item.images : newAlert.images,
+                guardDescription: item.guardDescription || newAlert.guardDescription,
+                operatorNotes: Array.from(new Set([...(item.operatorNotes || []), ...(newAlert.operatorNotes || [])])),
+              };
+            }
+            return item;
+          });
+        }
+
+        return [newAlert, ...prev.filter((a) => a.id !== newAlert.id)];
+      });
 
       const currentView = (window as any).__panicGuardView;
       // ONLY trigger Central desktop pop-up modal and emergency wail siren for Central monitoring operators
       const isCentralView = currentView === "CENTRAL" || (!currentView && typeof window !== "undefined" && !window.location.hash.includes("guard"));
 
-      if (isCentralView) {
-        setActiveEmergencyModalAlert(newAlert);
-        // Trigger siren sound automatically for Central operators
-        alarmSound.startEmergencySiren();
-        setIsAudioAlarmActive(true);
+      if (isCentralView && !isDuplicate) {
+        setActiveEmergencyModalAlert((current) => {
+          // If modal is currently displaying an active alert for the same store/guard within 10s, don't re-trigger
+          if (current && current.status === "ACTIVE") {
+            const sameStore = Boolean(current.store?.storeId && newAlert.store?.storeId && current.store.storeId === newAlert.store.storeId);
+            const sameGuard = Boolean(
+              current.guardName &&
+              newAlert.guardName &&
+              current.guardName.toLowerCase().trim() === newAlert.guardName.toLowerCase().trim()
+            );
+            const timeDiff = Math.abs(new Date(current.timestamp).getTime() - new Date(newAlert.timestamp).getTime());
+            if ((sameStore || sameGuard) && timeDiff < 10000) {
+              return current;
+            }
+          }
+          // Trigger siren sound automatically for Central operators
+          alarmSound.startEmergencySiren();
+          setIsAudioAlarmActive(true);
+          return newAlert;
+        });
       }
     });
 

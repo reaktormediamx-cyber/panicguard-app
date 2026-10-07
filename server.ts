@@ -37,6 +37,78 @@ const io = new SocketIOServer(server, {
 // In-memory alert store with sample seeded alerts
 const alertStore: Map<string, PanicAlert> = new Map();
 
+// Debounce & deduplication tracker to prevent duplicate signals from guard apps, Bluetooth triggers, and dual Socket+REST emissions
+interface RecentAlertRecord {
+  alertId: string;
+  storeId?: string;
+  guardName?: string;
+  triggerType?: string;
+  timestamp: number;
+}
+const recentAlertsHistory: RecentAlertRecord[] = [];
+
+function findDuplicateActiveAlert(params: {
+  id?: string;
+  clientAlertId?: string;
+  storeId?: string;
+  guardName?: string;
+  triggerType?: string;
+  windowMs?: number;
+}): PanicAlert | null {
+  const windowMs = params.windowMs || 10000; // 10-second deduplication and debounce window
+  const now = Date.now();
+
+  // 1. Exact ID or clientAlertId match
+  const requestedId = params.id || params.clientAlertId;
+  if (requestedId && alertStore.has(requestedId)) {
+    return alertStore.get(requestedId)!;
+  }
+
+  // Purge history entries older than 60 seconds
+  while (recentAlertsHistory.length > 0 && now - recentAlertsHistory[0].timestamp > 60000) {
+    recentAlertsHistory.shift();
+  }
+
+  // 2. Check recent dispatch history within window
+  for (let i = recentAlertsHistory.length - 1; i >= 0; i--) {
+    const rec = recentAlertsHistory[i];
+    if (now - rec.timestamp <= windowMs) {
+      const matchStore = Boolean(params.storeId && rec.storeId && rec.storeId === params.storeId);
+      const matchGuard = Boolean(
+        params.guardName &&
+        rec.guardName &&
+        params.guardName.toLowerCase().trim() === rec.guardName.toLowerCase().trim()
+      );
+
+      if (matchStore || matchGuard) {
+        const existing = alertStore.get(rec.alertId);
+        if (existing && existing.status === "ACTIVE") {
+          return existing;
+        }
+      }
+    }
+  }
+
+  // 3. Fallback scan across all in-memory alerts
+  for (const alert of alertStore.values()) {
+    if (alert.status !== "ACTIVE") continue;
+    const alertTime = new Date(alert.timestamp).getTime();
+    if (now - alertTime <= windowMs) {
+      const matchStore = Boolean(params.storeId && alert.store?.storeId && alert.store.storeId === params.storeId);
+      const matchGuard = Boolean(
+        params.guardName &&
+        alert.guardName &&
+        params.guardName.toLowerCase().trim() === alert.guardName.toLowerCase().trim()
+      );
+      if (matchStore || matchGuard) {
+        return alert;
+      }
+    }
+  }
+
+  return null;
+}
+
 // Helper to create sample initial alert
 function createInitialSampleAlert(): PanicAlert {
   return {
@@ -213,19 +285,55 @@ io.on("connection", (socket) => {
   socket.emit("alerts:sync", Array.from(alertStore.values()).reverse());
 
   // Handle panic alert sent via Socket
-  socket.on("alert:panic", async (data: Partial<PanicAlert>, callback) => {
+  socket.on("alert:panic", async (data: Partial<PanicAlert> & { clientAlertId?: string }, callback) => {
     try {
-      const alertId = `ALT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
       const assignedStore = data.store || DEFAULT_STORE;
       const guardDesc = data.guardDescription?.trim() || "";
       const guardOfficer = data.guardName?.trim() || "";
+
+      // Deduplication check: Guard app may emit via socket AND POST, or trigger duplicate keydown / network retry
+      const duplicateAlert = findDuplicateActiveAlert({
+        id: (data as any).id || (data as any).alertId || data.clientAlertId,
+        storeId: assignedStore.storeId,
+        guardName: guardOfficer,
+        triggerType: data.triggerType,
+        windowMs: 10000,
+      });
+
+      if (duplicateAlert) {
+        console.log(`[DEDUPLICATION] 🛑 Señal duplicada evitada en Socket.IO para [${assignedStore.storeId} / ${guardOfficer || "Guardia"}]. Alerta activa consolidada: ${duplicateAlert.id}`);
+
+        if (guardDesc && !duplicateAlert.logs.some((l) => l.details === guardDesc)) {
+          duplicateAlert.operatorNotes = duplicateAlert.operatorNotes || [];
+          duplicateAlert.operatorNotes.push(`[${guardOfficer || "Guardia en Sitio"}]: ${guardDesc}`);
+          duplicateAlert.logs.push({
+            timestamp: new Date().toISOString(),
+            action: `Reporte adicional del Guardia (${guardOfficer || "Oficial"}): ${guardDesc}`,
+            operator: guardOfficer || "Guardia en Sitio",
+            details: guardDesc,
+          });
+          alertStore.set(duplicateAlert.id, duplicateAlert);
+          io.emit("alert:status_changed", duplicateAlert);
+        }
+
+        if (typeof callback === "function") {
+          callback({ success: true, alertId: duplicateAlert.id, timestamp: duplicateAlert.timestamp, duplicate: true });
+        }
+        return;
+      }
+
+      const alertId = data.clientAlertId || (data as any).id || (data as any).alertId || `ALT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
       const isCameraActive = data.cameraEnabled !== false && Array.isArray(data.images) && data.images.length > 0;
       const finalImages = isCameraActive ? (data.images || []) : [];
 
       const initialLogs: AlertLogItem[] = [
         {
           timestamp: new Date().toISOString(),
-          action: isCameraActive
+          action: data.triggerType === "VOLUME_BUTTON"
+            ? "🚨 Alerta SOS emitida por Guardia mediante Tecla de Hardware / Pulsador Bluetooth"
+            : data.triggerType === "GUARD_PANIC"
+            ? "🚨 Alerta SOS emitida por Guardia mediante Botón Táctico en Celular"
+            : isCameraActive
             ? `Alerta recibida en Central [${data.centralName || assignedStore.centralName || "C4 Poniente"}] (${finalImages.length} fotogramas)`
             : `Alerta recibida en Central [${data.centralName || assignedStore.centralName || "C4 Poniente"}] vía Botón de Emergencia (Modo Solo Botón - Sin cámara)`,
         },
@@ -264,6 +372,14 @@ io.on("connection", (socket) => {
         operatorNotes: guardDesc ? [`[${guardOfficer || "Guardia en Sitio"}]: ${guardDesc}`] : [],
         logs: initialLogs,
       };
+
+      recentAlertsHistory.push({
+        alertId: newAlert.id,
+        storeId: newAlert.store.storeId,
+        guardName: newAlert.guardName,
+        triggerType: newAlert.triggerType,
+        timestamp: Date.now(),
+      });
 
       await processPanicAlert(newAlert);
 
@@ -393,21 +509,56 @@ app.get("/api/alerts/:id", (req, res) => {
 // Submit panic alert via HTTP POST
 app.post("/api/alerts", async (req, res) => {
   try {
-    const { store, images, triggerType, timestamp, centralId, centralName, guardDescription, guardName, cameraEnabled } = req.body;
+    const { store, images, triggerType, timestamp, centralId, centralName, guardDescription, guardName, cameraEnabled, clientAlertId, id } = req.body;
+
+    const assignedStore = store || DEFAULT_STORE;
+    const guardDesc = typeof guardDescription === "string" ? guardDescription.trim() : "";
+    const guardOfficer = typeof guardName === "string" ? guardName.trim() : "";
+
+    // Deduplication check: Guard app may emit via socket AND POST, or trigger duplicate keydown / network retry
+    const duplicateAlert = findDuplicateActiveAlert({
+      id: id || clientAlertId || req.body.alertId,
+      storeId: assignedStore.storeId,
+      guardName: guardOfficer,
+      triggerType,
+      windowMs: 10000,
+    });
+
+    if (duplicateAlert) {
+      console.log(`[DEDUPLICATION] 🛑 Señal duplicada evitada en REST API para [${assignedStore.storeId} / ${guardOfficer || "Guardia"}]. Alerta activa consolidada: ${duplicateAlert.id}`);
+
+      if (guardDesc && !duplicateAlert.logs.some((l) => l.details === guardDesc)) {
+        duplicateAlert.operatorNotes = duplicateAlert.operatorNotes || [];
+        duplicateAlert.operatorNotes.push(`[${guardOfficer || "Guardia en Sitio"}]: ${guardDesc}`);
+        duplicateAlert.logs.push({
+          timestamp: new Date().toISOString(),
+          action: `Reporte adicional del Guardia (${guardOfficer || "Oficial"}): ${guardDesc}`,
+          operator: guardOfficer || "Guardia en Sitio",
+          details: guardDesc,
+        });
+        alertStore.set(duplicateAlert.id, duplicateAlert);
+        io.emit("alert:status_changed", duplicateAlert);
+      }
+
+      return res.status(200).json({
+        success: true,
+        alertId: duplicateAlert.id,
+        timestamp: duplicateAlert.timestamp,
+        duplicate: true,
+        message: "Alerta vinculada a incidente activo existente en Central (duplicado filtrado)",
+      });
+    }
 
     const isCameraActive = cameraEnabled !== false && Array.isArray(images) && images.length > 0;
     const finalImages = isCameraActive ? images : [];
 
-    const alertId = `ALT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
-    const assignedStore = store || DEFAULT_STORE;
-    const guardDesc = typeof guardDescription === "string" ? guardDescription.trim() : "";
-    const guardOfficer = typeof guardName === "string" ? guardName.trim() : "";
+    const alertId = clientAlertId || id || req.body.alertId || `ALT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
     const initialLogs: AlertLogItem[] = [
       {
         timestamp: new Date().toISOString(),
         action: triggerType === "VOLUME_BUTTON"
-          ? "🚨 Alerta SOS emitida por Guardia mediante Tecla de Hardware (Subir Volumen 3x)"
+          ? "🚨 Alerta SOS emitida por Guardia mediante Tecla de Hardware / Pulsador Bluetooth (Subir Volumen 3x)"
           : triggerType === "TRIPLE_TAP"
           ? "🚨 Alerta SOS emitida por Guardia mediante Triple Toque en Pantalla"
           : triggerType === "SHAKE_GESTURE"
@@ -455,6 +606,14 @@ app.post("/api/alerts", async (req, res) => {
       operatorNotes: guardDesc ? [`[${guardOfficer || "Guardia en Sitio"}]: ${guardDesc}`] : [],
       logs: initialLogs,
     };
+
+    recentAlertsHistory.push({
+      alertId: newAlert.id,
+      storeId: newAlert.store.storeId,
+      guardName: newAlert.guardName,
+      triggerType: newAlert.triggerType,
+      timestamp: Date.now(),
+    });
 
     // Fast-path: Broadcast raw alert instantly (<1s) and start background Gemini analysis
     await processPanicAlert(newAlert);

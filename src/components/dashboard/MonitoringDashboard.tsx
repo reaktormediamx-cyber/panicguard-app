@@ -228,15 +228,27 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
       .trim();
   };
 
-  // Filtered alerts list
-  const filteredAlerts = alerts.filter((alert) => {
-    const matchesStatus = filterStatus === "ALL" || alert.status === filterStatus;
-    const matchesCentral =
-      filterCentral === "ALL" ||
-      alert.centralId === filterCentral ||
-      alert.store?.centralId === filterCentral;
-    return matchesStatus && matchesCentral;
-  });
+  // Filtered alerts list with strict unique alert ID deduplication
+  const filteredAlerts = React.useMemo(() => {
+    const seenIds = new Set<string>();
+    const list: PanicAlert[] = [];
+
+    for (const alert of alerts) {
+      if (!alert || !alert.id || seenIds.has(alert.id)) continue;
+
+      const matchesStatus = filterStatus === "ALL" || alert.status === filterStatus;
+      const matchesCentral =
+        filterCentral === "ALL" ||
+        alert.centralId === filterCentral ||
+        alert.store?.centralId === filterCentral;
+
+      if (matchesStatus && matchesCentral) {
+        seenIds.add(alert.id);
+        list.push(alert);
+      }
+    }
+    return list;
+  }, [alerts, filterStatus, filterCentral]);
 
   const selectedAlert = alerts.find((a) => a.id === selectedAlertId) || filteredAlerts[0] || alerts[0];
 

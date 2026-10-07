@@ -138,6 +138,8 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
   const [isBackgroundGuideOpen, setIsBackgroundGuideOpen] = useState<boolean>(false);
   const clickCountRef = useRef<number>(0);
   const lastClickTimeRef = useRef<number>(0);
+  const isEmittingSosRef = useRef<boolean>(false);
+  const lastSosEmitTimeRef = useRef<number>(0);
 
   // Guard Real-time GPS Location - Read cached real coordinates from localStorage if available
   const [guardLocation, setGuardLocation] = useState<GeoCoordinates | null>(() => {
@@ -771,7 +773,13 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
 
   // Trigger SOS Panic from Guard (via Tactile Red Button or Bluetooth / External Clicker)
   const triggerGuardSos = async (triggerType: TriggerMode = "MANUAL_BUTTON") => {
-    if (isEmittingSos) return;
+    const now = Date.now();
+    if (isEmittingSosRef.current || now - lastSosEmitTimeRef.current < 4500) {
+      console.warn("[GuardPortal] 🛑 Ignorando activación duplicada de SOS (cooldown activo)");
+      return;
+    }
+    isEmittingSosRef.current = true;
+    lastSosEmitTimeRef.current = now;
     setIsEmittingSos(true);
     setSosFeedbackMessage(
       triggerType === "VOLUME_BUTTON" || triggerType === "KEYBOARD_HOTKEY"
@@ -864,7 +872,10 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
         : `🚨 SOS GUARDIA (BOTÓN TÁCTICO ROJO): Oficial ${effectiveGuardName} activó auxilio directo desde pantalla hacia Central C4.`;
 
     try {
+      const clientAlertId = `GUARD-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`;
       const payload = {
+        clientAlertId,
+        id: clientAlertId,
         store: targetStore,
         images: [],
         cameraEnabled: false,
@@ -896,6 +907,9 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
       setSosFeedbackMessage(`Error al transmitir alerta: ${err.message || "Fallo de conexión"}`);
     } finally {
       setIsEmittingSos(false);
+      setTimeout(() => {
+        isEmittingSosRef.current = false;
+      }, 3500);
     }
   };
 
@@ -913,6 +927,7 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
   useEffect(() => {
     const handleBluetoothKeyEvent = (e: KeyboardEvent) => {
       if (!isBluetoothEnabled) return;
+      if (e.repeat) return; // Ignore continuous key repeating when key is held down to prevent duplicate triggers
 
       // Log detected keys for calibration if active
       if (isCalibratingBluetooth) {
