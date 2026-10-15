@@ -64,7 +64,8 @@ export type AlertSoundTone =
   | 'BANK_KLAXON'
   | 'MILITARY_PING'
   | 'EMERGENCY_BELL'
-  | 'DISCRETE_CHIME';
+  | 'DISCRETE_CHIME'
+  | 'SUCCESS_TONE';
 
 export interface AlertToneOption {
   id: AlertSoundTone;
@@ -426,6 +427,10 @@ class AlarmSoundEngine {
             osc.start(t);
             osc.stop(t + dur);
           });
+          break;
+        }
+        case "SUCCESS_TONE": {
+          this.playSuccessTone();
           break;
         }
       }

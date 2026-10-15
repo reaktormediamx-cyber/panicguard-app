@@ -8,6 +8,14 @@ import { Server as SocketIOServer } from "socket.io";
 import { createServer as createViteServer } from "vite";
 import { PanicAlert, AlertStatus, StoreMetadata, DEFAULT_STORE, SystemSettings, DEFAULT_SYSTEM_SETTINGS, AlertLogItem } from "./src/types.js";
 import { analyzePanicBurst } from "./server/geminiService.js";
+import {
+  initFirestoreBackend,
+  isFirestoreBackendConnected,
+  saveAlertToFirestore,
+  updateAlertInFirestore,
+  deleteAlertFromFirestore,
+  loadRecentAlertsFromFirestore,
+} from "./server/firestoreAlerts.js";
 
 const app = express();
 const server = http.createServer(app);
@@ -34,8 +42,60 @@ const io = new SocketIOServer(server, {
   maxHttpBufferSize: 5e7, // 50MB
 });
 
-// In-memory alert store with sample seeded alerts
+// In-memory alert store with sample seeded alerts (capped at 500 in memory; all persisted in Firestore)
 const alertStore: Map<string, PanicAlert> = new Map();
+
+function setAlertInStore(alert: PanicAlert) {
+  // Memory protection: evict oldest resolved alerts if in-memory cache exceeds 500 items
+  if (alertStore.size >= 500 && !alertStore.has(alert.id)) {
+    for (const [key, val] of alertStore.entries()) {
+      if (val.status !== "ACTIVE") {
+        alertStore.delete(key);
+        break;
+      }
+    }
+  }
+  alertStore.set(alert.id, alert);
+}
+
+// Sliding-window rate limiter for emergency alerts to prevent spamming and DDoS
+interface RateLimitRecord {
+  count: number;
+  resetTime: number;
+}
+const alertRateLimitMap: Map<string, RateLimitRecord> = new Map();
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, rec] of alertRateLimitMap.entries()) {
+    if (now > rec.resetTime) {
+      alertRateLimitMap.delete(ip);
+    }
+  }
+}, 300000);
+
+function alertRateLimiter(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const clientIp = (req.headers["x-forwarded-for"] as string) || req.socket.remoteAddress || "client";
+  const now = Date.now();
+  const windowMs = 10000; // 10s window
+  const maxRequests = 25; // 25 requests per 10s per IP
+
+  const rec = alertRateLimitMap.get(clientIp);
+  if (!rec || now > rec.resetTime) {
+    alertRateLimitMap.set(clientIp, { count: 1, resetTime: now + windowMs });
+    return next();
+  }
+
+  rec.count++;
+  if (rec.count > maxRequests) {
+    return res.status(429).json({
+      error: "Demasiadas solicitudes de alerta en corto tiempo. Intente de nuevo en unos segundos.",
+      retryAfterSeconds: Math.ceil((rec.resetTime - now) / 1000),
+    });
+  }
+
+  next();
+}
 
 // Debounce & deduplication tracker to prevent duplicate signals from guard apps, Bluetooth triggers, and dual Socket+REST emissions
 interface RecentAlertRecord {
@@ -178,16 +238,22 @@ function createInitialSampleAlert(): PanicAlert {
 // --- ASYNCHRONOUS PIPELINE HELPER ---
 async function processPanicAlert(alert: PanicAlert) {
   // Step A: Store in memory and broadcast raw alert immediately (<1s latency)
-  alertStore.set(alert.id, alert);
+  setAlertInStore(alert);
   console.log(`[ALERT BROADCAST] Emitting raw alert ${alert.id} to monitoring dashboards...`);
   io.emit("alert:broadcast", alert);
+
+  // Background persistence to Firestore for crash safety & multi-instance sync
+  saveAlertToFirestore(alert).catch((err) => {
+    console.warn(`[Firestore Alert Save Warning]: ${err?.message || err}`);
+  });
 
   // Check if camera was disabled for this alert
   const hasCamera = alert.cameraEnabled !== false && Array.isArray(alert.images) && alert.images.length > 0;
   if (!hasCamera) {
     console.log(`[CAMERA DISABLED] Terminal sent alert in Button-Only Mode (no camera frames) for ${alert.id}. Skipping AI video analysis.`);
     alert.aiStatus = "disabled";
-    alertStore.set(alert.id, alert);
+    setAlertInStore(alert);
+    updateAlertInFirestore(alert.id, { aiStatus: "disabled", logs: alert.logs }).catch(() => {});
     io.emit("alert:ai_update", {
       alertId: alert.id,
       aiStatus: "disabled",
@@ -200,7 +266,8 @@ async function processPanicAlert(alert: PanicAlert) {
   if (!currentSystemSettings.aiEnabled) {
     console.log(`[AI TOGGLE OFF] AI Gemini analysis is DISABLED by Super Admin. Skipping analysis for ${alert.id}.`);
     alert.aiStatus = "disabled";
-    alertStore.set(alert.id, alert);
+    setAlertInStore(alert);
+    updateAlertInFirestore(alert.id, { aiStatus: "disabled", logs: alert.logs }).catch(() => {});
     io.emit("alert:ai_update", {
       alertId: alert.id,
       aiStatus: "disabled",
@@ -233,7 +300,13 @@ async function processPanicAlert(alert: PanicAlert) {
         details: verdict.summary,
       });
 
-      alertStore.set(latestAlert.id, latestAlert);
+      setAlertInStore(latestAlert);
+      updateAlertInFirestore(latestAlert.id, {
+        aiVerdict: verdict,
+        aiStatus: "completed",
+        logs: latestAlert.logs,
+      }).catch(() => {});
+
       console.log(`[GEMINI DONE] Finished analysis for ${latestAlert.id}. Threat: ${verdict.threatLevel}. Status preserved: ${latestAlert.status}`);
 
       // Step C: Dispatch AI update to all connected Monitoring Dashboards
@@ -249,7 +322,12 @@ async function processPanicAlert(alert: PanicAlert) {
       const latestAlert = alertStore.get(alert.id) || alert;
       latestAlert.aiStatus = "failed";
       latestAlert.aiError = err?.message || "Error al procesar el análisis de inteligencia";
-      alertStore.set(latestAlert.id, latestAlert);
+      setAlertInStore(latestAlert);
+      updateAlertInFirestore(latestAlert.id, {
+        aiStatus: "failed",
+        aiError: latestAlert.aiError,
+      }).catch(() => {});
+
       io.emit("alert:ai_update", {
         alertId: latestAlert.id,
         aiStatus: "failed",
@@ -262,7 +340,31 @@ async function processPanicAlert(alert: PanicAlert) {
 
 // --- SOCKET.IO EVENT HANDLERS ---
 io.on("connection", (socket) => {
-  console.log(`[Socket Connected] ID: ${socket.id}`);
+  console.log(`[Socket Connected] ID: ${socket.id} (Total clientes: ${io.engine.clientsCount})`);
+
+  // Support room partitioning for multi-tenant central isolation
+  socket.on("join:room", (payload: { centralId?: string; role?: string; storeId?: string }) => {
+    if (payload?.centralId) {
+      socket.join(`central_${payload.centralId}`);
+      console.log(`[Socket Room] ${socket.id} unido a sala central_${payload.centralId}`);
+    }
+    if (payload?.role === "SUPER_ADMIN") {
+      socket.join("superadmin_all");
+      console.log(`[Socket Room] ${socket.id} unido a superadmin_all`);
+    }
+    if (payload?.storeId) {
+      socket.join(`store_${payload.storeId}`);
+    }
+  });
+
+  socket.on("leave:room", (payload: { centralId?: string; storeId?: string }) => {
+    if (payload?.centralId) {
+      socket.leave(`central_${payload.centralId}`);
+    }
+    if (payload?.storeId) {
+      socket.leave(`store_${payload.storeId}`);
+    }
+  });
 
   // Ping heartbeat for real-time latency measurement
   socket.on("ping:check", (callback) => {
@@ -415,7 +517,12 @@ io.on("connection", (socket) => {
       details: trimmed,
     });
 
-    alertStore.set(alert.id, alert);
+    setAlertInStore(alert);
+    updateAlertInFirestore(alert.id, {
+      operatorNotes: alert.operatorNotes,
+      logs: alert.logs,
+      guardDescription: alert.guardDescription,
+    }).catch(() => {});
     io.emit("alert:status_changed", alert);
   });
 
@@ -446,7 +553,13 @@ io.on("connection", (socket) => {
       details: payload.notes,
     });
 
-    alertStore.set(alert.id, alert);
+    setAlertInStore(alert);
+    updateAlertInFirestore(alert.id, {
+      status: payload.status,
+      dispatchedUnit: alert.dispatchedUnit,
+      operatorNotes: alert.operatorNotes,
+      logs: alert.logs,
+    }).catch(() => {});
     io.emit("alert:status_changed", alert);
   });
 
@@ -476,16 +589,31 @@ app.post("/api/settings", (req, res) => {
   res.json({ success: true, settings: currentSystemSettings });
 });
 
-// Health check
+// Health check & SaaS production diagnostic probe
 app.get("/api/health", (_req, res) => {
+  const mem = process.memoryUsage();
   res.json({
-    status: "ok",
+    status: "healthy",
     service: "PanicGuard Real-Time Video-Verification & Dispatch Backend",
-    uptime: process.uptime(),
+    version: "1.0.0-production",
+    environment: process.env.NODE_ENV || "production",
+    timestamp: new Date().toISOString(),
+    uptimeSeconds: Math.floor(process.uptime()),
+    activeSockets: io.engine.clientsCount,
     activeAlerts: Array.from(alertStore.values()).filter((a) => a.status === "ACTIVE").length,
-    totalAlerts: alertStore.size,
+    cachedAlertsCount: alertStore.size,
+    firestore: {
+      connected: isFirestoreBackendConnected(),
+    },
+    systemSettings: {
+      aiEnabled: currentSystemSettings.aiEnabled,
+    },
     hasGeminiKey: Boolean(process.env.GEMINI_API_KEY),
-    aiEnabled: currentSystemSettings.aiEnabled,
+    memoryUsageMb: {
+      heapUsed: Math.round(mem.heapUsed / 1024 / 1024),
+      heapTotal: Math.round(mem.heapTotal / 1024 / 1024),
+      rss: Math.round(mem.rss / 1024 / 1024),
+    },
   });
 });
 
@@ -506,8 +634,8 @@ app.get("/api/alerts/:id", (req, res) => {
   res.json(alert);
 });
 
-// Submit panic alert via HTTP POST
-app.post("/api/alerts", async (req, res) => {
+// Submit panic alert via HTTP POST (protected by sliding-window rate limiter)
+app.post("/api/alerts", alertRateLimiter, async (req, res) => {
   try {
     const { store, images, triggerType, timestamp, centralId, centralName, guardDescription, guardName, cameraEnabled, clientAlertId, id } = req.body;
 
@@ -536,7 +664,11 @@ app.post("/api/alerts", async (req, res) => {
           operator: guardOfficer || "Guardia en Sitio",
           details: guardDesc,
         });
-        alertStore.set(duplicateAlert.id, duplicateAlert);
+        setAlertInStore(duplicateAlert);
+        updateAlertInFirestore(duplicateAlert.id, {
+          operatorNotes: duplicateAlert.operatorNotes,
+          logs: duplicateAlert.logs,
+        }).catch(() => {});
         io.emit("alert:status_changed", duplicateAlert);
       }
 
@@ -660,7 +792,12 @@ app.post("/api/alerts/:id/notes", (req, res) => {
     details: trimmed,
   });
 
-  alertStore.set(alert.id, alert);
+  setAlertInStore(alert);
+  updateAlertInFirestore(alert.id, {
+    operatorNotes: alert.operatorNotes,
+    logs: alert.logs,
+    guardDescription: alert.guardDescription,
+  }).catch(() => {});
   io.emit("alert:status_changed", alert);
 
   res.json({ success: true, alert });
@@ -763,7 +900,13 @@ app.patch("/api/alerts/:id/status", (req, res) => {
     details: notes,
   });
 
-  alertStore.set(alert.id, alert);
+  setAlertInStore(alert);
+  updateAlertInFirestore(alert.id, {
+    status: alert.status,
+    dispatchedUnit: alert.dispatchedUnit,
+    operatorNotes: alert.operatorNotes,
+    logs: alert.logs,
+  }).catch(() => {});
   io.emit("alert:status_changed", alert);
 
   res.json({ success: true, alert });
@@ -781,6 +924,7 @@ app.delete("/api/alerts/:id", (req, res) => {
   const { id } = req.params;
   if (alertStore.has(id)) {
     alertStore.delete(id);
+    deleteAlertFromFirestore(id).catch(() => {});
     io.emit("alerts:sync", Array.from(alertStore.values()));
     res.json({ success: true, message: `Alerta ${id} eliminada.` });
   } else {
@@ -840,6 +984,20 @@ app.post("/api/alerts/simulate", async (req, res) => {
 
 // --- VITE MIDDLEWARE / STATIC ASSETS ---
 async function start() {
+  // 1. Initialize Firestore & load recent alerts for zero-downtime cache warmup
+  try {
+    initFirestoreBackend();
+    const historicalAlerts = await loadRecentAlertsFromFirestore(200);
+    for (const hAlert of historicalAlerts) {
+      if (hAlert && hAlert.id && !alertStore.has(hAlert.id)) {
+        alertStore.set(hAlert.id, hAlert);
+      }
+    }
+    console.log(`[Cache Warmup] In-memory alertStore now has ${alertStore.size} active/historical alerts.`);
+  } catch (initErr) {
+    console.warn("[Cache Warmup Warning] Error warming cache from Firestore:", initErr);
+  }
+
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },

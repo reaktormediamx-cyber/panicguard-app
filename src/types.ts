@@ -21,6 +21,7 @@ export interface CentralStation {
   registeredBy?: string;
   notes?: string;
   coordinates?: GeoCoordinates;
+  platform?: 'panicguard.com.mx';
 }
 
 export interface StoreMetadata {
@@ -57,6 +58,7 @@ export interface AppUser {
   createdBy?: string;
   status: 'ACTIVE' | 'SUSPENDED';
   photoURL?: string;
+  platform?: 'panicguard.com.mx';
 }
 
 export interface TerminalRegistration {
@@ -81,6 +83,7 @@ export interface TerminalRegistration {
   panicHotkey?: string; // e.g. "p"
   panicHotkeyMode?: 'DIRECT' | 'ALT_COMBINATION';
   cameraEnabled?: boolean;
+  platform?: 'panicguard.com.mx';
 }
 
 export interface ThreatDetails {
@@ -152,6 +155,7 @@ export interface PanicAlert {
   centralName?: string;
   guardDescription?: string;
   guardName?: string;
+  platform?: 'panicguard.com.mx';
 }
 
 export interface SocketAlertEvent {

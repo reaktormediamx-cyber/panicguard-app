@@ -3,7 +3,7 @@ import { io, Socket } from "socket.io-client";
 import { PanicAlert, AlertStatus, AiVerdict } from "../types.js";
 import { alarmSound } from "../utils/audio.js";
 
-export function useSocketAlerts() {
+export function useSocketAlerts(options?: { centralId?: string; role?: string; storeId?: string }) {
   const [alerts, setAlerts] = useState<PanicAlert[]>([]);
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [latencyMs, setLatencyMs] = useState<number>(28);
@@ -22,6 +22,13 @@ export function useSocketAlerts() {
     socket.on("connect", () => {
       setIsConnected(true);
       console.log("[Socket] Conectado a PanicGuard Realtime Server");
+      if (options?.centralId || options?.role || options?.storeId) {
+        socket.emit("join:room", {
+          centralId: options.centralId,
+          role: options.role,
+          storeId: options.storeId,
+        });
+      }
     });
 
     socket.on("disconnect", () => {
@@ -209,6 +216,17 @@ export function useSocketAlerts() {
       socket.disconnect();
     };
   }, []);
+
+  // Update socket room dynamically when tenant credentials or centralId changes
+  useEffect(() => {
+    if (socketRef.current?.connected && (options?.centralId || options?.role || options?.storeId)) {
+      socketRef.current.emit("join:room", {
+        centralId: options?.centralId,
+        role: options?.role,
+        storeId: options?.storeId,
+      });
+    }
+  }, [options?.centralId, options?.role, options?.storeId]);
 
   const acknowledgeAlarmSound = useCallback(() => {
     alarmSound.silenceAll();

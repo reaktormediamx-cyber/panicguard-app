@@ -31,8 +31,38 @@ export const MASTER_PASSWORDS = ["rockomx83", "8303", "panicguard2026"];
 export const MASTER_ACCOUNT = {
   email: "panicguardmx@gmail.com",
   role: "SUPER_ADMIN" as UserRole,
-  displayName: "Comando Matriz & Super Admin (PanicGuard)"
+  displayName: "Comando Matriz & Super Admin (PanicGuard)",
+  platform: "panicguard.com.mx" as const
 };
+
+// SaaS Isolation Policy: SmartGuard accounts (smartguard.com.mx) are strictly prohibited from accessing PanicGuard (panicguard.com.mx)
+export const BLOCKED_SMARTGUARD_DOMAINS = [
+  "smartguard.com.mx",
+  "smartguard.mx",
+  "smartguard.com"
+];
+
+export function isBlockedSmartGuardAccess(emailOrIdentifier?: string): boolean {
+  if (!emailOrIdentifier || typeof emailOrIdentifier !== "string") return false;
+  const clean = emailOrIdentifier.toLowerCase().trim();
+  return (
+    clean.includes("smartguard.com.mx") ||
+    clean.includes("smartguard.mx") ||
+    clean.includes("smartguard.com") ||
+    clean.includes("@smartguard") ||
+    clean.endsWith("smartguard") ||
+    clean.startsWith("smartguard") ||
+    clean.includes(".smartguard.")
+  );
+}
+
+export function assertPanicGuardAccess(emailOrIdentifier?: string) {
+  if (isBlockedSmartGuardAccess(emailOrIdentifier)) {
+    throw new Error(
+      "Acceso Denegado: Las credenciales y cuentas de la SaaS SmartGuard (smartguard.com.mx) no están autorizadas en PanicGuard (panicguard.com.mx). Ambas plataformas operan de forma estrictamente independiente."
+    );
+  }
+}
 
 interface AuthContextType {
   currentUser: FirebaseUser | null;
@@ -70,7 +100,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [appUser, setAppUser] = useState<AppUser | null>(() => {
     try {
       const cached = localStorage.getItem("panicguard_app_user");
-      return cached ? JSON.parse(cached) : null;
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        // Strict isolation: Expel any SmartGuard account if previously saved
+        if (
+          isBlockedSmartGuardAccess(parsed?.email) ||
+          isBlockedSmartGuardAccess(parsed?.displayName) ||
+          isBlockedSmartGuardAccess(parsed?.storeName)
+        ) {
+          localStorage.removeItem("panicguard_app_user");
+          return null;
+        }
+        return parsed;
+      }
+      return null;
     } catch {
       return null;
     }
@@ -122,6 +165,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (auth) {
         unsubscribe = onAuthStateChanged(auth, (user) => {
           if (!isMounted) return;
+
+          // Strict SmartGuard expulsion: If session belongs to smartguard.com.mx, force immediate sign-out
+          if (user && isBlockedSmartGuardAccess(user.email || "")) {
+            console.warn(`[Security Isolation] 🛑 Sesión rechazada: Cuenta de SmartGuard (${user.email}) intentó acceder a PanicGuard.`);
+            fbSignOut(auth).catch(() => {});
+            setCurrentUser(null);
+            setAppUser(null);
+            localStorage.removeItem("panicguard_app_user");
+            if (isMounted) setIsLoading(false);
+            return;
+          }
+
           setCurrentUser(user);
           if (user) {
             syncUserProfile(user).catch((err) => {
@@ -271,6 +326,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const docSnap = await getDoc(userDocRef);
 
       const userEmail = (user.email || "").toLowerCase().trim();
+
+      // Strict SmartGuard barrier: If user is from smartguard.com.mx, expel and reject
+      if (isBlockedSmartGuardAccess(userEmail)) {
+        await fbSignOut(auth);
+        setAppUser(null);
+        localStorage.removeItem("panicguard_app_user");
+        throw new Error(
+          `Acceso Denegado: La cuenta "${userEmail}" corresponde a la SaaS SmartGuard (smartguard.com.mx) y no está autorizada en PanicGuard (panicguard.com.mx).`
+        );
+      }
+
       const isMaster = SUPER_ADMIN_EMAILS.map(e => (e || "").toLowerCase()).includes(userEmail);
 
       // Fetch central and terminal matches from state or directly from Firestore
@@ -304,12 +370,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (docSnap.exists()) {
         const data = docSnap.data() as AppUser;
+        // Verify platform property if doc originated from smartguard
+        if ((data as any).platform === "smartguard.com.mx" || isBlockedSmartGuardAccess(data.email)) {
+          await fbSignOut(auth);
+          setAppUser(null);
+          localStorage.removeItem("panicguard_app_user");
+          throw new Error("Acceso Denegado: Perfil de usuario originado en SmartGuard. Acceso restringido en PanicGuard.");
+        }
+
         // If master account, enforce SUPER_ADMIN role
         if (isMaster) {
           data.role = "SUPER_ADMIN";
-          await setDoc(userDocRef, { ...data, role: "SUPER_ADMIN" }, { merge: true });
+          data.platform = "panicguard.com.mx";
+          await setDoc(userDocRef, { ...data, role: "SUPER_ADMIN", platform: "panicguard.com.mx" }, { merge: true });
         } else if (isCentralAccount) {
           data.role = "CENTRAL";
+          data.platform = "panicguard.com.mx";
           if (centralMatch) {
             data.centralId = centralMatch.id;
             data.centralName = centralMatch.name;
@@ -317,9 +393,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             data.storeName = centralMatch.name;
             data.displayName = centralMatch.name;
           }
-          await setDoc(userDocRef, { ...data, role: "CENTRAL", displayName: data.displayName || data.centralName }, { merge: true });
+          await setDoc(userDocRef, { ...data, role: "CENTRAL", platform: "panicguard.com.mx", displayName: data.displayName || data.centralName }, { merge: true });
         } else if (terminalMatch) {
           data.role = "TERMINAL";
+          data.platform = "panicguard.com.mx";
           if (terminalMatch.storeName) {
             data.storeId = terminalMatch.storeId;
             data.storeName = terminalMatch.storeName;
@@ -327,9 +404,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             data.centralId = terminalMatch.centralId;
             data.centralName = terminalMatch.centralName;
           }
-          await setDoc(userDocRef, { ...data, role: "TERMINAL", displayName: data.displayName || data.storeName }, { merge: true });
+          await setDoc(userDocRef, { ...data, role: "TERMINAL", platform: "panicguard.com.mx", displayName: data.displayName || data.storeName }, { merge: true });
         }
-        setAppUser({ ...data, uid: user.uid });
+        setAppUser({ ...data, uid: user.uid, platform: "panicguard.com.mx" });
       } else {
         // First-time login: check if pre-registered in centrales or terminals collection
         let assignedRole: UserRole = isMaster ? "SUPER_ADMIN" : (isCentralAccount ? "CENTRAL" : "TERMINAL");
@@ -357,7 +434,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           centralName: assignedCentralName,
           createdAt: new Date().toISOString(),
           status: "ACTIVE",
-          photoURL: user.photoURL || null
+          photoURL: user.photoURL || null,
+          platform: "panicguard.com.mx"
         };
 
         await setDoc(userDocRef, newUser);
@@ -367,6 +445,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error("[Auth] Error syncing user profile:", e);
       // Fallback local memory profile so user is not locked out
       const userEmail = (user?.email || "").toLowerCase().trim();
+      if (isBlockedSmartGuardAccess(userEmail)) {
+        setAppUser(null);
+        localStorage.removeItem("panicguard_app_user");
+        throw e;
+      }
       const isMaster = SUPER_ADMIN_EMAILS.map(e => (e || "").toLowerCase()).includes(userEmail);
       setAppUser({
         uid: user.uid,
@@ -378,7 +461,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         centralId: "CEN-CDMX-01",
         centralName: "C4 Centro de Comando Poniente - CDMX",
         createdAt: new Date().toISOString(),
-        status: "ACTIVE"
+        status: "ACTIVE",
+        platform: "panicguard.com.mx"
       });
     }
   };
@@ -389,11 +473,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Google OAuth Login
+  // Google OAuth Login with strict SmartGuard rejection
   const loginWithGoogle = async () => {
     try {
       const result = await signInWithPopup(auth, googleProvider);
       if (result.user) {
+        const email = (result.user.email || "").toLowerCase().trim();
+        if (isBlockedSmartGuardAccess(email)) {
+          await fbSignOut(auth);
+          setAppUser(null);
+          localStorage.removeItem("panicguard_app_user");
+          throw new Error(
+            `Acceso Denegado: La cuenta Google (${email}) corresponde a SmartGuard (smartguard.com.mx) y no está autorizada en PanicGuard (panicguard.com.mx).`
+          );
+        }
         await syncUserProfile(result.user);
       }
     } catch (err: any) {
@@ -404,7 +497,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Master Account Direct Login with password and optional email check
   const loginWithMasterPassword = async (password: string, inputEmail?: string) => {
+    assertPanicGuardAccess(inputEmail);
     const rawEmail = (inputEmail || "").trim().toLowerCase() || MASTER_ACCOUNT.email.toLowerCase();
+    assertPanicGuardAccess(rawEmail);
+
     const isSuperAdminEmail = SUPER_ADMIN_EMAILS.map(e => (e || "").toLowerCase()).includes(rawEmail);
     
     // Validate password against supported master passwords or length >= 4
@@ -424,7 +520,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       centralId: "CEN-CDMX-01",
       centralName: "C4 Centro de Comando Poniente - CDMX",
       createdAt: new Date().toISOString(),
-      status: "ACTIVE"
+      status: "ACTIVE",
+      platform: "panicguard.com.mx"
     };
 
     // Instant local activation
@@ -444,7 +541,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Central Station Operator Login with password
   const loginWithCentralPassword = async (password: string, inputEmail?: string, centralId?: string) => {
+    assertPanicGuardAccess(inputEmail);
     const rawEmail = (inputEmail || "").trim().toLowerCase() || "central.operador@panicguard.mx";
+    assertPanicGuardAccess(rawEmail);
     const cleanPass = (password || "").trim();
 
     // Block terminal accounts from logging in as Central
@@ -489,7 +588,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       centralId: cId,
       centralName: centralName,
       createdAt: new Date().toISOString(),
-      status: "ACTIVE"
+      status: "ACTIVE",
+      platform: "panicguard.com.mx"
     };
 
     // Instant local activation
@@ -503,7 +603,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // General email / password login
   const loginWithEmail = async (email: string, pass: string) => {
+    assertPanicGuardAccess(email);
     const cleanEmail = (email || "").toLowerCase().trim();
+    assertPanicGuardAccess(cleanEmail);
     const cleanPass = (pass || "").trim();
 
     if (!cleanPass) {
@@ -549,7 +651,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       centralId,
       centralName,
       createdAt: new Date().toISOString(),
-      status: "ACTIVE"
+      status: "ACTIVE",
+      platform: "panicguard.com.mx"
     };
 
     // Instant local activation
@@ -562,6 +665,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Direct login / shift activation for Security Guards on mobile
   const loginAsGuard = async (guardOfficerName = "Oficial de Seguridad 01", badge = "SEC-01", sector = "Perímetro Comercial") => {
+    assertPanicGuardAccess(guardOfficerName);
+    assertPanicGuardAccess(badge);
+    assertPanicGuardAccess(sector);
     const cleanName = (guardOfficerName || "").trim() || "Oficial de Seguridad 01";
     const cleanBadge = (badge || "").trim() || "SEC-01";
     const cleanSector = (sector || "").trim() || "Perímetro Comercial";
@@ -577,7 +683,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       centralId: "CEN-CDMX-01",
       centralName: "C4 Centro de Comando Poniente - CDMX",
       createdAt: new Date().toISOString(),
-      status: "ACTIVE"
+      status: "ACTIVE",
+      platform: "panicguard.com.mx"
     };
 
     try {
@@ -592,6 +699,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Register a new terminal account from Central Console
   const registerTerminalUser = async (email: string, pass: string, storeData: Partial<TerminalRegistration>) => {
+    assertPanicGuardAccess(email);
+    assertPanicGuardAccess(storeData.storeName);
+    assertPanicGuardAccess(storeData.ownerName);
+
     const cleanEmail = (email || "").toLowerCase().trim();
     if (!cleanEmail) {
       throw new Error("Por favor introduce un correo electrónico válido para la terminal.");
@@ -624,7 +735,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       centralName: appUser?.role !== "SUPER_ADMIN" ? (appUser?.centralName || storeData.centralName || "C4 Centro de Comando Poniente - CDMX") : (storeData.centralName || "C4 Centro de Comando Poniente - CDMX"),
       createdAt: new Date().toISOString(),
       status: "ACTIVE",
-      coordinates: storeData.coordinates || geocoded || undefined
+      coordinates: storeData.coordinates || geocoded || undefined,
+      platform: "panicguard.com.mx"
     };
 
     // Save to Firestore terminals collection and pre-register in users collection
@@ -641,7 +753,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         centralId: newTerminal.centralId,
         centralName: newTerminal.centralName,
         createdAt: new Date().toISOString(),
-        status: "ACTIVE"
+        status: "ACTIVE",
+        platform: "panicguard.com.mx"
       }, { merge: true });
     } catch (e) {
       console.warn("Error persisting terminal in Firestore:", e);
@@ -654,6 +767,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (appUser?.role !== "SUPER_ADMIN") {
       throw new Error("Acceso denegado: Solo el Super Administrador puede registrar Centrales de Monitoreo.");
     }
+
+    assertPanicGuardAccess(data.email);
+    assertPanicGuardAccess(data.name);
+    assertPanicGuardAccess(data.responsibleName);
 
     const cleanEmail = (data.email || "").toLowerCase().trim();
     if (!cleanEmail) {
@@ -673,6 +790,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       createdAt: new Date().toISOString(),
       registeredBy: appUser?.email || "Super Admin Matriz",
       status: "ACTIVE",
+      platform: "panicguard.com.mx",
       coordinates: data.coordinates || {
         latitude: 19.4326 + (Math.random() - 0.5) * 0.1,
         longitude: -99.1332 + (Math.random() - 0.5) * 0.1,
@@ -693,7 +811,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         centralId: centralId,
         centralName: data.name,
         createdAt: new Date().toISOString(),
-        status: "ACTIVE"
+        status: "ACTIVE",
+        platform: "panicguard.com.mx"
       }, { merge: true });
     } catch (e) {
       console.warn("Error creating central in Firestore:", e);
@@ -702,8 +821,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateCentral = async (id: string, data: Partial<CentralStation>) => {
+    if (data.email) assertPanicGuardAccess(data.email);
+    if (data.name) assertPanicGuardAccess(data.name);
+    if (data.responsibleName) assertPanicGuardAccess(data.responsibleName);
+
     try {
-      await setDoc(doc(db, "centrales", id), data, { merge: true });
+      await setDoc(doc(db, "centrales", id), { ...data, platform: "panicguard.com.mx" }, { merge: true });
       const currentCentral = centrales.find(c => c.id === id);
       const updatedCentral = { ...currentCentral, ...data };
       if (updatedCentral.email) {
@@ -717,7 +840,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           storeId: id,
           centralId: id,
           centralName: updatedCentral.name,
-          status: updatedCentral.status || "ACTIVE"
+          status: updatedCentral.status || "ACTIVE",
+          platform: "panicguard.com.mx"
         }, { merge: true });
       }
     } catch (e) {
@@ -767,6 +891,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw new Error("Acceso denegado: Las terminales no están autorizadas para registrar otras terminales.");
     }
 
+    assertPanicGuardAccess(terminalData.email);
+    assertPanicGuardAccess(terminalData.storeName);
+    assertPanicGuardAccess(terminalData.ownerName);
+
     const cleanEmail = (terminalData.email || "").toLowerCase().trim();
     if (!cleanEmail) {
       throw new Error("Por favor introduce un correo electrónico válido para la terminal.");
@@ -791,6 +919,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       status: "ACTIVE",
       centralId: assignedCentralId,
       centralName: assignedCentralName,
+      platform: "panicguard.com.mx"
     };
 
     try {
@@ -808,7 +937,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           centralId: item.centralId,
           centralName: item.centralName,
           createdAt: new Date().toISOString(),
-          status: "ACTIVE"
+          status: "ACTIVE",
+          platform: "panicguard.com.mx"
         }, { merge: true });
       }
     } catch (e) {
@@ -818,6 +948,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateTerminal = async (id: string, data: Partial<TerminalRegistration>) => {
+    if (data.email) assertPanicGuardAccess(data.email);
+    if (data.storeName) assertPanicGuardAccess(data.storeName);
+    if (data.ownerName) assertPanicGuardAccess(data.ownerName);
+
     try {
       const currentTerminal = terminals.find(t => t.id === id);
       const targetAddress = data.address || currentTerminal?.address;
@@ -829,7 +963,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (geo) newCoords = geo;
       }
 
-      const updateData = newCoords ? { ...data, coordinates: newCoords } : data;
+      const updateData = newCoords ? { ...data, coordinates: newCoords, platform: "panicguard.com.mx" as const } : { ...data, platform: "panicguard.com.mx" as const };
 
       await setDoc(doc(db, "terminals", id), updateData, { merge: true });
       const updatedTerminal = { ...currentTerminal, ...updateData };
@@ -845,7 +979,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           storeName: updatedTerminal.storeName,
           centralId: updatedTerminal.centralId,
           centralName: updatedTerminal.centralName,
-          status: updatedTerminal.status || "ACTIVE"
+          status: updatedTerminal.status || "ACTIVE",
+          platform: "panicguard.com.mx"
         }, { merge: true });
       }
       setTerminals(prev => prev.map(t => t.id === id ? { ...t, ...updateData } : t));

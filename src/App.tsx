@@ -85,7 +85,11 @@ export default function App() {
     acknowledgeAlarmSound,
     updateAlertStatus,
     deleteAlert,
-  } = useSocketAlerts();
+  } = useSocketAlerts({
+    centralId: appUser?.centralId,
+    role: appUser?.role,
+    storeId: appUser?.storeId,
+  });
 
   // Set current view on global window for socket alert sound filtering
   useEffect(() => {
