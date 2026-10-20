@@ -852,13 +852,17 @@ export const GuardPortal: React.FC<GuardPortalProps> = ({
     } else {
       const defaultCentral = terminals[0]?.centralName || appUser?.centralName || "C4 Centro de Comando Poniente - CDMX";
       const defaultCentralId = terminals[0]?.centralId || appUser?.centralId || "CEN-CDMX-01";
+      const boundTerm = boundTerminalInfo || (assignedStoreId ? terminals.find(t => t.storeId === assignedStoreId) : null);
+      const terminalNameStr = boundTerm ? boundTerm.storeName : "Terminal Enlazada";
+      const terminalAddrStr = boundTerm?.address ? ` — ${boundTerm.address}` : "";
+      
       targetStore = {
-        storeId: "GUARD-" + (effectiveGuardName.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 10) || "SOS"),
-        storeName: `SOS Oficial en Patrullaje: ${effectiveGuardName}`,
+        storeId: boundTerm?.storeId || ("GUARD-" + (effectiveGuardName.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 10) || "SOS")),
+        storeName: `SOS Oficial en Patrullaje (${effectiveGuardName}) — ${terminalNameStr}`,
         ownerName: effectiveGuardName,
-        phone: "55-0000-0000",
-        address: `GPS Oficial: ${effectiveCoords.latitude.toFixed(6)}, ${effectiveCoords.longitude.toFixed(6)} • Patrullaje Móvil`,
-        city: terminals[0]?.city || "Ciudad de México",
+        phone: boundTerm?.phone || "55-0000-0000",
+        address: boundTerm?.address ? `${boundTerm.address}${boundTerm.city ? `, ${boundTerm.city}` : ""}` : `Terminal Enlazada: ${terminalNameStr}${terminalAddrStr} • GPS: ${effectiveCoords.latitude.toFixed(6)}, ${effectiveCoords.longitude.toFixed(6)}`,
+        city: boundTerm?.city || terminals[0]?.city || "Ciudad de México",
         category: "Patrulla de Seguridad Táctica",
         coordinates: effectiveCoords,
         centralId: defaultCentralId,

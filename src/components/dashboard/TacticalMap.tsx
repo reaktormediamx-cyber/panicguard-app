@@ -93,68 +93,68 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
   return (
     <div className={`relative rounded-2xl overflow-hidden border border-[#262833] bg-[#181920] flex flex-col h-full shadow-2xl ${className}`}>
       {/* Cabecera Táctica del Mapa */}
-      <div className="bg-[#181920]/95 backdrop-blur px-3.5 py-2.5 border-b border-[#262833] flex flex-wrap items-center justify-between gap-2 z-10 shrink-0">
-        <div className="flex items-center gap-2 text-xs font-semibold text-slate-200 min-w-0 flex-1">
-          <MapPin className="w-4 h-4 text-[#f43f5e] animate-bounce shrink-0" />
+      <div className="bg-[#181920]/95 backdrop-blur px-3 py-1.5 border-b border-[#262833] flex flex-wrap items-center justify-between gap-1.5 z-10 shrink-0">
+        <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-200 min-w-0 flex-1">
+          <MapPin className="w-3.5 h-3.5 text-[#f43f5e] animate-bounce shrink-0" />
           <div className="min-w-0">
-            <span className="truncate block font-bold text-white max-w-[260px] sm:max-w-[340px]" title={fullAddressQuery}>
+            <span className="truncate block font-bold text-white text-xs max-w-[260px] sm:max-w-[340px]" title={fullAddressQuery}>
               {cleanStore ? `${cleanStore} — ` : ""}{cleanAddress || "Dirección del Establecimiento"}
             </span>
             {cleanCity && (
-              <span className="text-[10px] text-[#9ca3af] block truncate">
+              <span className="text-[10px] text-[#9ca3af] block truncate leading-tight">
                 {cleanCity}
               </span>
             )}
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex items-center gap-1 shrink-0">
           {/* Selector de Modo: Dirección Registrada vs Coordenadas GPS */}
           {hasValidCoords && (
-            <div className="flex items-center bg-[#111215] rounded-lg p-0.5 border border-[#262833] text-[10px] font-mono">
+            <div className="flex items-center bg-[#111215] rounded-md p-0.5 border border-[#262833] text-[9px] font-mono">
               <button
                 type="button"
                 onClick={() => setTargetMode("ADDRESS")}
-                className={`px-2 py-0.5 rounded-md transition-colors cursor-pointer ${
+                className={`px-1.5 py-0.5 rounded transition-colors cursor-pointer ${
                   targetMode === "ADDRESS"
                     ? "bg-gradient-to-r from-[#e11d48] to-[#be123c] text-white font-bold"
                     : "text-slate-400 hover:text-white"
                 }`}
-                title="Mostrar según la dirección oficial registrada de la terminal"
+                title="Mostrar según la dirección oficial registrada"
               >
-                📍 Dirección
+                Dir
               </button>
               <button
                 type="button"
                 onClick={() => setTargetMode("COORDS")}
-                className={`px-2 py-0.5 rounded-md transition-colors cursor-pointer ${
+                className={`px-1.5 py-0.5 rounded transition-colors cursor-pointer ${
                   targetMode === "COORDS"
                     ? "bg-slate-700 text-white font-bold"
                     : "text-slate-400 hover:text-white"
                 }`}
                 title={`Mostrar según coordenadas GPS (${coordinates!.latitude.toFixed(4)}, ${coordinates!.longitude.toFixed(4)})`}
               >
-                🛰️ GPS
+                GPS
               </button>
             </div>
           )}
 
-          {/* Copiar Dirección para despacho policial */}
+          {/* Copiar Dirección */}
           <button
             type="button"
             onClick={handleCopyAddress}
-            className="text-[10px] font-medium text-slate-300 hover:text-white bg-[#111215] hover:bg-[#22242e] px-2 py-1 rounded-lg border border-[#262833] transition-colors flex items-center gap-1 cursor-pointer"
+            className="text-[10px] font-medium text-slate-300 hover:text-white bg-[#111215] hover:bg-[#22242e] px-2 py-0.5 rounded-md border border-[#262833] transition-colors flex items-center gap-1 cursor-pointer"
             title="Copiar dirección registrada para despacho de patrulla"
           >
             {copied ? <Check className="w-3 h-3 text-[#10b981]" /> : <Copy className="w-3 h-3 text-[#9ca3af]" />}
-            <span className="hidden md:inline">{copied ? "Copiada" : "Copiar"}</span>
+            <span className="hidden md:inline">{copied ? "Copiado" : "Copiar"}</span>
           </button>
 
           {/* Alternar Mapa / Satélite */}
           <button
             type="button"
             onClick={() => setMapType((prev) => (prev === "m" ? "k" : "m"))}
-            className="text-[10px] font-medium text-slate-300 hover:text-white bg-[#111215] hover:bg-[#22242e] px-2 py-1 rounded-lg border border-[#262833] transition-colors flex items-center gap-1 cursor-pointer"
+            className="text-[10px] font-medium text-slate-300 hover:text-white bg-[#111215] hover:bg-[#22242e] px-2 py-0.5 rounded-md border border-[#262833] transition-colors flex items-center gap-1 cursor-pointer"
             title={mapType === "m" ? "Cambiar a Vista Satélite" : "Cambiar a Vista Callejero"}
           >
             <Layers className="w-3 h-3 text-amber-400" />
@@ -166,17 +166,17 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
             href={googleMapsUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-[11px] font-bold text-white bg-gradient-to-r from-[#e11d48] to-[#be123c] hover:from-[#f43f5e] hover:to-[#e11d48] flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all cursor-pointer shadow-sm"
-            title="Abrir en Google Maps para trazar ruta de patrulla"
+            className="text-[10px] font-bold text-white bg-gradient-to-r from-[#e11d48] to-[#be123c] hover:from-[#f43f5e] hover:to-[#e11d48] flex items-center gap-1 px-2 py-0.5 rounded-md transition-all cursor-pointer shadow-sm"
+            title="Abrir en Google Maps"
           >
-            <span>Google Maps</span>
-            <ExternalLink className="w-3 h-3" />
+            <span>Maps</span>
+            <ExternalLink className="w-2.5 h-2.5" />
           </a>
         </div>
       </div>
 
-      {/* Contenedor del Mapa Interactivo Universal */}
-      <div className="relative w-full flex-1 min-h-[320px] sm:min-h-[380px] bg-[#111215]">
+      {/* Contenedor del Mapa Interactivo Universal (Flexible) */}
+      <div className="relative w-full flex-1 min-h-[160px] bg-[#111215]">
         <iframe
           key={`${activeQuery}-${mapType}`}
           title={`Ubicación Google Maps - ${cleanStore || "Establecimiento"}`}
@@ -187,19 +187,17 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
           referrerPolicy="no-referrer-when-downgrade"
         />
 
-        {/* Overlay táctico inferior: Baliza de dirección confirmada */}
-        <div className="absolute bottom-2 left-2 bg-[#111215]/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-[#262833] text-[11px] text-slate-200 z-10 flex items-center gap-2 shadow-xl pointer-events-none max-w-[90%]">
-          <span className="w-2 h-2 rounded-full bg-[#f43f5e] animate-ping shrink-0" />
-          <div className="truncate">
-            <span className="font-mono text-[#10b981] font-bold mr-1.5">
-              {targetMode === "ADDRESS" ? "DIRECCIÓN REGISTRADA:" : "GPS SENSOR:"}
-            </span>
-            <span className="text-slate-300 font-medium truncate">
-              {targetMode === "ADDRESS"
-                ? `${cleanAddress || fullAddressQuery}${cleanCity ? ` (${cleanCity})` : ""}`
-                : `${coordinates!.latitude.toFixed(5)}, ${coordinates!.longitude.toFixed(5)}`}
-            </span>
-          </div>
+        {/* Overlay táctico inferior: Baliza compacta */}
+        <div className="absolute bottom-1.5 left-1.5 bg-[#111215]/90 backdrop-blur-sm px-2 py-0.5 rounded-md border border-[#262833] text-[9px] text-slate-300 z-10 flex items-center gap-1 shadow pointer-events-none max-w-[85%]">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#f43f5e] animate-ping shrink-0" />
+          <span className="font-mono text-[#10b981] font-bold">
+            {targetMode === "ADDRESS" ? "DIR:" : "GPS:"}
+          </span>
+          <span className="text-slate-300 truncate">
+            {targetMode === "ADDRESS"
+              ? (cleanAddress || fullAddressQuery)
+              : `${coordinates!.latitude.toFixed(4)}, ${coordinates!.longitude.toFixed(4)}`}
+          </span>
         </div>
       </div>
     </div>
