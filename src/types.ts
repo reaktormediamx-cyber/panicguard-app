@@ -215,3 +215,60 @@ export function formatTriggerType(type: TriggerMode | string): { label: string; 
       return { label: 'BOTÓN DE PÁNICO', isDrill: false };
   }
 }
+
+export interface ParsedEmergencyReason {
+  reason: string | null;
+  cleanSummary: string;
+}
+
+export function extractEmergencyReason(rawText?: string | null): ParsedEmergencyReason {
+  if (!rawText) return { reason: null, cleanSummary: "" };
+  const cleaned = rawText.replace(/["“”]/g, "").trim();
+  if (!cleaned) return { reason: null, cleanSummary: "" };
+
+  // 1. Buscar etiqueta explícita: "Tipo: ...", "Motivo: ...", "Incidencia: ...", "Emergencia: ..."
+  const explicitMatch = cleaned.match(
+    /(.*?)[\s.|,-]*\b(?:Tipo(?:\s+de\s+(?:emergencia|incidencia|alerta))?|Motivo(?:\s+de\s+(?:emergencia|alerta))?|Incidencia|Emergencia)\s*:\s*(.+)$/i
+  );
+  if (explicitMatch) {
+    const prefix = explicitMatch[1].replace(/[\s.|,-]+$/, "").trim();
+    const extractedReason = explicitMatch[2]
+      .split(/\s*\|\s*/)
+      .map((s) => s.trim().replace(/\.$/, ""))
+      .filter(Boolean)
+      .join(" • ");
+    return {
+      reason: extractedReason || null,
+      cleanSummary: prefix,
+    };
+  }
+
+  // 2. Buscar notas o motivos concatenados con " | " después de un prefijo SOS automático
+  const isGenericSos = /SOS\s+(?:SUPERVISOR|GUARDIA|OFICIAL)|activó\s+auxilio/i.test(cleaned);
+  if (cleaned.includes("|")) {
+    const parts = cleaned
+      .split(/\s*\|\s*/)
+      .map((p) => p.trim())
+      .filter(Boolean);
+    if (parts.length > 1 && isGenericSos) {
+      return {
+        reason: parts.slice(1).join(" • "),
+        cleanSummary: parts[0],
+      };
+    }
+  }
+
+  // 3. Si no es un mensaje genérico de SOS, todo el texto es el motivo directo de la emergencia
+  if (!isGenericSos) {
+    return {
+      reason: cleaned.replace(/^\[.*?\]:\s*/, "").trim(),
+      cleanSummary: "",
+    };
+  }
+
+  return {
+    reason: null,
+    cleanSummary: cleaned,
+  };
+}
+

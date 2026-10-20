@@ -15,7 +15,7 @@ import {
   Camera,
   Layers,
 } from "lucide-react";
-import { PanicAlert, AlertStatus, formatTriggerType } from "../../types.js";
+import { PanicAlert, AlertStatus, formatTriggerType, extractEmergencyReason } from "../../types.js";
 import { downloadAlertPdfReport } from "../../utils/pdfGenerator.js";
 import { BurstViewer } from "./BurstViewer.js";
 import { TacticalMap } from "./TacticalMap.js";
@@ -130,9 +130,16 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
     }
   };
 
-  // Extraer texto limpio de reporte del guardia sin duplicación
+  // Extraer texto limpio de reporte del guardia y motivo/tipo de emergencia
   const rawGuardReport = alert.guardDescription || alert.operatorNotes?.find((n) => n.includes("Guardia") || n.includes("PULSADOR"));
   const cleanGuardReport = rawGuardReport ? rawGuardReport.replace(/["“”]/g, "").trim() : null;
+  const { reason: parsedReason, cleanSummary: guardSummary } = extractEmergencyReason(cleanGuardReport);
+  const fallbackLogReason = !parsedReason
+    ? alert.logs
+        ?.map((l) => extractEmergencyReason(l.details || l.action).reason)
+        .find((r) => Boolean(r)) || null
+    : null;
+  const emergencyReason = parsedReason || fallbackLogReason;
 
   // Contacto principal unificado (evita repetir Carlos Mendoza en 3 sitios)
   const contactName = alert.guardName || alert.store?.ownerName || "Personal en Turno";
@@ -155,6 +162,12 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
                 <h2 className="text-xs sm:text-sm font-extrabold tracking-tight truncate max-w-xs sm:max-w-md">
                   {isDrill ? "SIMULACRO" : "ALERTA"}: {cleanText(alert.store?.storeName || "Terminal Enlazada")}
                 </h2>
+                {emergencyReason && (
+                  <span className="px-2 py-0.5 rounded-md bg-amber-400 text-slate-950 font-black uppercase text-[10px] tracking-wide shadow-md border border-amber-200 flex items-center gap-1 shrink-0">
+                    <AlertTriangle className="w-3 h-3 text-red-700 shrink-0" />
+                    <span>TIPO: {emergencyReason}</span>
+                  </span>
+                )}
                 <span className="text-[10px] font-mono opacity-80">
                   {new Date(alert.timestamp).toLocaleTimeString()} ({alert.id}) • {alert.store?.city}
                 </span>
@@ -232,14 +245,27 @@ export const EmergencyModal: React.FC<EmergencyModalProps> = ({
           )}
         </div>
 
-        {/* Reporte Directo del Guardia en Sitio (Compacto, 1 línea destacada) */}
-        {cleanGuardReport && (
-          <div className="bg-red-950/80 border-b border-red-500/50 px-3 py-1 flex items-center gap-2 text-[11px] text-red-200 shrink-0">
-            <AlertTriangle className="w-3.5 h-3.5 text-red-400 shrink-0 animate-pulse" />
-            <span className="font-bold text-red-300 uppercase tracking-wider text-[10px] shrink-0">Reporte Sitio:</span>
-            <span className="text-white truncate flex-1 font-mono font-medium" title={cleanGuardReport}>
-              "{cleanGuardReport}"
-            </span>
+        {/* Reporte Directo del Guardia en Sitio con Motivo de Emergencia Resaltado */}
+        {(cleanGuardReport || emergencyReason) && (
+          <div className="bg-red-950/90 border-b border-red-500/60 px-3 py-1.5 flex flex-wrap items-center gap-2 text-[11px] text-red-200 shrink-0">
+            <div className="flex items-center gap-1.5 shrink-0">
+              <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 animate-pulse" />
+              <span className="font-bold text-red-300 uppercase tracking-wider text-[10px]">
+                Motivo / Reporte:
+              </span>
+            </div>
+
+            {emergencyReason && (
+              <span className="px-2.5 py-0.5 rounded-md bg-amber-400 text-slate-950 font-black uppercase tracking-wide text-xs shadow-md shadow-amber-950/50 border-2 border-amber-200 flex items-center gap-1.5 shrink-0 animate-pulse">
+                <span>🚨 TIPO DE EMERGENCIA: {emergencyReason}</span>
+              </span>
+            )}
+
+            {guardSummary && (
+              <span className="text-red-100/90 truncate flex-1 font-mono font-medium" title={cleanGuardReport || ""}>
+                "{guardSummary}"
+              </span>
+            )}
           </div>
         )}
 
