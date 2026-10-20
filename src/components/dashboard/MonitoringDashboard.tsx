@@ -38,6 +38,7 @@ import {
   Copy,
   X,
   Sliders,
+  ChevronDown,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { PanicAlert, AlertStatus } from "../../types.js";
@@ -181,6 +182,7 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
     alerts.length > 0 ? alerts[0].id : null
   );
   const [isMuted, setIsMuted] = useState<boolean>(false);
+  const [isEstablishmentExpanded, setIsEstablishmentExpanded] = useState<boolean>(false);
   const [isAudioSettingsModalOpen, setIsAudioSettingsModalOpen] = useState<boolean>(false);
 
   // Filter terminals for the current Central (or all if Super Admin on this view)
@@ -795,46 +797,62 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
                 </div>
               )}
 
-              {/* Ficha Oficial del Establecimiento Registrado (Unificada y sin información duplicada) */}
+              {/* Ficha Oficial del Establecimiento Registrado (Colapsable / Desplegable) */}
               {activeStoreData && (
-                <div className="p-4 rounded-2xl bg-slate-950/90 border border-slate-800 space-y-2.5 shadow-inner">
-                  <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-                    <div className="flex items-center gap-2">
+                <div className="rounded-2xl bg-slate-950/90 border border-slate-800 shadow-inner overflow-hidden transition-all duration-200">
+                  <div 
+                    onClick={() => setIsEstablishmentExpanded(!isEstablishmentExpanded)}
+                    className="p-3.5 flex items-center justify-between cursor-pointer hover:bg-slate-900/60 transition-colors select-none"
+                  >
+                    <div className="flex items-center gap-2.5">
                       <Store className="w-4 h-4 text-emerald-400" />
                       <h4 className="text-xs uppercase tracking-wider font-extrabold text-slate-200">
                         Ficha Oficial del Establecimiento Registrado
                       </h4>
-                    </div>
-                    <span className="text-[10px] font-mono font-bold bg-slate-800 text-slate-300 px-2 py-0.5 rounded border border-slate-700">
-                      ID Terminal: {activeStoreData.storeId}
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
-                    <div className="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800/80">
-                      <span className="text-[10px] text-slate-500 font-mono block uppercase font-bold">Comercio / Sucursal</span>
-                      <span className="font-bold text-white text-sm truncate block mt-0.5">{activeStoreData.storeName}</span>
-                    </div>
-
-                    <div className="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800/80">
-                      <span className="text-[10px] text-slate-500 font-mono block uppercase font-bold">Dirección Registrada</span>
-                      <span className="font-semibold text-slate-200 block mt-0.5 leading-snug">
-                        {activeStoreData.address}{activeStoreData.city ? `, ${activeStoreData.city}` : ""}
+                      <span className="text-[10px] text-slate-400 hidden sm:inline">
+                        ({activeStoreData.storeName})
                       </span>
                     </div>
 
-                    <div className="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800/80">
-                      <span className="text-[10px] text-slate-500 font-mono block uppercase font-bold">Nombre del Titular</span>
-                      <span className="font-semibold text-slate-200 block mt-0.5">{activeStoreData.ownerName}</span>
-                    </div>
-
-                    <div className="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800/80">
-                      <span className="text-[10px] text-slate-500 font-mono block uppercase font-bold">Teléfono de Contacto</span>
-                      <a href={`tel:${activeStoreData.phone}`} className="font-mono text-emerald-400 font-bold hover:underline block mt-0.5">
-                        {activeStoreData.phone}
-                      </a>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-mono font-bold bg-slate-800 text-slate-300 px-2 py-0.5 rounded border border-slate-700">
+                        ID: {activeStoreData.storeId}
+                      </span>
+                      <div className={`p-1 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 transition-transform duration-200 ${isEstablishmentExpanded ? "rotate-180 text-red-400" : ""}`}>
+                        <ChevronDown className="w-4 h-4" />
+                      </div>
                     </div>
                   </div>
+
+                  {isEstablishmentExpanded && (
+                    <div className="px-4 pb-4 pt-1 border-t border-slate-800/80 bg-slate-950/50 space-y-3 animate-in slide-in-from-top-1 duration-200">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs pt-2">
+                        <div className="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800/80">
+                          <span className="text-[10px] text-slate-500 font-mono block uppercase font-bold">Comercio / Sucursal</span>
+                          <span className="font-bold text-white text-sm truncate block mt-0.5">{activeStoreData.storeName}</span>
+                        </div>
+
+                        <div className="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800/80">
+                          <span className="text-[10px] text-slate-500 font-mono block uppercase font-bold">Dirección Registrada</span>
+                          <span className="font-semibold text-slate-200 block mt-0.5 leading-snug">
+                            {activeStoreData.address}{activeStoreData.city ? `, ${activeStoreData.city}` : ""}
+                          </span>
+                        </div>
+
+                        <div className="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800/80">
+                          <span className="text-[10px] text-slate-500 font-mono block uppercase font-bold">Nombre del Titular</span>
+                          <span className="font-semibold text-slate-200 block mt-0.5">{activeStoreData.ownerName}</span>
+                        </div>
+
+                        <div className="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800/80">
+                          <span className="text-[10px] text-slate-500 font-mono block uppercase font-bold">Teléfono de Contacto</span>
+                          <a href={`tel:${activeStoreData.phone}`} className="font-mono text-emerald-400 font-bold hover:underline block mt-0.5">
+                            {activeStoreData.phone}
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
