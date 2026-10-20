@@ -431,9 +431,9 @@ io.on("connection", (socket) => {
       const initialLogs: AlertLogItem[] = [
         {
           timestamp: new Date().toISOString(),
-          action: data.triggerType === "VOLUME_BUTTON"
+          action: data.triggerType === "VOLUME_BUTTON" || data.triggerType === "BLUETOOTH_BUTTON"
             ? "🚨 Alerta SOS emitida por Guardia mediante Tecla de Hardware / Pulsador Bluetooth"
-            : data.triggerType === "GUARD_PANIC"
+            : data.triggerType === "GUARD_PANIC" || data.triggerType === "TAP_BUTTON"
             ? "🚨 Alerta SOS emitida por Guardia mediante Botón Táctico en Celular"
             : isCameraActive
             ? `Alerta recibida en Central [${data.centralName || assignedStore.centralName || "C4 Poniente"}] (${finalImages.length} fotogramas)`
@@ -506,8 +506,14 @@ io.on("connection", (socket) => {
     alert.operatorNotes = alert.operatorNotes || [];
     alert.operatorNotes.push(`[${author}]: ${trimmed}`);
 
-    if (author.toLowerCase().includes("guardia")) {
-      alert.guardDescription = alert.guardDescription ? `${alert.guardDescription} | ${trimmed}` : trimmed;
+    const isGuardNote =
+      !author.toLowerCase().includes("operador") &&
+      !author.toLowerCase().includes("central");
+    if (isGuardNote) {
+      const alreadyHas = alert.guardDescription?.toLowerCase().includes(trimmed.toLowerCase());
+      if (!alreadyHas) {
+        alert.guardDescription = alert.guardDescription ? `${alert.guardDescription} | ${trimmed}` : trimmed;
+      }
     }
 
     alert.logs.push({
@@ -689,13 +695,13 @@ app.post("/api/alerts", alertRateLimiter, async (req, res) => {
     const initialLogs: AlertLogItem[] = [
       {
         timestamp: new Date().toISOString(),
-        action: triggerType === "VOLUME_BUTTON"
-          ? "🚨 Alerta SOS emitida por Guardia mediante Tecla de Hardware / Pulsador Bluetooth (Subir Volumen 3x)"
+        action: triggerType === "VOLUME_BUTTON" || triggerType === "BLUETOOTH_BUTTON"
+          ? "🚨 Alerta SOS emitida por Guardia mediante Tecla de Hardware / Pulsador Bluetooth"
           : triggerType === "TRIPLE_TAP"
           ? "🚨 Alerta SOS emitida por Guardia mediante Triple Toque en Pantalla"
           : triggerType === "SHAKE_GESTURE"
           ? "🚨 Alerta SOS emitida por Guardia al Agitar el Celular (Sensor Movimiento)"
-          : triggerType === "GUARD_PANIC"
+          : triggerType === "GUARD_PANIC" || triggerType === "TAP_BUTTON"
           ? "🚨 Alerta SOS emitida por Guardia mediante Botón Táctico en Celular"
           : isCameraActive
           ? `Alerta recibida vía REST API (${finalImages.length} fotogramas capturados)`
@@ -781,8 +787,14 @@ app.post("/api/alerts/:id/notes", (req, res) => {
   alert.operatorNotes = alert.operatorNotes || [];
   alert.operatorNotes.push(`[${authorName}]: ${trimmed}`);
 
-  if (authorName.toLowerCase().includes("guardia")) {
-    alert.guardDescription = alert.guardDescription ? `${alert.guardDescription} | ${trimmed}` : trimmed;
+  const isGuardNote =
+    !authorName.toLowerCase().includes("operador") &&
+    !authorName.toLowerCase().includes("central");
+  if (isGuardNote) {
+    const alreadyHas = alert.guardDescription?.toLowerCase().includes(trimmed.toLowerCase());
+    if (!alreadyHas) {
+      alert.guardDescription = alert.guardDescription ? `${alert.guardDescription} | ${trimmed}` : trimmed;
+    }
   }
 
   alert.logs.push({
@@ -886,19 +898,29 @@ app.patch("/api/alerts/:id/status", (req, res) => {
     return res.status(404).json({ error: "Alerta no encontrada" });
   }
 
+  const alreadyUpdatedRecently =
+    alert.status === status &&
+    alert.logs.some(
+      (l) =>
+        Math.abs(Date.now() - new Date(l.timestamp).getTime()) < 4000 &&
+        (l.action.includes(status) || l.details === notes)
+    );
+
   if (status) alert.status = status;
   if (unit) alert.dispatchedUnit = unit;
-  if (notes) {
-    alert.operatorNotes = alert.operatorNotes || [];
-    alert.operatorNotes.push(notes);
-  }
+  if (!alreadyUpdatedRecently) {
+    if (notes) {
+      alert.operatorNotes = alert.operatorNotes || [];
+      alert.operatorNotes.push(notes);
+    }
 
-  alert.logs.push({
-    timestamp: new Date().toISOString(),
-    action: `Estado actualizado a ${status}`,
-    operator: operator || "Operador Central",
-    details: notes,
-  });
+    alert.logs.push({
+      timestamp: new Date().toISOString(),
+      action: `Estado actualizado a ${status}`,
+      operator: operator || "Operador Central",
+      details: notes,
+    });
+  }
 
   setAlertInStore(alert);
   updateAlertInFirestore(alert.id, {

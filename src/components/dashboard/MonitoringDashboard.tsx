@@ -41,7 +41,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
-import { PanicAlert, AlertStatus, extractEmergencyReason } from "../../types.js";
+import { PanicAlert, AlertStatus, getAlertEmergencyReason } from "../../types.js";
 import { BurstViewer } from "./BurstViewer.js";
 import { TacticalMap } from "./TacticalMap.js";
 import { AiVerdictPanel } from "./AiVerdictPanel.js";
@@ -601,26 +601,26 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
                       </div>
 
                       {/* Guardia Emergency Description & Officer Badge */}
-                      {(alert.guardName || alert.guardDescription) && (() => {
-                        const { reason: cardReason, cleanSummary: cardSummary } = extractEmergencyReason(alert.guardDescription);
+                      {(alert.guardName || alert.guardDescription || alert.triggerType === "BLUETOOTH_BUTTON" || alert.triggerType === "VOLUME_BUTTON") && (() => {
+                        const { reason: cardReason, cleanSummary: cardSummary } = getAlertEmergencyReason(alert);
                         return (
                           <div className="flex flex-col gap-1 text-[10px] text-amber-200 bg-amber-950/70 border border-amber-500/50 p-1.5 rounded-md font-semibold">
-                            {cardReason && (
-                              <div className="px-1.5 py-0.5 rounded bg-amber-400 text-slate-950 font-black uppercase text-[9.5px] tracking-wide flex items-center gap-1 shadow-sm">
-                                <AlertTriangle className="w-3 h-3 text-red-700 shrink-0" />
-                                <span className="truncate">TIPO: {cardReason}</span>
-                              </div>
-                            )}
+                            <div className="px-1.5 py-0.5 rounded bg-amber-400 text-slate-950 font-black text-[9.5px] tracking-wide flex items-center gap-1 shadow-sm">
+                              <AlertTriangle className="w-3 h-3 text-red-700 shrink-0" />
+                              <span className="truncate">
+                                {cardReason ? `TIPO: ${cardReason.toUpperCase()}` : "Motivo desconocido"}
+                              </span>
+                            </div>
                             {alert.guardName && (
                               <div className="flex items-center gap-1.5 text-slate-300 font-mono text-[9.5px]">
                                 <User className="w-3 h-3 text-slate-400 shrink-0" />
                                 <span className="truncate">Oficial: <strong>{alert.guardName}</strong></span>
                               </div>
                             )}
-                            {(cardSummary || (!cardReason && alert.guardDescription)) && (
+                            {cardSummary && (
                               <div className="flex items-center gap-1.5 text-amber-200 truncate">
                                 <AlertTriangle className="w-3 h-3 text-amber-400 shrink-0" />
-                                <span className="truncate">Reporte: "{cardSummary || alert.guardDescription}"</span>
+                                <span className="truncate">Reporte: "{cardSummary}"</span>
                               </div>
                             )}
                           </div>
@@ -783,14 +783,8 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
               </div>
 
               {/* Guardia Emergency Description Highlight Box (Compact & Highlighted Emergency Type) */}
-              {(selectedAlert.guardDescription || selectedAlert.guardName) && (() => {
-                const { reason: selReason, cleanSummary: selSummary } = extractEmergencyReason(selectedAlert.guardDescription);
-                const fallbackSelReason = !selReason
-                  ? selectedAlert.logs
-                      ?.map((l) => extractEmergencyReason(l.details || l.action).reason)
-                      .find((r) => Boolean(r)) || null
-                  : null;
-                const finalReason = selReason || fallbackSelReason;
+              {(selectedAlert.guardDescription || selectedAlert.guardName || selectedAlert.triggerType === "BLUETOOTH_BUTTON" || selectedAlert.triggerType === "VOLUME_BUTTON") && (() => {
+                const { reason: finalReason, cleanSummary: selSummary } = getAlertEmergencyReason(selectedAlert);
 
                 return (
                   <div className="p-2.5 rounded-xl bg-red-950/85 border border-red-500/60 shadow flex items-center gap-2.5">
@@ -806,14 +800,15 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
                           {selectedAlert.guardName}
                         </span>
                       )}
-                      {finalReason && (
-                        <span className="px-2.5 py-0.5 rounded-md bg-amber-400 text-slate-950 font-black uppercase tracking-wide text-xs shadow-md shadow-amber-950/50 border-2 border-amber-200 flex items-center gap-1 shrink-0 animate-pulse">
-                          <span>🚨 TIPO DE EMERGENCIA: {finalReason}</span>
+                      <span className="px-2.5 py-0.5 rounded-md bg-amber-400 text-slate-950 font-black tracking-wide text-xs shadow-md shadow-amber-950/50 border-2 border-amber-200 flex items-center gap-1.5 shrink-0 animate-pulse">
+                        <AlertTriangle className="w-3.5 h-3.5 text-red-700 shrink-0" />
+                        <span>
+                          {finalReason ? `TIPO DE EMERGENCIA: ${finalReason.toUpperCase()}` : "Motivo desconocido"}
                         </span>
-                      )}
-                      {(selSummary || (!finalReason && selectedAlert.guardDescription)) && (
-                        <span className="text-xs font-bold text-red-100/90 truncate font-mono" title={selectedAlert.guardDescription}>
-                          "{selSummary || selectedAlert.guardDescription}"
+                      </span>
+                      {selSummary && (
+                        <span className="text-xs font-bold text-red-100/90 truncate font-mono" title={selSummary}>
+                          "{selSummary}"
                         </span>
                       )}
                     </div>
@@ -1015,7 +1010,7 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
                           {log.operator && (
                             <span className="text-[#f43f5e] ml-1.5 font-bold">[{log.operator}]</span>
                           )}
-                          {log.details && log.details !== log.action && (
+                          {log.details && !log.action.includes(log.details) && (
                             <div className="text-[11px] text-slate-400 mt-0.5">{log.details}</div>
                           )}
                         </div>
